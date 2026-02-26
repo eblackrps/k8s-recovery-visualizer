@@ -1,23 +1,22 @@
-﻿# build output / binaries
-*.exe
-*.dll
-*.pdb
-*.test
-*.out
-
-# local output artifacts
+﻿# Output / runs
 out/
+out-*/
 outTest-Path/
-history/
+outGet-Content/
 
-# backups / scratch
-*.bak.*
+# Backups created by scripts/tools
 *.bak
-*.tmp
-*.log
+*.bak.*
+*.bak.*.*
 
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Windows binaries
+*.exe
+tools/kubectl.exe
+
+# Local scripts (commit only if you want them versioned)
+# build.ps1
+# scan.ps1
+# test-engine.ps1
+
+# Scratch / experiments
+src/
