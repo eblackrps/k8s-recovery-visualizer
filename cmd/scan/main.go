@@ -53,7 +53,7 @@ func main() {
 			{ID: "ns:test", Name: "test"},
 		}
 		analyze.Evaluate(&bundle)
-		write(bundle, *outDir, *ci)
+		write(bundle, *outDir, *ci, *minScore)
 		trendLabel, trendDelta = printTrend(*outDir, &bundle, *ci)
 		if *ci {
 			summary := model.ScanSummary{
@@ -103,8 +103,16 @@ func main() {
 		log.Fatalf("collect statefulsets: %v", err)
 	}
 
-	analyze.Evaluate(&bundle)
-	write(bundle, *outDir, *ci)
+	
+  
+  if err := collect.Nodes(ctx, clientset, &bundle); err != nil {
+          log.Fatalf("collect nodes: %v", err)
+  }
+  if err := collect.StorageClasses(ctx, clientset, &bundle); err != nil {
+          log.Fatalf("collect storageclasses: %v", err)
+  }
+analyze.Evaluate(&bundle)
+	write(bundle, *outDir, *ci, *minScore)
 	trendLabel, trendDelta = printTrend(*outDir, &bundle, *ci)
 	if *ci {
 		summary := model.ScanSummary{
@@ -174,7 +182,7 @@ func exitWithPolicy(b *model.Bundle, minScore int, quiet bool) {
 		if !quiet {
 			if !quiet {
 				if !quiet {
-					fmt.Printf("DR Status: FAILED (score below %d)`n", minScore)
+					fmt.Printf("DR Status: FAILED (score below %d)\n", minScore)
 				}
 			}
 		}
@@ -190,7 +198,7 @@ func exitWithPolicy(b *model.Bundle, minScore int, quiet bool) {
 	os.Exit(0)
 }
 
-func write(bundle model.Bundle, outDir string, quiet bool) {
+func write(bundle model.Bundle, outDir string, quiet bool, minScore int) {
 	bundle.Scan.EndedAt = time.Now().UTC()
 	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
 	cats := analyze.BuildCategories(&bundle)
@@ -215,6 +223,7 @@ func write(bundle model.Bundle, outDir string, quiet bool) {
 	}
 	jsonPath := filepath.Join(outDir, "recovery-scan.json")
 	htmlPath := filepath.Join(outDir, "recovery-report.html")
+	bundle.Checks = analyze.BuildChecks(&bundle, minScore)
 	if err := output.WriteJSON(jsonPath, &bundle); err != nil {
 		log.Fatalf("write json: %v", err)
 	}
@@ -256,3 +265,8 @@ type CategoryScore struct {
 	Max      float64 `json:"max"`
 	Grade    string  `json:"grade"`
 }
+
+
+
+
+

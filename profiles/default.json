@@ -1,0 +1,40 @@
+{
+  "name": "default",
+  "description": "Generic DR readiness baseline",
+  "defaults": {
+    "weight": 10,
+    "failPenalty": 10,
+    "warnPenalty": 5
+  },
+  "rules": [
+    {
+      "id": "access.kubeconfig.present",
+      "enabled": true,
+      "domain": "CLUSTER",
+      "weight": 15,
+      "params": {}
+    },
+    {
+      "id": "cluster.version.min",
+      "enabled": true,
+      "domain": "CLUSTER",
+      "weight": 15,
+      "params": {
+        "minKubernetesVersion": "1.27.0"
+      }
+    },
+    {
+      "id": "network.cni.detected",
+      "enabled": true,
+      "domain": "NETWORK",
+      "weight": 10,
+      "params": {}
+    }
+  ],
+  "overrides": {
+    "excludeNamespaces": [
+      "kube-system",
+      "cattle-system"
+    ]
+  }
+}

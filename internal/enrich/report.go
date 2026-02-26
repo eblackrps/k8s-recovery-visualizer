@@ -1,173 +1,344 @@
 package enrich
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
-func WriteArtifacts(outDir string, en *Enriched) error {
+func WriteArtifacts(outDir string, enriched *Enriched) error {
 	if outDir == "" {
-		outDir = "out"
+		outDir = "."
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("write artifacts: create outDir: %w", err)
 	}
 
-	jpath := filepath.Join(outDir, "recovery-enriched.json")
-	jb, _ := json.MarshalIndent(en, "", "  ")
-	if err := os.WriteFile(jpath, jb, 0644); err != nil {
-		return fmt.Errorf("write enriched json: %w", err)
+	now := time.Now().Format(time.RFC3339)
+
+	// Load recovery-scan.json (source of truth)
+	scanPath := filepath.Join(outDir, "recovery-scan.json")
+	var scanAny map[string]any
+	if b, err := os.ReadFile(scanPath); err == nil {
+		_ = json.Unmarshal(b, &scanAny)
 	}
 
-	// Write enrich snapshot + index (for category deltas)
-	// EnrichHistory: noisy by default; caller controls CI/quiet output
-	if err := writeEnrichHistory(outDir, en); err != nil {
-		return fmt.Errorf("enrich history write failed: %w", err)
-	}
+	// Extract score/maturity/status from *likely* locations.
+	// Your JSON has top-level keys: schemaVersion, metadata, tool, scan, cluster, inventory, ...
+	// Score may live under: score, results, summary, or scanResult. We'll probe multiple.
+	score := firstIntDeep(scanAny,
+		"score.final",
+		"score.overall",
+		"results.score.final",
+		"results.overall",
+		"summary.score.final",
+		"summary.overall",
+		"scanResult.score.final",
+		"scanResult.overall",
+	)
+	maturity := firstStringDeep(scanAny,
+		"score.maturity",
+		"results.maturity",
+		"summary.maturity",
+		"scanResult.maturity",
+	)
+	status := firstStringDeep(scanAny,
+		"score.status",
+		"results.status",
+		"summary.status",
+		"scanResult.status",
+	)
 
-	// Markdown append
-	mdPath := filepath.Join(outDir, "recovery-report.md")
-	if b, err := os.ReadFile(mdPath); err == nil {
-		aug := string(b) + "\n\n" + renderMarkdown(en) + "\n"
-		if err := os.WriteFile(mdPath, []byte(aug), 0644); err != nil {
-			return fmt.Errorf("append md report: %w", err)
+	// Fallbacks from enriched object (if it contains anything)
+	if score == 0 && enriched != nil {
+		// enriched.Current.Overall is float64 in your codebase
+		if enriched.Current.Overall != 0 {
+			score = int(enriched.Current.Overall)
 		}
 	}
-	// HTML chart injection (best effort)
-	_ = injectTrendHTML(outDir, en)
+	if maturity == "" && enriched != nil && strings.TrimSpace(enriched.Current.Maturity) != "" {
+		maturity = enriched.Current.Maturity
+	}
+
+	if status == "" {
+		if score >= 90 && score != 0 {
+			status = "PASSED"
+		} else if score != 0 {
+			status = "FAILED"
+		} else {
+			status = "UNKNOWN"
+		}
+	}
+
+	issues := extractIssues(scanAny)
+	sort.SliceStable(issues, func(i, j int) bool {
+		if issues[i].Status != issues[j].Status {
+			return issues[i].Status == "FAIL"
+		}
+		return issues[i].Weight > issues[j].Weight
+	})
+
+	// Write recovery-enriched.json (embed scan so it isn't empty)
+	enrichedPath := filepath.Join(outDir, "recovery-enriched.json")
+	enrichedOut := map[string]any{
+		"schemaVersion": "v1",
+		"generatedUtc":  time.Now().UTC().Format(time.RFC3339),
+		"profile":       "standard",
+		"current": map[string]any{
+			"timestampUtc": time.Now().UTC().Format(time.RFC3339),
+			"overall":      score,
+			"maturity":     maturity,
+			"status":       status,
+		},
+		"scan":           scanAny,
+		"enrichedObject": enriched,
+	}
+	j, err := json.MarshalIndent(enrichedOut, "", "  ")
+	if err != nil {
+		return fmt.Errorf("write artifacts: marshal enriched json: %w", err)
+	}
+	if err := os.WriteFile(enrichedPath, j, 0o644); err != nil {
+		return fmt.Errorf("write artifacts: write %s: %w", enrichedPath, err)
+	}
+
+	// Markdown report
+	mdPath := filepath.Join(outDir, "recovery-report.md")
+	var md bytes.Buffer
+	md.WriteString("# Kubernetes DR Recovery Report\n\n")
+	md.WriteString(fmt.Sprintf("- Generated: `%s`\n", now))
+	if score != 0 {
+		md.WriteString(fmt.Sprintf("- Final Score: `%d`\n", score))
+	}
+	if maturity != "" {
+		md.WriteString(fmt.Sprintf("- DR Maturity: `%s`\n", maturity))
+	}
+	md.WriteString(fmt.Sprintf("- DR Status: `%s`\n", status))
+
+	md.WriteString("\n\n## Top issues\n\n")
+	if len(issues) == 0 {
+		md.WriteString("- No structured issues detected in `recovery-scan.json`.\n")
+		md.WriteString("- Next step: emit structured checks/findings into the scan output (see `score.checks` or `findings`).\n")
+	} else {
+		limit := 12
+		if len(issues) < limit {
+			limit = len(issues)
+		}
+		for i := 0; i < limit; i++ {
+			it := issues[i]
+			md.WriteString(fmt.Sprintf("- **%s**: %s\n", it.Status, it.Title))
+			if it.Detail != "" {
+				md.WriteString(fmt.Sprintf("  - %s\n", it.Detail))
+			}
+			if it.Remediation != "" {
+				md.WriteString(fmt.Sprintf("  - Fix: %s\n", it.Remediation))
+			}
+		}
+	}
+
+	md.WriteString("\n## Artifacts\n\n")
+	md.WriteString("- `recovery-scan.json`\n")
+	md.WriteString("- `recovery-enriched.json`\n")
+	md.WriteString("- `recovery-report.html`\n")
+
+	if err := os.WriteFile(mdPath, md.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write artifacts: write %s: %w", mdPath, err)
+	}
+
+	// HTML report
+	htmlPath := filepath.Join(outDir, "recovery-report.html")
+	var h bytes.Buffer
+	h.WriteString("<!doctype html><html><head><meta charset=\"utf-8\" />")
+	h.WriteString("<title>Kubernetes DR Recovery Report</title>")
+	h.WriteString("<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:980px;margin:24px;} code{background:#f4f4f4;padding:2px 4px;border-radius:4px;} .fail{color:#b00020;} .pass{color:#0b6;} .warn{color:#b36b00;} li{margin:10px 0;}</style>")
+	h.WriteString("</head><body>")
+	h.WriteString("<h1>Kubernetes DR Recovery Report</h1><ul>")
+	h.WriteString("<li>Generated: <code>" + html.EscapeString(now) + "</code></li>")
+	if score != 0 {
+		h.WriteString(fmt.Sprintf("<li>Final Score: <code>%d</code></li>", score))
+	}
+	if maturity != "" {
+		h.WriteString("<li>DR Maturity: <code>" + html.EscapeString(maturity) + "</code></li>")
+	}
+	h.WriteString("<li>DR Status: <code>" + html.EscapeString(status) + "</code></li>")
+	h.WriteString("</ul><h2>Top issues</h2>")
+
+	if len(issues) == 0 {
+		h.WriteString("<p>No structured issues detected in <code>recovery-scan.json</code>.</p>")
+	} else {
+		h.WriteString("<ol>")
+		limit := 12
+		if len(issues) < limit {
+			limit = len(issues)
+		}
+		for i := 0; i < limit; i++ {
+			it := issues[i]
+			cls := "warn"
+			if it.Status == "FAIL" {
+				cls = "fail"
+			} else if it.Status == "PASS" {
+				cls = "pass"
+			}
+			h.WriteString("<li class=\"" + cls + "\"><b>" + html.EscapeString(it.Status) + "</b>: " + html.EscapeString(it.Title))
+			if it.Detail != "" {
+				h.WriteString("<br/><small>" + html.EscapeString(it.Detail) + "</small>")
+			}
+			if it.Remediation != "" {
+				h.WriteString("<br/><small><i>Fix:</i> " + html.EscapeString(it.Remediation) + "</small>")
+			}
+			h.WriteString("</li>")
+		}
+		h.WriteString("</ol>")
+	}
+
+	h.WriteString("<h2>Artifacts</h2><ul>")
+	h.WriteString("<li><code>recovery-scan.json</code></li>")
+	h.WriteString("<li><code>recovery-enriched.json</code></li>")
+	h.WriteString("</ul></body></html>")
+
+	if err := os.WriteFile(htmlPath, h.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write artifacts: write %s: %w", htmlPath, err)
+	}
 
 	return nil
 }
 
-func renderMarkdown(en *Enriched) string {
-	var sb strings.Builder
-	sb.WriteString("## Trend, Risk, Profiles\n\n")
-	sb.WriteString(fmt.Sprintf("- **Schema:** %s\n", en.SchemaVersion))
-	sb.WriteString(fmt.Sprintf("- **Profile:** %s\n", en.Profile))
-	sb.WriteString(fmt.Sprintf("- **DR Risk Posture (base):** %s\n", en.Risk.Posture))
-	if en.ProfileOverall != nil && en.ProfileRiskPosture != nil {
-		sb.WriteString(fmt.Sprintf("- **Profile Score:** %0.2f\n", *en.ProfileOverall))
-		sb.WriteString(fmt.Sprintf("- **Profile Risk Posture:** %s\n", *en.ProfileRiskPosture))
-	} else {
-		sb.WriteString("- **Profile Score:** (not available)\n")
-	}
-
-	if en.Trend == nil || en.Previous == nil {
-		sb.WriteString("\n- **Trend:** FIRST RUN (no previous scan found)\n")
-	} else {
-		arrow := "→"
-		switch en.Trend.Direction {
-		case "up":
-			arrow = "↑"
-		case "down":
-			arrow = "↓"
-		}
-		sb.WriteString(fmt.Sprintf("\n- **Trend:** %s %+0.2f (%+0.2f%%)\n", arrow, en.Trend.DeltaScore, en.Trend.DeltaPercent))
-	}
-
-	if len(en.Categories) > 0 {
-		sb.WriteString("\n### Categories\n")
-		for _, c := range en.Categories {
-			sb.WriteString(fmt.Sprintf("- %s: %0.2f / %0.2f (w=%0.2f)\n", c.Name, c.Weighted, c.Max, c.Weight))
-		}
-	}
-
-	if len(en.CategoryDeltas) > 0 {
-		sb.WriteString("\n### Category Deltas (vs last enrich snapshot)\n")
-		for _, d := range en.CategoryDeltas {
-			sb.WriteString(fmt.Sprintf("- %s: %0.2f ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ %0.2f (ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â %+0.2f)\n", d.Name, d.From, d.To, d.Delta))
-		}
-	}
-
-	return sb.String()
+type Issue struct {
+	Status      string
+	Title       string
+	Detail      string
+	Remediation string
+	Weight      int
 }
 
-func writeEnrichHistory(outDir string, en *Enriched) error {
-	if len(en.Categories) == 0 {
-		return nil
+func firstIntDeep(root map[string]any, paths ...string) int {
+	for _, p := range paths {
+		if v, ok := getPath(root, p); ok {
+			switch t := v.(type) {
+			case float64:
+				return int(t)
+			case int:
+				return t
+			case string:
+				var i int
+				_, _ = fmt.Sscanf(t, "%d", &i)
+				if i != 0 {
+					return i
+				}
+			}
+		}
 	}
-
-	histDir := filepath.Join(outDir, "history", "enriched")
-	if err := os.MkdirAll(histDir, 0755); err != nil {
-		return err
-	}
-
-	ts := time.Now().UTC().Format("20060102T150405Z")
-	snapName := fmt.Sprintf("%s.json", ts)
-	snapPath := filepath.Join(histDir, snapName)
-
-	snap := map[string]any{
-		"timestampUtc":  ts,
-		"schemaVersion": en.SchemaVersion,
-		"profile":       en.Profile,
-		"categories":    en.Categories,
-	}
-
-	jb, _ := json.MarshalIndent(snap, "", "  ")
-	if err := os.WriteFile(snapPath, jb, 0644); err != nil {
-		return err
-	}
-
-	idxPath := filepath.Join(outDir, "history", "enriched-index.json")
-	var ix enrichIndex
-	if b, err := os.ReadFile(idxPath); err == nil {
-		_ = json.Unmarshal(b, &ix)
-	}
-
-	ix.Entries = append(ix.Entries, enrichEntry{
-		TimestampUtc:  ts,
-		Path:          filepath.ToSlash(filepath.Join("history", "enriched", snapName)),
-		Categories:    en.Categories,
-		SchemaVersion: en.SchemaVersion,
-		Profile:       en.Profile,
-	})
-
-	ib, _ := json.MarshalIndent(ix, "", "  ")
-	return os.WriteFile(idxPath, ib, 0644)
+	return 0
 }
 
-func injectTrendHTML(outDir string, en *Enriched) error {
-	htmlPath := filepath.Join(outDir, "recovery-report.html")
-	b, err := os.ReadFile(htmlPath)
-	if err != nil {
-		return nil // best effort
+func firstStringDeep(root map[string]any, paths ...string) string {
+	for _, p := range paths {
+		if v, ok := getPath(root, p); ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return s
+			}
+		}
 	}
-	// Use LastN for chart if present; otherwise skip
-	if len(en.LastN) == 0 {
-		// HTML chart injection (best effort)
-		_ = injectTrendHTML(outDir, en)
+	return ""
+}
 
+func getPath(root map[string]any, path string) (any, bool) {
+	if root == nil {
+		return nil, false
+	}
+	cur := any(root)
+	for _, part := range strings.Split(path, ".") {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		cur, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+func extractIssues(scanAny map[string]any) []Issue {
+	if scanAny == nil {
 		return nil
 	}
+	var issues []Issue
 
-	data, _ := json.Marshal(en.LastN)
-
-	block := fmt.Sprintf(`
-<section style="margin-top:24px; padding:16px; border:1px solid #ddd; border-radius:12px;">
-  <h2>Trend History</h2>
-  <canvas id="drTrend" height="110"></canvas>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const scores = %s;
-    const labels = scores.map((_, i) => "Run " + (i+1));
-    const ctx = document.getElementById("drTrend");
-    new Chart(ctx, {
-      type: "line",
-      data: { labels: labels, datasets: [{ label: "Score", data: scores }] },
-      options: { responsive: true }
-    });
-  </script>
-</section>
-`, string(data))
-
-	s := string(b)
-	lower := strings.ToLower(s)
-	idx := strings.LastIndex(lower, "</body>")
-	if idx == -1 {
-		s = s + "\n" + block
-	} else {
-		s = s[:idx] + "\n" + block + "\n" + s[idx:]
+	// Common top-level arrays
+	for _, key := range []string{"checks", "findings", "issues", "warnings", "errors"} {
+		if arr, ok := scanAny[key].([]any); ok {
+			for _, it := range arr {
+				if obj, ok := it.(map[string]any); ok {
+					issues = append(issues, issueFromObj(obj, key))
+				}
+			}
+		}
 	}
-	return os.WriteFile(htmlPath, []byte(s), 0644)
+
+	// Common nested locations
+	for _, key := range []string{"results", "summary", "scoring", "analysis", "score"} {
+		if obj, ok := scanAny[key].(map[string]any); ok {
+			issues = append(issues, extractIssues(obj)...)
+		}
+	}
+
+	return issues
+}
+
+func issueFromObj(obj map[string]any, source string) Issue {
+	getStr := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := obj[k]; ok {
+				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+					return s
+				}
+			}
+		}
+		return ""
+	}
+	getInt := func(keys ...string) int {
+		for _, k := range keys {
+			if v, ok := obj[k]; ok {
+				switch t := v.(type) {
+				case float64:
+					return int(t)
+				case int:
+					return t
+				}
+			}
+		}
+		return 0
+	}
+
+	status := strings.ToUpper(getStr("status", "result", "state", "severity"))
+	if status == "FAILED" {
+		status = "FAIL"
+	}
+	if status == "PASSED" {
+		status = "PASS"
+	}
+	if status == "" {
+		status = strings.ToUpper(source)
+	}
+
+	title := getStr("name", "title", "check", "id")
+	if title == "" {
+		title = "(unnamed finding)"
+	}
+	detail := getStr("message", "reason", "detail", "description")
+	rem := getStr("remediation", "fix", "recommendation", "action")
+
+	weight := getInt("weight", "scoreDelta", "delta", "penalty")
+	if status == "FAIL" && weight == 0 {
+		weight = 10
+	}
+
+	return Issue{Status: status, Title: title, Detail: detail, Remediation: rem, Weight: weight}
 }

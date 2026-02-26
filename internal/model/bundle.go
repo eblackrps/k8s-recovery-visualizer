@@ -3,6 +3,7 @@ package model
 import "time"
 
 type Bundle struct {
+	Checks        []Check   `json:"checks,omitempty"`
 	SchemaVersion string    `json:"schemaVersion"`
 	Metadata      Metadata  `json:"metadata"`
 	Tool          Tool      `json:"tool"`
@@ -47,6 +48,8 @@ type Inventory struct {
 	PVs          []PersistentVolume      `json:"pvs"`
 	Pods         []Pod                   `json:"pods"`
 	StatefulSets []StatefulSet           `json:"statefulSets"`
+  Nodes          []Node         `json:"nodes"`
+  StorageClasses []StorageClass `json:"storageClasses"`
 	Findings     []Finding               `json:"findings"`
 }
 
@@ -78,6 +81,8 @@ func NewBundle(scanID string, started time.Time) Bundle {
 			PVs:          []PersistentVolume{},
 			Pods:         []Pod{},
 			StatefulSets: []StatefulSet{},
+          Nodes:          []Node{},
+          StorageClasses: []StorageClass{},
 			Findings:     []Finding{},
 		},
 		Score: Score{
@@ -89,3 +94,6 @@ func NewBundle(scanID string, started time.Time) Bundle {
 		},
 	}
 }
+
+
+

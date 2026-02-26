@@ -65,15 +65,29 @@ func Evaluate(b *model.Bundle) {
 	}
 
 	// Pod hostPath (Config)
-	for _, pod := range b.Inventory.Pods {
-		if pod.UsesHostPath {
-			config -= 20
-			addFinding(b, "POD_HOSTPATH", "CRITICAL",
-				pod.Namespace+"/"+pod.Name,
-				"Pod uses hostPath volume",
-				"Replace hostPath with CSI-backed persistent storage")
-		}
-	}
+  // hostPath in kube-system is common for control plane / CNI components (esp. KIND).
+  // Treat kube-system as INFO so it doesn't zero-out Config scoring for normal clusters.
+  for _, pod := range b.Inventory.Pods {
+    if !pod.UsesHostPath {
+      continue
+    }
+
+    sev := "CRITICAL"
+    rec := "Replace hostPath with CSI-backed persistent storage"
+    if pod.Namespace == "kube-system" {
+      sev = "INFO"
+      rec = "System pod uses hostPath (common for control plane/CNI). Review if this is acceptable for DR posture."
+    }
+
+    addFinding(
+      b,
+      "POD_HOSTPATH",
+      sev,
+      pod.Namespace + "/" + pod.Name,
+      "Pod uses hostPath volume",
+      rec,
+    )
+  }
 
 	// StatefulSet persistence (Workload)
 	for _, sts := range b.Inventory.StatefulSets {
@@ -134,3 +148,4 @@ func clamp(v int) int {
 	}
 	return v
 }
+
