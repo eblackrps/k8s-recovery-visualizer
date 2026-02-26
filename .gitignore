@@ -1,0 +1,27 @@
+﻿# Go build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# local output / reports
+out/
+outTest-Path/
+**/history/
+*.html
+*.md
+
+# backups / scratch
+*.bak.*
+*.tmp
+
+# IDE junk
+.vscode/
+.idea/
+.DS_Store
+
+# Go workspace
+go.work
+go.work.sum
