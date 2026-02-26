@@ -1,0 +1,24 @@
+{
+  "entries": [
+    {
+      "timestampUtc": "2026-02-26T13:53:54Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135354.json",
+      "mdFile": "history/recovery-report-20260226-135354.md",
+      "htmlFile": "history/recovery-report-20260226-135354.html"
+    }
+  ]
+}

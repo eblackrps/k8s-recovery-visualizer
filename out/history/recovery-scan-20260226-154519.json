@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "toolVersion": "0.1.0",
+    "generatedAt": "2026-02-26T15:45:19Z"
+  },
+  "tool": {
+    "name": "k8s-recovery-visualizer",
+    "version": "0.1.0",
+    "buildDate": "2026-02-26"
+  },
+  "scan": {
+    "scanId": "8226c33a-f71c-4ff0-bbda-412a96e1c387",
+    "startedAt": "2026-02-26T15:45:19.0827154Z",
+    "endedAt": "0001-01-01T00:00:00Z",
+    "durationSeconds": 0,
+    "mode": "auto"
+  },
+  "cluster": {
+    "apiServer": {}
+  },
+  "inventory": {
+    "namespaces": [
+      {
+        "id": "ns:default",
+        "name": "default"
+      },
+      {
+        "id": "ns:test",
+        "name": "test"
+      }
+    ],
+    "pvcs": [],
+    "pvs": [],
+    "pods": [],
+    "statefulSets": [],
+    "findings": []
+  },
+  "score": {
+    "storage": {
+      "max": 100,
+      "final": 100
+    },
+    "workload": {
+      "max": 100,
+      "final": 100
+    },
+    "config": {
+      "max": 100,
+      "final": 100
+    },
+    "overall": {
+      "max": 100,
+      "final": 100
+    },
+    "maturity": "PLATINUM"
+  }
+}

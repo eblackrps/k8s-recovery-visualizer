@@ -1,0 +1,258 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+
+	"k8s-recovery-visualizer/internal/analyze"
+	"k8s-recovery-visualizer/internal/collect"
+	"k8s-recovery-visualizer/internal/enrich"
+	"k8s-recovery-visualizer/internal/history"
+	"k8s-recovery-visualizer/internal/kube"
+	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/output"
+)
+
+func main() {
+	var (
+		kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig")
+		outDir     = flag.String("out", "./out", "Output directory")
+		dryRun     = flag.Bool("dry-run", false, "Run without Kubernetes")
+		ci         = flag.Bool("ci", false, "CI mode (machine-readable output)")
+		minScore   = flag.Int("min-score", 90, "Minimum acceptable DR score")
+		timeoutSec = flag.Int("timeout", 60, "Timeout in seconds for Kubernetes API calls")
+		customerID = flag.String("customer", "", "Customer identifier (optional)")
+		site       = flag.String("site", "", "Site/region name (optional)")
+		cluster    = flag.String("cluster", "", "Cluster name (optional)")
+		env        = flag.String("env", "", "Environment (prod/dev/test) (optional)")
+	)
+	flag.Parse()
+	start := time.Now().UTC()
+	scanID := model.NewUUID()
+	trendLabel := "UNKNOWN"
+	trendDelta := 0
+	if err := os.MkdirAll(*outDir, 0755); err != nil {
+		log.Fatalf("mkdir failed: %v", err)
+	}
+
+	bundle := model.NewBundle(scanID, start)
+	bundle.Metadata.CustomerID = *customerID
+	bundle.Metadata.Site = *site
+	bundle.Metadata.ClusterName = *cluster
+	bundle.Metadata.Environment = *env
+
+	if *dryRun {
+		bundle.Inventory.Namespaces = []model.Namespace{
+			{ID: "ns:default", Name: "default"},
+			{ID: "ns:test", Name: "test"},
+		}
+		analyze.Evaluate(&bundle)
+		write(bundle, *outDir, *ci)
+		trendLabel, trendDelta = printTrend(*outDir, &bundle, *ci)
+		if *ci {
+			summary := model.ScanSummary{
+				ScanID:       bundle.Scan.ScanID,
+				TimestampUtc: time.Now().UTC().Format(time.RFC3339),
+				Overall:      bundle.Score.Overall.Final,
+				Maturity:     bundle.Score.Maturity,
+				Status:       "PASSED",
+				MinScore:     *minScore,
+				Categories:   analyze.BuildCategories(&bundle),
+				Trend:        trendLabel,
+				Delta:        trendDelta,
+			}
+			if bundle.Score.Overall.Final < *minScore {
+				summary.Status = "FAILED"
+			}
+			b, _ := json.Marshal(summary)
+			fmt.Println()
+			fmt.Println(string(b))
+		}
+		exitWithPolicy(&bundle, *minScore, *ci)
+		return
+	}
+
+	clientset, restCfg, err := kube.NewClient(*kubeconfig)
+	if err != nil {
+		log.Fatalf("kube error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeoutSec)*time.Second)
+	defer cancel()
+	bundle.Cluster.APIServer.Endpoint = restCfg.Host
+
+	if err := collect.Namespaces(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect namespaces: %v", err)
+	}
+	if err := collect.PVCs(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pvcs: %v", err)
+	}
+	if err := collect.PVs(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pvs: %v", err)
+	}
+	if err := collect.Pods(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pods: %v", err)
+	}
+	if err := collect.StatefulSets(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect statefulsets: %v", err)
+	}
+
+	analyze.Evaluate(&bundle)
+	write(bundle, *outDir, *ci)
+	trendLabel, trendDelta = printTrend(*outDir, &bundle, *ci)
+	if *ci {
+		summary := model.ScanSummary{
+			ScanID:       bundle.Scan.ScanID,
+			TimestampUtc: time.Now().UTC().Format(time.RFC3339),
+			Overall:      bundle.Score.Overall.Final,
+			Maturity:     bundle.Score.Maturity,
+			Status:       "PASSED",
+			MinScore:     *minScore,
+			Categories:   analyze.BuildCategories(&bundle),
+			Trend:        trendLabel,
+			Delta:        trendDelta,
+		}
+		if bundle.Score.Overall.Final < *minScore {
+			summary.Status = "FAILED"
+		}
+		b, _ := json.Marshal(summary)
+		fmt.Println()
+		fmt.Println(string(b))
+	}
+	exitWithPolicy(&bundle, *minScore, *ci)
+}
+
+func printTrend(outDir string, b *model.Bundle, quiet bool) (string, int) {
+	tr, err := history.Record(outDir, b)
+	if err != nil {
+		if !quiet {
+			fmt.Println("History: (skipped)", err)
+		}
+		return "HISTORY_SKIPPED", 0
+	}
+
+	if tr.Label == "FIRST_RUN" {
+		if !quiet {
+			fmt.Println("Trend: FIRST RUN (no previous scan found)")
+		}
+		return "FIRST_RUN", 0
+	}
+
+	if !quiet {
+		sign := ""
+		if tr.Delta > 0 {
+			sign = "+"
+		}
+		fmt.Printf("Trend: %s (%s%d) Previous: %d, Current: %d\n", tr.Label, sign, tr.Delta, tr.Previous, tr.Current)
+	}
+
+	return tr.Label, tr.Delta
+}
+func exitWithPolicy(b *model.Bundle, minScore int, quiet bool) {
+	score := b.Score.Overall.Final
+	if !quiet {
+		if !quiet {
+			if !quiet {
+				fmt.Println("Final Score:", score)
+			}
+		}
+	}
+	if !quiet {
+		if !quiet {
+			if !quiet {
+				fmt.Println("DR Maturity:", b.Score.Maturity)
+			}
+		}
+	}
+	if score < minScore {
+		if !quiet {
+			if !quiet {
+				if !quiet {
+					fmt.Printf("DR Status: FAILED (score below %d)`n", minScore)
+				}
+			}
+		}
+		os.Exit(2)
+	}
+	if !quiet {
+		if !quiet {
+			if !quiet {
+				fmt.Println("DR Status: PASSED")
+			}
+		}
+	}
+	os.Exit(0)
+}
+
+func write(bundle model.Bundle, outDir string, quiet bool) {
+	bundle.Scan.EndedAt = time.Now().UTC()
+	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
+	cats := analyze.BuildCategories(&bundle)
+	if cats == nil {
+		cats = []model.CategoryScore{}
+	}
+
+	type bundleOut struct {
+		Bundle     model.Bundle    `json:"bundle"`
+		Categories []CategoryScore `json:"categories"`
+	}
+	categoriesPath := filepath.Join(outDir, "recovery-categories.json")
+	f, err := os.Create(categoriesPath)
+	if err != nil {
+		log.Fatalf("create categories json: %v", err)
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(cats); err != nil {
+		log.Fatalf("write categories json: %v", err)
+	}
+	jsonPath := filepath.Join(outDir, "recovery-scan.json")
+	htmlPath := filepath.Join(outDir, "recovery-report.html")
+	if err := output.WriteJSON(jsonPath, &bundle); err != nil {
+		log.Fatalf("write json: %v", err)
+	}
+	if !quiet {
+		if !quiet {
+			if !quiet {
+				fmt.Println("Scan complete.")
+				fmt.Println("Report:", filepath.Join(outDir, "recovery-report.md"))
+				fmt.Println("HTML Report:", htmlPath)
+			}
+		}
+	}
+	// Phase2: enrich reports (trend + risk)
+	if en, err := enrich.Run(enrich.Options{OutDir: outDir, LastNCount: 10}); err != nil {
+		fmt.Printf("Enrich: FAILED (%v)", err)
+	} else if err := enrich.WriteArtifacts(outDir, en); err != nil {
+		fmt.Printf("Enrich: FAILED writing artifacts (%v)", err)
+	} else {
+		if !quiet {
+			if !quiet {
+				if !quiet {
+					fmt.Println("Enriched:", filepath.Join(outDir, "recovery-enriched.json"))
+				}
+			}
+		}
+	}
+
+}
+
+//
+// Phase4: categories export (derived)
+//
+
+type CategoryScore struct {
+	Name     string  `json:"name"`
+	Raw      float64 `json:"raw"`
+	Weight   float64 `json:"weight"`
+	Weighted float64 `json:"weighted"`
+	Max      float64 `json:"max"`
+	Grade    string  `json:"grade"`
+}

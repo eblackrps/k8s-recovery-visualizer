@@ -1,0 +1,195 @@
+﻿Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+function FailIfLastExit([string]$what) {
+  if ($LASTEXITCODE -ne 0) { throw "$what failed with exit code $LASTEXITCODE" }
+}
+function WriteUtf8NoBom([string]$path, [string[]]$lines) {
+  $dir = Split-Path -Parent $path
+  if ($dir -and !(Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($path, (($lines -join "`n") + "`n"), $utf8NoBom)
+  Write-Host "Wrote $path"
+}
+
+# Module path
+if (!(Test-Path ".\go.mod")) { throw "go.mod not found" }
+$modLine = (Get-Content .\go.mod | Select-String -Pattern '^module\s+').Line
+if (!$modLine) { throw "Could not detect module path from go.mod" }
+$modulePath = ($modLine -replace '^module\s+', '').Trim()
+Write-Host "Module: $modulePath"
+
+$bt = [char]96
+
+# ---------------- internal/enrich/enrich.go ----------------
+WriteUtf8NoBom ".\internal\enrich\enrich.go" @(
+  "package enrich",
+  "",
+  "import (",
+  "    ""encoding/json""",
+  "    ""fmt""",
+  "    ""os""",
+  "    ""path/filepath""",
+  "    ""time""",
+  "",
+  "    ""$modulePath/internal/risk""",
+  "    ""$modulePath/internal/trend""",
+  ")",
+  "",
+  "type HistoryIndex struct {",
+  ("    Entries []HistoryEntry " + $bt + "json:""entries""" + $bt),
+  "}",
+  "",
+  "type HistoryEntry struct {",
+  ("    TimestampUtc string  " + $bt + "json:""timestampUtc""" + $bt),
+  ("    Overall      float64 " + $bt + "json:""overall""" + $bt),
+  ("    Maturity     string  " + $bt + "json:""maturity""" + $bt),
+  "}",
+  "",
+  "type Enriched struct {",
+  ("    GeneratedUtc string         " + $bt + "json:""generatedUtc""" + $bt),
+  ("    Current      HistoryEntry   " + $bt + "json:""current""" + $bt),
+  ("    Previous     *HistoryEntry  " + $bt + "json:""previous,omitempty""" + $bt),
+  ("    Trend        *trend.Trend   " + $bt + "json:""trend,omitempty""" + $bt),
+  ("    Risk         risk.Rating    " + $bt + "json:""risk""" + $bt),
+  ("    LastN        []float64      " + $bt + "json:""lastN""" + $bt),
+  "}",
+  "",
+  "type Options struct {",
+  "    OutDir     string",
+  "    LastNCount int",
+  "}",
+  "",
+  "func Run(opts Options) (*Enriched, error) {",
+  "    if opts.OutDir == """" { opts.OutDir = ""out"" }",
+  "    if opts.LastNCount <= 0 { opts.LastNCount = 10 }",
+  "",
+  "    historyPath := filepath.Join(opts.OutDir, ""history"", ""index.json"")",
+  "    b, err := os.ReadFile(historyPath)",
+  "    if err != nil {",
+  "        return &Enriched{",
+  "            GeneratedUtc: time.Now().UTC().Format(time.RFC3339),",
+  "            Risk:         risk.FromScore(0, """"),",
+  "            LastN:        []float64{},",
+  "        }, nil",
+  "    }",
+  "",
+  "    var idx HistoryIndex",
+  "    if err := json.Unmarshal(b, &idx); err != nil {",
+  "        return nil, fmt.Errorf(""parse history index: %w"", err)",
+  "    }",
+  "    if len(idx.Entries) == 0 {",
+  "        return &Enriched{",
+  "            GeneratedUtc: time.Now().UTC().Format(time.RFC3339),",
+  "            Risk:         risk.FromScore(0, """"),",
+  "            LastN:        []float64{},",
+  "        }, nil",
+  "    }",
+  "",
+  "    curr := idx.Entries[len(idx.Entries)-1]",
+  "    var prev *HistoryEntry",
+  "    if len(idx.Entries) >= 2 {",
+  "        p := idx.Entries[len(idx.Entries)-2]",
+  "        prev = &p",
+  "    }",
+  "",
+  "    start := 0",
+  "    if len(idx.Entries) > opts.LastNCount {",
+  "        start = len(idx.Entries) - opts.LastNCount",
+  "    }",
+  "    last := make([]float64, 0, len(idx.Entries)-start)",
+  "    for i := start; i < len(idx.Entries); i++ {",
+  "        last = append(last, idx.Entries[i].Overall)",
+  "    }",
+  "",
+  "    var tr *trend.Trend",
+  "    if prev != nil {",
+  "        t := trend.Compute(prev.Overall, curr.Overall)",
+  "        tr = &t",
+  "    }",
+  "",
+  "    return &Enriched{",
+  "        GeneratedUtc: time.Now().UTC().Format(time.RFC3339),",
+  "        Current:      curr,",
+  "        Previous:     prev,",
+  "        Trend:        tr,",
+  "        Risk:         risk.FromScore(curr.Overall, curr.Maturity),",
+  "        LastN:        last,",
+  "    }, nil",
+  "}"
+)
+
+# ---------------- internal/enrich/report.go ----------------
+WriteUtf8NoBom ".\internal\enrich\report.go" @(
+  "package enrich",
+  "",
+  "import (",
+  "    ""encoding/json""",
+  "    ""fmt""",
+  "    ""os""",
+  "    ""path/filepath""",
+  "    ""strings""",
+  ")",
+  "",
+  "func WriteArtifacts(outDir string, en *Enriched) error {",
+  "    if outDir == """" { outDir = ""out"" }",
+  "",
+  "    // JSON artifact",
+  "    jpath := filepath.Join(outDir, ""recovery-enriched.json"")",
+  "    jb, _ := json.MarshalIndent(en, """", ""  "")",
+  "    if err := os.WriteFile(jpath, jb, 0644); err != nil {",
+  "        return fmt.Errorf(""write enriched json: %w"", err)",
+  "    }",
+  "",
+  "    // Markdown append (safe, no HTML parsing drama)",
+  "    mdPath := filepath.Join(outDir, ""recovery-report.md"")",
+  "    if b, err := os.ReadFile(mdPath); err == nil {",
+  "        aug := string(b) + ""\n\n"" + renderMarkdown(en) + ""\n""",
+  "        if err := os.WriteFile(mdPath, []byte(aug), 0644); err != nil {",
+  "            return fmt.Errorf(""append md report: %w"", err)",
+  "        }",
+  "    }",
+  "    return nil",
+  "}",
+  "",
+  "func renderMarkdown(en *Enriched) string {",
+  "    var sb strings.Builder",
+  "    sb.WriteString(""## Trend & Risk\n\n"")",
+  "    sb.WriteString(fmt.Sprintf(""- **DR Risk Posture:** %s\n"", en.Risk.Posture))",
+  "    if en.Trend == nil || en.Previous == nil {",
+  "        sb.WriteString(""- **Trend:** FIRST RUN (no previous scan found)\n"")",
+  "    } else {",
+  "        arrow := ""→""",
+  "        switch en.Trend.Direction {",
+  "        case ""up"":",
+  "            arrow = ""↑""",
+  "        case ""down"":",
+  "            arrow = ""↓""",
+  "        }",
+  "        sb.WriteString(fmt.Sprintf(""- **Trend:** %s %+0.2f (%+0.2f%%)\n"", arrow, en.Trend.DeltaScore, en.Trend.DeltaPercent))",
+  "        sb.WriteString(fmt.Sprintf(""- **Previous:** %0.2f (%s)\n"", en.Trend.From, en.Previous.Maturity))",
+  "        sb.WriteString(fmt.Sprintf(""- **Current:** %0.2f (%s)\n"", en.Trend.To, en.Current.Maturity))",
+  "    }",
+  "    if len(en.LastN) > 0 {",
+  "        sb.WriteString(""\n**Last runs:** "")",
+  "        for i, v := range en.LastN {",
+  "            if i > 0 { sb.WriteString("" → "") }",
+  "            sb.WriteString(fmt.Sprintf(""%0.2f"", v))",
+  "        }",
+  "        sb.WriteString(""\n"")",
+  "    }",
+  "    return sb.String()",
+  "}"
+)
+
+Write-Host "Running gofmt..."
+gofmt -w .\cmd .\internal | Out-Null
+FailIfLastExit "gofmt"
+
+Write-Host "Building scan.exe..."
+if (Test-Path .\scan.exe) { Remove-Item .\scan.exe -Force }
+go build -o scan.exe .\cmd\scan
+FailIfLastExit "go build"
+
+if (!(Test-Path .\scan.exe)) { throw "scan.exe missing after successful build" }
+Write-Host "OK: scan.exe built."

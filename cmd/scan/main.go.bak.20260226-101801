@@ -1,0 +1,242 @@
+﻿package main
+
+import (
+    "encoding/json""context"
+	"flag"
+	"fmt"
+	"k8s-recovery-visualizer/internal/enrich"
+	"log"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"time"
+
+	"k8s-recovery-visualizer/internal/analyze"
+	"k8s-recovery-visualizer/internal/collect"
+	"k8s-recovery-visualizer/internal/history"
+	"k8s-recovery-visualizer/internal/kube"
+	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/output"
+)
+
+func main() {
+	var (
+		kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig")
+		outDir     = flag.String("out", "./out", "Output directory")
+		dryRun     = flag.Bool("dry-run", false, "Run without Kubernetes")
+		minScore   = flag.Int("min-score", 90, "Minimum acceptable DR score")
+		timeoutSec = flag.Int("timeout", 60, "Timeout in seconds for Kubernetes API calls")
+		customerID = flag.String("customer", "", "Customer identifier (optional)")
+		site       = flag.String("site", "", "Site/region name (optional)")
+		cluster    = flag.String("cluster", "", "Cluster name (optional)")
+		env        = flag.String("env", "", "Environment (prod/dev/test) (optional)")
+	)
+	flag.Parse()
+	start := time.Now().UTC()
+	scanID := model.NewUUID()
+	if err := os.MkdirAll(*outDir, 0755); err != nil {
+		log.Fatalf("mkdir failed: %v", err)
+	}
+
+	bundle := model.NewBundle(scanID, start)
+	bundle.Metadata.CustomerID = *customerID
+	bundle.Metadata.Site = *site
+	bundle.Metadata.ClusterName = *cluster
+	bundle.Metadata.Environment = *env
+
+	if *dryRun {
+		bundle.Inventory.Namespaces = []model.Namespace{
+			{ID: "ns:default", Name: "default"},
+			{ID: "ns:test", Name: "test"},
+		}
+		analyze.Evaluate(&bundle)
+		write(bundle, *outDir)
+		printTrend(*outDir, &bundle)
+		exitWithPolicy(&bundle, *minScore)
+		return
+	}
+
+	clientset, restCfg, err := kube.NewClient(*kubeconfig)
+	if err != nil {
+		log.Fatalf("kube error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeoutSec)*time.Second)
+	defer cancel()
+	bundle.Cluster.APIServer.Endpoint = restCfg.Host
+
+	if err := collect.Namespaces(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect namespaces: %v", err)
+	}
+	if err := collect.PVCs(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pvcs: %v", err)
+	}
+	if err := collect.PVs(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pvs: %v", err)
+	}
+	if err := collect.Pods(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect pods: %v", err)
+	}
+	if err := collect.StatefulSets(ctx, clientset, &bundle); err != nil {
+		log.Fatalf("collect statefulsets: %v", err)
+	}
+
+	analyze.Evaluate(&bundle)
+	write(bundle, *outDir)
+	printTrend(*outDir, &bundle)
+	exitWithPolicy(&bundle, *minScore)
+}
+
+func printTrend(outDir string, b *model.Bundle) {
+	tr, err := history.Record(outDir, b)
+	if err != nil {
+		fmt.Println("History: (skipped)", err)
+		return
+	}
+
+	if tr.Label == "FIRST_RUN" {
+		fmt.Println("Trend: FIRST RUN (no previous scan found)")
+		return
+	}
+
+	sign := ""
+	if tr.Delta > 0 {
+		sign = "+"
+	}
+	fmt.Printf("Trend: %s (%s%d)", tr.Label, sign, tr.Delta)
+	fmt.Printf("Previous: %d, Current: %d", tr.Previous, tr.Current)
+}
+
+func exitWithPolicy(b *model.Bundle, minScore int) {
+	score := b.Score.Overall.Final
+
+	fmt.Println("Final Score:", score)
+	fmt.Println("DR Maturity:", b.Score.Maturity)
+	if score < minScore {
+		fmt.Printf("DR Status: FAILED (score below %d)", minScore)
+		os.Exit(2)
+	}
+
+	fmt.Println("DR Status: PASSED")
+	os.Exit(0)
+}
+
+func write(bundle model.Bundle, outDir string) {
+	bundle.Scan.EndedAt = time.Now().UTC()
+	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
+	cats := deriveCategories(bundle)
+
+	type bundleOut struct {
+		Bundle     model.Bundle    `json:"bundle"`
+		Categories []CategoryScore `json:"categories"`
+	}
+	categoriesPath := filepath.Join(outDir, "recovery-categories.json")
+	if err := output.WriteJSON(categoriesPath, &cats); err != nil {
+		log.Fatalf("write categories json: %v", err)
+	}
+	jsonPath := filepath.Join(outDir, "recovery-scan.json")
+	if err := output.WriteJSON(jsonPath, &bundle); err != nil {
+		log.Fatalf("write json: %v", err)
+	}
+
+	fmt.Println("Scan complete.")
+	fmt.Println("Report:", filepath.Join(outDir, "recovery-report.md"))
+	htmlPath := filepath.Join(outDir, "recovery-report.html")
+	if err := output.WriteHTML(htmlPath, &bundle); err != nil {
+		log.Fatalf("write html: %v", err)
+	}
+	fmt.Println("HTML Report:", htmlPath)
+	// Phase2: enrich reports (trend + risk)
+	if en, err := enrich.Run(enrich.Options{OutDir: outDir, LastNCount: 10}); err != nil {
+		fmt.Printf("Enrich: FAILED (%v)", err)
+	} else if err := enrich.WriteArtifacts(outDir, en); err != nil {
+		fmt.Printf("Enrich: FAILED writing artifacts (%v)", err)
+	} else {
+		fmt.Println("Enriched:", filepath.Join(outDir, "recovery-enriched.json"))
+	}
+
+}
+
+//
+// Phase4: categories export (derived)
+//
+
+type CategoryScore struct {
+	Name     string  `json:"name"`
+	Raw      float64 `json:"raw"`
+	Weight   float64 `json:"weight"`
+	Weighted float64 `json:"weighted"`
+	Max      float64 `json:"max"`
+	Grade    string  `json:"grade"`
+}
+
+func deriveCategories(bundle any) []CategoryScore {
+	v := reflect.ValueOf(bundle)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+
+	var cats []CategoryScore
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		ft := t.Field(i)
+		if !ft.IsExported() {
+			continue
+		}
+
+		name := ft.Name
+		fv := v.Field(i)
+		if fv.Kind() == reflect.Pointer && !fv.IsNil() {
+			fv = fv.Elem()
+		}
+		if fv.Kind() != reflect.Struct {
+			continue
+		}
+
+		maxF := fv.FieldByName("Max")
+		finalF := fv.FieldByName("Final")
+		if !maxF.IsValid() || !finalF.IsValid() {
+			continue
+		}
+
+		max := toFloat(maxF)
+		fin := toFloat(finalF)
+		if max <= 0 {
+			continue
+		}
+
+		key := strings.ToLower(name[:1]) + name[1:]
+		cats = append(cats, CategoryScore{
+			Name:     key,
+			Raw:      fin,
+			Weight:   1,
+			Weighted: fin,
+			Max:      max,
+			Grade:    "",
+		})
+	}
+
+	return cats
+}
+
+func toFloat(v reflect.Value) float64 {
+	if v.Kind() == reflect.Pointer && !v.IsNil() {
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(v.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(v.Uint())
+	default:
+		return 0
+	}
+}
+

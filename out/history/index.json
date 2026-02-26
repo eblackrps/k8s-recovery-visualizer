@@ -1,0 +1,968 @@
+{
+  "entries": [
+    {
+      "timestampUtc": "2026-02-26T13:03:34Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-130334.json",
+      "mdFile": "history/recovery-report-20260226-130334.md",
+      "htmlFile": "history/recovery-report-20260226-130334.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:08:05Z",
+      "customerId": "RPS",
+      "site": "AVL1",
+      "clusterName": "kube-prod-01",
+      "environment": "prod",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-130805.json",
+      "mdFile": "history/recovery-report-20260226-130805.md",
+      "htmlFile": "history/recovery-report-20260226-130805.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:13:07Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-131307.json",
+      "mdFile": "history/recovery-report-20260226-131307.md",
+      "htmlFile": "history/recovery-report-20260226-131307.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:19:30Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-131930.json",
+      "mdFile": "history/recovery-report-20260226-131930.md",
+      "htmlFile": "history/recovery-report-20260226-131930.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:27:26Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-132726.json",
+      "mdFile": "history/recovery-report-20260226-132726.md",
+      "htmlFile": "history/recovery-report-20260226-132726.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:27:56Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-132756.json",
+      "mdFile": "history/recovery-report-20260226-132756.md",
+      "htmlFile": "history/recovery-report-20260226-132756.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:29:54Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-132954.json",
+      "mdFile": "history/recovery-report-20260226-132954.md",
+      "htmlFile": "history/recovery-report-20260226-132954.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:50:01Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135001.json",
+      "mdFile": "history/recovery-report-20260226-135001.md",
+      "htmlFile": "history/recovery-report-20260226-135001.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:52:50Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135250.json",
+      "mdFile": "history/recovery-report-20260226-135250.md",
+      "htmlFile": "history/recovery-report-20260226-135250.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:52:52Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135251.json",
+      "mdFile": "history/recovery-report-20260226-135251.md",
+      "htmlFile": "history/recovery-report-20260226-135251.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:53:33Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135333.json",
+      "mdFile": "history/recovery-report-20260226-135333.md",
+      "htmlFile": "history/recovery-report-20260226-135333.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:55:25Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135525.json",
+      "mdFile": "history/recovery-report-20260226-135525.md",
+      "htmlFile": "history/recovery-report-20260226-135525.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:55:26Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135526.json",
+      "mdFile": "history/recovery-report-20260226-135526.md",
+      "htmlFile": "history/recovery-report-20260226-135526.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:56:22Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135622.json",
+      "mdFile": "history/recovery-report-20260226-135622.md",
+      "htmlFile": "history/recovery-report-20260226-135622.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T13:58:00Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-135800.json",
+      "mdFile": "history/recovery-report-20260226-135800.md",
+      "htmlFile": "history/recovery-report-20260226-135800.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:20:21Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-152021.json",
+      "mdFile": "history/recovery-report-20260226-152021.md",
+      "htmlFile": "history/recovery-report-20260226-152021.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:41:37Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154137.json",
+      "mdFile": "history/recovery-report-20260226-154137.md",
+      "htmlFile": "history/recovery-report-20260226-154137.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:42:21Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154221.json",
+      "mdFile": "history/recovery-report-20260226-154221.md",
+      "htmlFile": "history/recovery-report-20260226-154221.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:42:29Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154229.json",
+      "mdFile": "history/recovery-report-20260226-154229.md",
+      "htmlFile": "history/recovery-report-20260226-154229.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:43:24Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154324.json",
+      "mdFile": "history/recovery-report-20260226-154324.md",
+      "htmlFile": "history/recovery-report-20260226-154324.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:44:21Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154421.json",
+      "mdFile": "history/recovery-report-20260226-154421.md",
+      "htmlFile": "history/recovery-report-20260226-154421.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:45:19Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-154519.json",
+      "mdFile": "history/recovery-report-20260226-154519.md",
+      "htmlFile": "history/recovery-report-20260226-154519.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T15:52:02Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-155202.json",
+      "mdFile": "history/recovery-report-20260226-155202.md",
+      "htmlFile": "history/recovery-report-20260226-155202.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T16:26:02Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-162602.json",
+      "mdFile": "history/recovery-report-20260226-162602.md",
+      "htmlFile": "history/recovery-report-20260226-162602.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T16:43:08Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-164308.json",
+      "mdFile": "history/recovery-report-20260226-164308.md",
+      "htmlFile": "history/recovery-report-20260226-164308.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T16:47:36Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-164736.json",
+      "mdFile": "history/recovery-report-20260226-164736.md",
+      "htmlFile": "history/recovery-report-20260226-164736.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:02:13Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-170213.json",
+      "mdFile": "history/recovery-report-20260226-170213.md",
+      "htmlFile": "history/recovery-report-20260226-170213.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:02:15Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-170215.json",
+      "mdFile": "history/recovery-report-20260226-170215.md",
+      "htmlFile": "history/recovery-report-20260226-170215.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:02:28Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-170228.json",
+      "mdFile": "history/recovery-report-20260226-170228.md",
+      "htmlFile": "history/recovery-report-20260226-170228.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:04:29Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-170429.json",
+      "mdFile": "history/recovery-report-20260226-170429.md",
+      "htmlFile": "history/recovery-report-20260226-170429.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:10:02Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-171002.json",
+      "mdFile": "history/recovery-report-20260226-171002.md",
+      "htmlFile": "history/recovery-report-20260226-171002.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:10:03Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-171003.json",
+      "mdFile": "history/recovery-report-20260226-171003.md",
+      "htmlFile": "history/recovery-report-20260226-171003.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:21:34Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-172134.json",
+      "mdFile": "history/recovery-report-20260226-172134.md",
+      "htmlFile": "history/recovery-report-20260226-172134.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:24:35Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-172435.json",
+      "mdFile": "history/recovery-report-20260226-172435.md",
+      "htmlFile": "history/recovery-report-20260226-172435.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:36:55Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-173655.json",
+      "mdFile": "history/recovery-report-20260226-173655.md",
+      "htmlFile": "history/recovery-report-20260226-173655.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:44:55Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-174455.json",
+      "mdFile": "history/recovery-report-20260226-174455.md",
+      "htmlFile": "history/recovery-report-20260226-174455.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:45:19Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-174519.json",
+      "mdFile": "history/recovery-report-20260226-174519.md",
+      "htmlFile": "history/recovery-report-20260226-174519.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:48:42Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-174842.json",
+      "mdFile": "history/recovery-report-20260226-174842.md",
+      "htmlFile": "history/recovery-report-20260226-174842.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:49:56Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-174956.json",
+      "mdFile": "history/recovery-report-20260226-174956.md",
+      "htmlFile": "history/recovery-report-20260226-174956.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:50:05Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175005.json",
+      "mdFile": "history/recovery-report-20260226-175005.md",
+      "htmlFile": "history/recovery-report-20260226-175005.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:50:46Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175046.json",
+      "mdFile": "history/recovery-report-20260226-175046.md",
+      "htmlFile": "history/recovery-report-20260226-175046.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:51:31Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175131.json",
+      "mdFile": "history/recovery-report-20260226-175131.md",
+      "htmlFile": "history/recovery-report-20260226-175131.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:55:41Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175541.json",
+      "mdFile": "history/recovery-report-20260226-175541.md",
+      "htmlFile": "history/recovery-report-20260226-175541.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:55:41Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175541.json",
+      "mdFile": "history/recovery-report-20260226-175541.md",
+      "htmlFile": "history/recovery-report-20260226-175541.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:55:42Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175542.json",
+      "mdFile": "history/recovery-report-20260226-175542.md",
+      "htmlFile": "history/recovery-report-20260226-175542.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:57:21Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175721.json",
+      "mdFile": "history/recovery-report-20260226-175721.md",
+      "htmlFile": "history/recovery-report-20260226-175721.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:57:21Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175721.json",
+      "mdFile": "history/recovery-report-20260226-175721.md",
+      "htmlFile": "history/recovery-report-20260226-175721.html"
+    },
+    {
+      "timestampUtc": "2026-02-26T17:57:22Z",
+      "overall": 100,
+      "maturity": "PLATINUM",
+      "storage": {
+        "max": 100,
+        "final": 100
+      },
+      "workload": {
+        "max": 100,
+        "final": 100
+      },
+      "config": {
+        "max": 100,
+        "final": 100
+      },
+      "jsonFile": "history/recovery-scan-20260226-175722.json",
+      "mdFile": "history/recovery-report-20260226-175722.md",
+      "htmlFile": "history/recovery-report-20260226-175722.html"
+    }
+  ]
+}
