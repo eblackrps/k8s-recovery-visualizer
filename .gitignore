@@ -1,27 +1,23 @@
-﻿# Go build outputs
+﻿# build output / binaries
 *.exe
 *.dll
-*.so
-*.dylib
+*.pdb
 *.test
 *.out
 
-# local output / reports
+# local output artifacts
 out/
 outTest-Path/
-**/history/
-*.html
-*.md
+history/
 
 # backups / scratch
 *.bak.*
+*.bak
 *.tmp
+*.log
 
-# IDE junk
+# IDE / OS
 .vscode/
 .idea/
 .DS_Store
-
-# Go workspace
-go.work
-go.work.sum
+Thumbs.db
