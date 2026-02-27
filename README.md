@@ -98,6 +98,15 @@ To verify freshness:
 
 ---
 
+
+---
+
+## Example Report
+
+![Sample DR Report](images/sample-report.png)
+
+The HTML report is normalized, dark-mode optimized, and idempotent across multiple pipeline executions.
+
 ## Use Cases
 
 - Pre-migration DR assessment
