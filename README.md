@@ -134,3 +134,27 @@ The HTML report is normalized, dark-mode optimized, and idempotent across multip
 - Storage-class DR mapping validation
 - Restore simulation scoring
 - Customer-safe redacted export mode
+
+---
+
+## Example Scoring Breakdown
+
+Example scoring model output:
+
+| Category              | Score |
+|-----------------------|-------|
+| Storage Configuration | 25/25 |
+| Stateful Workloads    | 20/20 |
+| Namespace Structure   | 15/15 |
+| Cluster Topology      | 20/20 |
+| DR Risk Factors       | 20/20 |
+| **Total**             | **100/100** |
+
+Final Rating: **PLATINUM**
+
+Trend Output Example:
+- Previous: 95
+- Current: 100
+- Delta: +5 (Improvement)
+
+Scoring is deterministic and repeatable across runs.
