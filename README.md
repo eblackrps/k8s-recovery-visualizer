@@ -1,21 +1,72 @@
 # k8s-recovery-visualizer
 
-Kubernetes Disaster Recovery scoring and readiness analysis tool.
+Kubernetes Disaster Recovery scoring and readiness assessment tool.
 
-## Outputs
-Generated under .\out:
-- recovery-scan.json
-- recovery-enriched.json
-- recovery-report.md
-- recovery-report.html
-- history\index.json
+Designed to analyze live Kubernetes environments and generate a structured DR maturity score before cluster rebuild or replication planning.
+
+---
+
+## Why This Exists
+
+Building DR clusters without structured discovery leads to:
+- Incorrect storage class mapping
+- Missing workload dependencies
+- Unprotected stateful workloads
+- False assumptions about restore viability
+
+k8s-recovery-visualizer performs deterministic environment analysis and produces:
+- Inventory data (JSON)
+- Enriched DR metadata
+- Human-readable HTML report
+- Historical trend tracking
+- DR maturity scoring
+
+---
+
+## What It Generates
+
+Output directory: .\out\
+
+- recovery-scan.json (raw cluster inventory)
+- recovery-enriched.json (DR analysis)
+- recovery-report.md (markdown report)
+- recovery-report.html (dark-mode HTML report)
+- history\index.json (trend tracking)
+
+---
+
+## DR Scoring Model
+
+Score categories include:
+- Storage configuration
+- Stateful workload detection
+- Namespace structure
+- Cluster topology
+- Expandability / recovery risk
+
+Final Score Output:
+- PLATINUM
+- GOLD
+- SILVER
+- BRONZE
+
+Trend tracking compares current run to previous scans.
+
+---
 
 ## Quick Start
-1) Run scan (required):
+
+### 1. Run Cluster Scan
 
     .\scan.exe -out (Resolve-Path .\out).Path
 
-2) Run report post-processing (trend + normalize + dark theme):
+This refreshes:
+- recovery-scan.json
+- recovery-enriched.json
+
+---
+
+### 2. Run Report Pipeline
 
     $repoRoot = (Resolve-Path ".").Path
     $outDir   = (Resolve-Path ".\out").Path
@@ -27,13 +78,50 @@ Generated under .\out:
     & `"$repoRoot\scripts\report\Apply-DarkTheme.ps1`" -OutDir `"$outDir`"
     "@
 
-3) Open report:
+---
+
+### 3. Open Report
 
     Start-Process .\out\recovery-report.html
 
+---
+
 ## Important
+
 The report pipeline does NOT scan Kubernetes.
-If the report looks stale, check timestamps:
+Always run scan.exe first for fresh data.
+
+To verify freshness:
 
     Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\recovery-report.html |
       Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
+
+---
+
+## Use Cases
+
+- Pre-migration DR assessment
+- Customer environment intake validation
+- DRaaS readiness scoring
+- Kubernetes risk profiling
+- Repeatable DR maturity measurement
+
+---
+
+## Design Principles
+
+- Idempotent execution
+- Stable HTML normalization
+- Deterministic scoring
+- Dark-mode consistent rendering
+- Repeatable historical trend tracking
+
+---
+
+## Future Enhancements
+
+- Multi-cluster comparison
+- Exportable executive summary
+- Storage-class DR mapping validation
+- Restore simulation scoring
+- Customer-safe redacted export mode
