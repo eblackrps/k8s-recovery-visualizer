@@ -23,11 +23,23 @@ function Check-Command([string]$name) {
 }
 
 function Ensure-Dir([string]$p) {
+    if (-not $p) { throw "Ensure-Dir called with null/empty path." }
     if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p | Out-Null }
 }
 
+function Try-Kubectl([string]$args) {
+    $tmp = New-TemporaryFile
+    try {
+        $out = & kubectl ($args -split '\s+') 2> $tmp.FullName
+        $err = Get-Content $tmp.FullName -Raw -ErrorAction SilentlyContinue
+        [pscustomobject]@{ Out=$out; Err=$err; Code=$LASTEXITCODE }
+    } finally {
+        Remove-Item $tmp.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
 try {
-    # Always run from the folder containing this script/EXE
+    # Always run from the folder containing this script (or compiled EXE directory when wrapped)
     if ($PSScriptRoot) { Set-Location $PSScriptRoot }
 
     Say "K8s Recovery Visualizer - DR Scan Launcher" Cyan
@@ -36,19 +48,26 @@ try {
     if (-not (Check-Command "pwsh"))   { Fail "PowerShell 7 (pwsh) is required in PATH." 2 }
     if (-not (Check-Command "kubectl")) { Fail "kubectl is required in PATH." 2 }
 
-    # Basic kubectl health checks
+    # Cluster connectivity
     $ctx = (& kubectl config current-context 2>$null | Out-String).Trim()
     if (-not $ctx) { Fail "kubectl has no current context. Configure kubeconfig first." 3 }
     Say "Context: $ctx" Green
 
-    & kubectl get nodes 1>$null 2>$null
-    if ($LASTEXITCODE -ne 0) { Fail "Cannot reach cluster with current context (kubectl get nodes failed)." 3 }
+    $nodes = Try-Kubectl "get nodes"
+    if ($nodes.Code -ne 0) { Fail ("Cannot reach cluster (kubectl get nodes failed). " + $nodes.Err) 3 }
 
-    # Timestamped output directory
+    # Detect cluster name (prefer current-context)
+    $clusterName = $ctx
+    if (-not $clusterName) { $clusterName = "unknown-cluster" }
+
+    # Sanitize name for filesystem
+    $clusterName = $clusterName -replace '[^a-zA-Z0-9\-]', '_'
+
+    # Output directory: .\out\<cluster>-YYYYMMDD-HHMMSS
     $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
     Ensure-Dir $OutRoot
 
-    $outDir = Join-Path $OutRoot ("drscan-" + $stamp)
+    $outDir = Join-Path $OutRoot ($clusterName + "-" + $stamp)
     Ensure-Dir $outDir
 
     $runner = Join-Path (Get-Location) "Invoke-DrScan.ps1"
