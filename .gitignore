@@ -1,22 +1,97 @@
-﻿# Output / runs
-out/
-out-*/
-outTest-Path/
-outGet-Content/
+﻿########################################################
+# k8s-recovery-visualizer - Professional .gitignore
+########################################################
 
-# Backups created by scripts/tools
-*.bak
-*.bak.*
-*.bak.*.*
+##############################
+# Runtime Output
+##############################
 
-# Windows binaries
+/out/
+/dist/
+history/
+*.zip
 *.exe
-tools/kubectl.exe
 
-# Local scripts (commit only if you want them versioned)
-# build.ps1
-# scan.ps1
-# test-engine.ps1
+##############################
+# Generated Reports
+##############################
 
-# Scratch / experiments
-src/
+*.html
+*.md
+*.log
+*.txt
+
+*report*.json
+*-readiness.json
+*-score.json
+*-report.json
+*-trend.json
+
+##############################
+# PowerShell Transient
+##############################
+
+*.ps1xml
+*.psd1xml
+*.psm1xml
+
+##############################
+# VS Code
+##############################
+
+.vscode/
+.history/
+
+##############################
+# OS Junk
+##############################
+
+Thumbs.db
+desktop.ini
+.DS_Store
+
+##############################
+# Temp Files
+##############################
+
+*.tmp
+*.bak
+*.old
+
+##############################
+# Go (legacy from earlier version)
+##############################
+
+/bin/
+/scan
+/scan.exe
+go.sum
+go.mod
+
+##############################
+# Logs Anywhere
+##############################
+
+**/*.log
+
+##############################
+# Archives Anywhere
+##############################
+
+**/*.zip
+
+##############################
+# EXE Build Artifacts
+##############################
+
+/build/
+/release/
+*.pdb
+
+########################################################
+# Keep source scripts
+########################################################
+
+!*.ps1
+!*.psm1
+!*.psd1
