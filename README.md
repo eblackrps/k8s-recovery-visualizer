@@ -1,61 +1,39 @@
-﻿# k8s-recovery-visualizer
+# k8s-recovery-visualizer
 
-Enterprise Kubernetes Disaster Recovery Assessment Toolkit (PowerShell Edition)
+Kubernetes Disaster Recovery scoring and readiness analysis tool.
 
----
-
-## Overview
-
-k8s-recovery-visualizer is a modular PowerShell-based assessment tool designed to:
-
-- Inventory Kubernetes workloads
-- Evaluate storage resilience
-- Detect backup readiness
-- Assess network DR viability
-- Evaluate portability constraints
-- Generate a unified DR viability report
-- Track historical scoring trends
-
-The tool produces JSON, Markdown, and HTML outputs suitable for internal engineering review or customer-facing deliverables.
-
----
-
-## Architecture
-
-Pipeline Flow:
-
-Collect → Score → Merge → Render → (Optional History Update)
-
-Core Modules:
-
-- Collect-Workloads.ps1
-- Score-Storage.ps1
-- Detect-BackupReadiness.ps1
-- Assess-NetworkReadiness.ps1
-- Assess-Portability.ps1
-- Build-DrReport.ps1
-- Render-DrReport.ps1
-- Invoke-DrScan.ps1
-
-Optional:
-- Update-History.ps1
-- Build-Dist.ps1
-- Build-Exe.ps1
-
----
-
-## Requirements
-
-- PowerShell 7+
-- kubectl installed and configured
-- Active kubeconfig context
-- Read access to cluster resources
-
----
+## Outputs
+Generated under .\out:
+- recovery-scan.json
+- recovery-enriched.json
+- recovery-report.md
+- recovery-report.html
+- history\index.json
 
 ## Quick Start
+1) Run scan (required):
 
-Run full scan:
+    .\scan.exe -out (Resolve-Path .\out).Path
 
-```powershell
-pwsh -ExecutionPolicy Bypass -File .\Invoke-DrScan.ps1 -OutDir .\out
+2) Run report post-processing (trend + normalize + dark theme):
+
+    $repoRoot = (Resolve-Path ".").Path
+    $outDir   = (Resolve-Path ".\out").Path
+
+    pwsh -NoProfile -ExecutionPolicy Bypass -Command @"
+    . `"$repoRoot\scripts\report\Bootstrap-ReportLib.ps1`"
+    & `"$repoRoot\scripts\report\Append-Trend-To-Reports.ps1`" -OutDir `"$outDir`" -Window 10
+    & `"$repoRoot\scripts\report\Normalize-ReportHtml.ps1`" -OutDir `"$outDir`"
+    & `"$repoRoot\scripts\report\Apply-DarkTheme.ps1`" -OutDir `"$outDir`"
+    "@
+
+3) Open report:
+
+    Start-Process .\out\recovery-report.html
+
+## Important
+The report pipeline does NOT scan Kubernetes.
+If the report looks stale, check timestamps:
+
+    Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\recovery-report.html |
+      Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
