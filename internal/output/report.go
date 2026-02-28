@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/profile"
 )
 
 // WriteReport writes the full tabbed dark-mode HTML report to path.
@@ -41,6 +42,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	scopeLabel := "all namespaces"
 	if len(b.ScanNamespaces) > 0 {
 		scopeLabel = strings.Join(b.ScanNamespaces, ", ")
+	}
+	activeProfile := b.Profile
+	if activeProfile == "" {
+		activeProfile = "standard"
 	}
 
 	w(`<!DOCTYPE html><html lang="en"><head>
@@ -108,12 +113,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// Header
 	wf(`<div class="hdr"><div><h1>K8s DR Recovery Report</h1>
-<div class="hdr-meta">Cluster: %s &nbsp;|&nbsp; Platform: %s &nbsp;|&nbsp; Scope: %s &nbsp;|&nbsp; %s</div></div>
+<div class="hdr-meta">Cluster: %s &nbsp;|&nbsp; Platform: %s &nbsp;|&nbsp; Scope: %s &nbsp;|&nbsp; Profile: <strong style="color:#c9d1d9">%s</strong> &nbsp;|&nbsp; %s</div></div>
 <div style="margin-left:auto;text-align:right">
 <div class="badge" style="color:%s;border-color:%s;font-size:1.1em">%s</div>
 <div style="color:#8b949e;font-size:.83em;margin-top:3px">Score: <strong style="color:#f0f6fc">%d / 100</strong></div>
 </div></div>`,
-		e(b.Metadata.ClusterName), e(platform), e(scopeLabel), e(b.Metadata.GeneratedAt),
+		e(b.Metadata.ClusterName), e(platform), e(scopeLabel), e(activeProfile), e(b.Metadata.GeneratedAt),
 		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
 
 	// Tab bar — add Compare tab only when comparison data is present
@@ -678,6 +683,41 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			e(d.n), c, d.s, e(d.w))
 	}
 	w(`</tbody></table>`)
+
+	// Profile weights card
+	p := profile.Normalize(b.Profile)
+	pWeights := profile.Weights(p)
+	type wRow struct{ label, key string }
+	wRows := []wRow{
+		{"Restore Testing", "restoreTesting"},
+		{"Immutability", "immutability"},
+		{"Replication / Offsite", "replication"},
+		{"Security", "security"},
+		{"Airgap Restrictions", "airgap"},
+	}
+	w(`<div class="card" style="margin-top:16px"><h2>Active Scoring Profile: `)
+	wf(`<span style="color:#58a6ff">%s</span></h2>`, e(activeProfile))
+	hasCustom := len(pWeights) > 0
+	if !hasCustom {
+		w(`<p style="color:#8b949e;font-size:.86em">Standard profile — all domain weights at baseline (1.0×). Use <code>--profile enterprise|dev|airgap</code> to adjust penalty emphasis.</p>`)
+	} else {
+		w(`<p style="color:#8b949e;font-size:.86em;margin-bottom:8px">Penalty multipliers applied to relevant scoring rules:</p>`)
+		w(`<table style="width:auto"><thead><tr><th>Category</th><th>Multiplier</th><th>Effect</th></tr></thead><tbody>`)
+		for _, r := range wRows {
+			if mul, ok := pWeights[r.key]; ok {
+				effect := "increased penalty"
+				effectColor := "#ffa657"
+				if mul < 1.0 {
+					effect = "reduced penalty"
+					effectColor = "#7ee787"
+				}
+				wf(`<tr><td>%s</td><td style="color:#f0f6fc;font-weight:700">%.2f×</td><td style="color:%s">%s</td></tr>`,
+					e(r.label), mul, effectColor, effect)
+			}
+		}
+		w(`</tbody></table>`)
+	}
+	w(`</div>`)
 
 	w(`<h2 style="margin-top:20px">Findings</h2>`)
 	if len(b.Inventory.Findings) == 0 {

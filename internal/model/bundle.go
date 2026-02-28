@@ -13,6 +13,8 @@ type Bundle struct {
 	Score         Score            `json:"score"`
 	// Target is the declared recovery destination: "baremetal" or "vm"
 	Target        string           `json:"target,omitempty"`
+	// Profile is the scoring profile used for this scan: standard|enterprise|dev|airgap
+	Profile       string           `json:"profile,omitempty"`
 	// CollectorSkips records collectors that were skipped due to RBAC or missing APIs.
 	CollectorSkips []CollectorSkip `json:"collectorSkips,omitempty"`
 	// ScanNamespaces restricts the scan to specific namespaces. Empty = all namespaces.
@@ -202,12 +204,12 @@ func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
 		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "0.4.0",
+			ToolVersion: "0.6.0",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "0.4.0",
+			Version:   "0.6.0",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{

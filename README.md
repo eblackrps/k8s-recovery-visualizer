@@ -49,6 +49,29 @@ Scoring covers four weighted domains:
 
 **Maturity levels:** PLATINUM (≥90) · GOLD (≥75) · SILVER (≥50) · BRONZE (<50)
 
+### Scoring Profiles
+
+Use `--profile` to shift penalty emphasis without changing the base domain weights. Each profile multiplies specific penalty constants to reflect what matters most for that environment:
+
+| Profile | Use Case | Elevated | Relaxed |
+|---------|----------|----------|---------|
+| `standard` | General-purpose assessment | — (baseline) | — |
+| `enterprise` | Production SLA / regulated workloads | Restore testing (1.5×), Immutability (1.3×), Replication (1.2×), Security (1.2×) | — |
+| `dev` | Development / staging clusters | — | Restore testing (0.9×), Immutability (0.9×) |
+| `airgap` | Air-gapped or disconnected DR sites | Immutability (1.6×), Airgap restrictions (1.6×), Security (1.3×), Restore testing (1.2×) | — |
+
+Profile multipliers apply to the following scoring rules:
+
+| Profile Key | Scaling Applied To |
+|-------------|-------------------|
+| `restoreTesting` | `RESTORE_SIM_UNCOVERED`, `BACKUP_NO_POLICIES` |
+| `immutability` | `PV_HOSTPATH`, `PV_DELETE_POLICY` |
+| `replication` | `BACKUP_NO_OFFSITE` |
+| `security` | `CERT_EXPIRING_SOON` |
+| `airgap` | `IMAGE_EXTERNAL_REGISTRY` |
+
+The active profile and its multipliers are shown in the **DR Score** tab of the HTML report.
+
 ### Backup/Recovery Scoring Rules
 
 | Finding ID | Severity | Penalty | Condition |
@@ -161,6 +184,12 @@ go build -o scan.exe ./cmd/scan
 # CI mode (exit code 2 if score below threshold)
 ./scan --ci --min-score=75 --out ./out
 
+# Enterprise profile — elevated weight on restore testing and immutability
+./scan --profile=enterprise --out ./out
+
+# Airgap profile — elevated weight on image registry isolation and immutability
+./scan --profile=airgap --out ./out
+
 # Write a redacted JSON copy (no secret values)
 ./scan --redact --out ./out
 
@@ -199,6 +228,7 @@ start .\out\recovery-report.html
 | `--kubeconfig` | `""` | Path to kubeconfig (uses in-cluster config if empty) |
 | `--out` | `./out` | Output directory |
 | `--target` | `vm` | Recovery target: `baremetal` or `vm` |
+| `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, or `airgap` |
 | `--namespace` | `""` | Comma-separated namespaces to scan (empty = all namespaces) |
 | `--compare` | `""` | Path to a previous `recovery-scan.json` to diff against |
 | `--csv` | `false` | Write CSV exports to `out/csv/` |
