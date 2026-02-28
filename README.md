@@ -102,6 +102,7 @@ out/
 ├── recovery-scan.json          # Full cluster inventory + scores + findings
 ├── recovery-enriched.json      # Enriched DR analysis with trend + risk
 ├── recovery-report.md          # Markdown summary
+├── recovery-runbook.html       # (--runbook) Customer-facing DR runbook, print-ready
 ├── recovery-report.html        # Self-contained dark-mode tabbed HTML report
 ├── history/
 │   └── index.json              # Trend history across scans
@@ -190,6 +191,9 @@ go build -o scan.exe ./cmd/scan
 # Airgap profile — elevated weight on image registry isolation and immutability
 ./scan --profile=airgap --out ./out
 
+# Write a customer-facing DR runbook (print-ready HTML)
+./scan --runbook --out ./out
+
 # Write a redacted JSON copy (no secret values)
 ./scan --redact --out ./out
 
@@ -229,6 +233,7 @@ start .\out\recovery-report.html
 | `--out` | `./out` | Output directory |
 | `--target` | `vm` | Recovery target: `baremetal` or `vm` |
 | `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, or `airgap` |
+| `--runbook` | `false` | Write a customer-facing DR runbook HTML (`recovery-runbook.html`) |
 | `--namespace` | `""` | Comma-separated namespaces to scan (empty = all namespaces) |
 | `--compare` | `""` | Path to a previous `recovery-scan.json` to diff against |
 | `--csv` | `false` | Write CSV exports to `out/csv/` |
