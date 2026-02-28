@@ -14,6 +14,7 @@ import (
 	"k8s-recovery-visualizer/internal/analyze"
 	"k8s-recovery-visualizer/internal/backup"
 	"k8s-recovery-visualizer/internal/collect"
+	"k8s-recovery-visualizer/internal/compare"
 	"k8s-recovery-visualizer/internal/enrich"
 	"k8s-recovery-visualizer/internal/history"
 	"k8s-recovery-visualizer/internal/kube"
@@ -37,6 +38,7 @@ func main() {
 		target     = flag.String("target", "vm", "Recovery target type: baremetal or vm")
 		csvExport  = flag.Bool("csv", false, "Also write CSV exports alongside HTML report")
 		namespace  = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
+		compareTo  = flag.String("compare", "", "Path to a previous recovery-scan.json to diff against")
 	)
 	flag.Parse()
 
@@ -73,6 +75,7 @@ func main() {
 		}
 		analyze.Evaluate(&bundle)
 		bundle.Inventory.RemediationSteps = remediation.Generate(&bundle, *target)
+		applyComparison(&bundle, *compareTo)
 		trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport)
 		if *ci {
 			printCISummary(&bundle, *minScore, trendLabel, trendDelta)
@@ -148,6 +151,9 @@ func main() {
 	// ── Scoring + remediation ───────────────────────────────────────────────
 	analyze.Evaluate(&bundle)
 	bundle.Inventory.RemediationSteps = remediation.Generate(&bundle, *target)
+
+	// ── Comparison (--compare) ───────────────────────────────────────────────
+	applyComparison(&bundle, *compareTo)
 
 	// ── Write outputs ───────────────────────────────────────────────────────
 	trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport)
@@ -251,6 +257,33 @@ func printCISummary(b *model.Bundle, minScore int, trendLabel string, trendDelta
 	raw, _ := json.Marshal(summary)
 	fmt.Println()
 	fmt.Println(string(raw))
+}
+
+// applyComparison loads a previous scan and attaches diff to bundle.
+func applyComparison(bundle *model.Bundle, compareTo string) {
+	if compareTo == "" {
+		return
+	}
+	prev, err := loadBundle(compareTo)
+	if err != nil {
+		log.Printf("compare: failed to load %s: %v (skipping)", compareTo, err)
+		return
+	}
+	diff := compare.Diff(prev, bundle)
+	bundle.Comparison = &diff
+}
+
+// loadBundle reads and decodes a recovery-scan.json file.
+func loadBundle(path string) (*model.Bundle, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var b model.Bundle
+	if err := json.Unmarshal(data, &b); err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 // tryCollect records a collector skip when err != nil.

@@ -17,6 +17,35 @@ type Bundle struct {
 	CollectorSkips []CollectorSkip `json:"collectorSkips,omitempty"`
 	// ScanNamespaces restricts the scan to specific namespaces. Empty = all namespaces.
 	ScanNamespaces []string `json:"scanNamespaces,omitempty"`
+	// Comparison holds the diff against a previous scan when --compare is used.
+	Comparison *ComparisonSummary `json:"comparison,omitempty"`
+}
+
+// ComparisonSummary is a lightweight reference stored in the bundle.
+// The full diff lives in internal/compare but we embed a summary here
+// so the report generator can access it without a circular import.
+type ComparisonSummary struct {
+	PreviousScanID    string `json:"previousScanId"`
+	PreviousScannedAt string `json:"previousScannedAt"`
+	PreviousScore     int    `json:"previousScore"`
+	PreviousMaturity  string `json:"previousMaturity"`
+	ScoreDelta        int    `json:"scoreDelta"`
+
+	NamespacesAdded   []string `json:"namespacesAdded,omitempty"`
+	NamespacesRemoved []string `json:"namespacesRemoved,omitempty"`
+	WorkloadsAdded    []string `json:"workloadsAdded,omitempty"`
+	WorkloadsRemoved  []string `json:"workloadsRemoved,omitempty"`
+	PVCsAdded         []string `json:"pvcsAdded,omitempty"`
+	PVCsRemoved       []string `json:"pvcsRemoved,omitempty"`
+	ImagesAdded       []string `json:"imagesAdded,omitempty"`
+	ImagesRemoved     []string `json:"imagesRemoved,omitempty"`
+
+	BackupToolPrevious string `json:"backupToolPrevious"`
+	BackupToolCurrent  string `json:"backupToolCurrent"`
+	BackupToolChanged  bool   `json:"backupToolChanged"`
+
+	FindingsNew      []Finding `json:"findingsNew,omitempty"`
+	FindingsResolved []Finding `json:"findingsResolved,omitempty"`
 }
 
 // CollectorSkip records a collector that was skipped during the scan.
