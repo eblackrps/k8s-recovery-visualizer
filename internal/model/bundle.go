@@ -3,16 +3,25 @@ package model
 import "time"
 
 type Bundle struct {
-	Checks        []Check   `json:"checks,omitempty"`
-	SchemaVersion string    `json:"schemaVersion"`
-	Metadata      Metadata  `json:"metadata"`
-	Tool          Tool      `json:"tool"`
-	Scan          Scan      `json:"scan"`
-	Cluster       Cluster   `json:"cluster"`
-	Inventory     Inventory `json:"inventory"`
-	Score         Score     `json:"score"`
+	Checks        []Check          `json:"checks,omitempty"`
+	SchemaVersion string           `json:"schemaVersion"`
+	Metadata      Metadata         `json:"metadata"`
+	Tool          Tool             `json:"tool"`
+	Scan          Scan             `json:"scan"`
+	Cluster       Cluster          `json:"cluster"`
+	Inventory     Inventory        `json:"inventory"`
+	Score         Score            `json:"score"`
 	// Target is the declared recovery destination: "baremetal" or "vm"
-	Target string `json:"target,omitempty"`
+	Target        string           `json:"target,omitempty"`
+	// CollectorSkips records collectors that were skipped due to RBAC or missing APIs.
+	CollectorSkips []CollectorSkip `json:"collectorSkips,omitempty"`
+}
+
+// CollectorSkip records a collector that was skipped during the scan.
+type CollectorSkip struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+	RBAC   bool   `json:"rbac"` // true when error appears to be a permissions/forbidden error
 }
 
 type Metadata struct {

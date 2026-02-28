@@ -56,7 +56,10 @@ h3{color:#c9d1d9;font-size:.92em;margin:14px 0 6px}
 .tab:hover{color:#c9d1d9}.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
 .pane{display:none;padding:20px}.pane.active{display:block}
 table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.86em}
-th{background:#161b22;color:#8b949e;text-align:left;padding:7px 9px;border-bottom:1px solid #30363d;white-space:nowrap}
+th{background:#161b22;color:#8b949e;text-align:left;padding:7px 9px;border-bottom:1px solid #30363d;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:#c9d1d9}
+th.asc::after{content:" \2191";color:#58a6ff}
+th.desc::after{content:" \2193";color:#58a6ff}
 td{padding:6px 9px;border-bottom:1px solid #21262d;vertical-align:top;word-break:break-word}
 tr:hover td{background:#161b22}
 .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:14px;margin-bottom:14px}
@@ -85,6 +88,17 @@ tr:hover td{background:#161b22}
 pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;overflow-x:auto;font-size:.8em;color:#7ee787;margin-top:7px;white-space:pre-wrap}
 .note{background:#1f2d1f;border-left:3px solid #7ee787;padding:7px 10px;margin-top:7px;font-size:.84em;border-radius:0 4px 4px 0}
 .empty{color:#8b949e;font-style:italic;padding:10px 0}
+.filter-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.filter-bar span{color:#8b949e;font-size:.82em;margin-right:4px}
+.fbtn{padding:3px 10px;border-radius:10px;font-size:.78em;cursor:pointer;border:1px solid #30363d;background:#161b22;color:#8b949e}
+.fbtn:hover{border-color:#58a6ff;color:#58a6ff}
+.fbtn.active{background:#1f3a5f;border-color:#58a6ff;color:#58a6ff}
+.fbtn.fc{border-color:#f85149;color:#f85149}.fbtn.fc.active{background:#3d1f1f}
+.fbtn.fh{border-color:#ffa657;color:#ffa657}.fbtn.fh.active{background:#3d2400}
+.fbtn.fm{border-color:#f2cc60;color:#f2cc60}.fbtn.fm.active{background:#3d3000}
+.rem-controls{display:flex;gap:8px;margin-bottom:12px}
+.btn-sm{padding:4px 12px;border-radius:4px;font-size:.82em;cursor:pointer;border:1px solid #30363d;background:#161b22;color:#8b949e}
+.btn-sm:hover{border-color:#58a6ff;color:#58a6ff}
 </style></head><body>
 `)
 
@@ -165,6 +179,46 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <span class="chip n">MEDIUM: %d</span>
 <p style="margin-top:10px;color:#8b949e;font-size:.86em">Full findings → <strong>DR Score</strong> tab. Action steps → <strong>Remediation</strong> tab.</p>
 </div>`, crit, high, med)
+
+	// Scan coverage / skipped collectors callout
+	totalCollectors := 24 // total number of optional collectors attempted
+	skipped := len(b.CollectorSkips)
+	rbacSkips := 0
+	for _, sk := range b.CollectorSkips {
+		if sk.RBAC {
+			rbacSkips++
+		}
+	}
+	if skipped > 0 {
+		w(`<div class="card" style="border-color:#f2cc60">`)
+		wf(`<h2 style="color:#f2cc60">Scan Coverage — %d/%d collectors skipped</h2>`, skipped, totalCollectors)
+		if rbacSkips > 0 {
+			wf(`<p style="color:#8b949e;font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
+		}
+		w(`<table style="margin-top:4px"><thead><tr>`)
+		for _, h := range []string{"Collector", "Reason", "RBAC?"} {
+			wf(`<th>%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, sk := range b.CollectorSkips {
+			rbacCell := `<span class="bad">✗ No</span>`
+			if sk.RBAC {
+				rbacCell = `<span style="color:#f2cc60">⚠ Yes</span>`
+			}
+			// Truncate long reasons for display
+			reason := sk.Reason
+			if len(reason) > 120 {
+				reason = reason[:117] + "..."
+			}
+			wf(`<tr><td>%s</td><td style="color:#8b949e;font-size:.84em">%s</td><td>%s</td></tr>`,
+				e(sk.Name), e(reason), rbacCell)
+		}
+		w(`</tbody></table></div>`)
+	} else {
+		wf(`<div class="card" style="border-color:#30363d"><h2>Scan Coverage</h2>
+<p style="color:#7ee787;font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
+	}
+
 	w(`</div>`) // p0
 
 	// ── Tab 1: Nodes ─────────────────────────────────────────────────────────
@@ -172,7 +226,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.Nodes) == 0 {
 		w(`<div class="empty">No node data collected.</div>`)
 	} else {
-		w(`<table><thead><tr><th>Name</th><th>Roles</th><th>Ready</th><th>OS</th><th>Kernel</th><th>Runtime</th><th>Kubelet</th><th>Internal IP</th><th>Taints</th></tr></thead><tbody>`)
+		w(`<table id="t-nodes"><thead><tr>`)
+		for _, h := range []string{"Name", "Roles", "Ready", "OS", "Kernel", "Runtime", "Kubelet", "Internal IP", "Taints"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, n := range b.Inventory.Nodes {
 			rdStr := `<span class="bad">✗</span>`
 			if n.Ready {
@@ -189,7 +247,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 2: Workloads ─────────────────────────────────────────────────────
 	w(`<div class="pane" id="p2"><h2>Workloads</h2>`)
-	w(`<table><thead><tr><th>Type</th><th>Namespace</th><th>Name</th><th>Replicas</th><th>Ready/Status</th><th>Images</th></tr></thead><tbody>`)
+	w(`<table id="t-workloads"><thead><tr>`)
+	for _, h := range []string{"Type", "Namespace", "Name", "Replicas", "Ready/Status", "Images"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, d := range b.Inventory.Deployments {
 		wf(`<tr><td>Deployment</td><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>`,
 			e(d.Namespace), e(d.Name), d.Replicas, d.Ready, e(strings.Join(d.Images, ", ")))
@@ -226,7 +288,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	for _, pv := range b.Inventory.PVs {
 		pvMap[pv.ClaimRef] = pv
 	}
-	w(`<h3>PersistentVolumeClaims</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>StorageClass</th><th>Access</th><th>Size</th><th>DR Risk</th></tr></thead><tbody>`)
+	w(`<h3>PersistentVolumeClaims</h3><table id="t-pvcs"><thead><tr>`)
+	for _, h := range []string{"Namespace", "Name", "StorageClass", "Access", "Size", "DR Risk"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, pvc := range b.Inventory.PVCs {
 		key := pvc.Namespace + "/" + pvc.Name
 		risk := `<span class="ok">Low</span>`
@@ -243,13 +309,21 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			e(strings.Join(pvc.AccessModes, ",")), e(pvc.RequestedSize), risk)
 	}
 	w(`</tbody></table>`)
-	w(`<h3>PersistentVolumes</h3><table><thead><tr><th>Name</th><th>StorageClass</th><th>Capacity</th><th>Backend</th><th>Reclaim</th><th>Bound To</th></tr></thead><tbody>`)
+	w(`<h3>PersistentVolumes</h3><table id="t-pvs"><thead><tr>`)
+	for _, h := range []string{"Name", "StorageClass", "Capacity", "Backend", "Reclaim", "Bound To"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, pv := range b.Inventory.PVs {
 		wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 			e(pv.Name), e(pv.StorageClass), e(pv.Capacity), e(pv.Backend), e(pv.ReclaimPolicy), e(pv.ClaimRef))
 	}
 	w(`</tbody></table>`)
-	w(`<h3>StorageClasses</h3><table><thead><tr><th>Name</th><th>Provisioner</th><th>Reclaim</th><th>Binding Mode</th><th>Expandable</th></tr></thead><tbody>`)
+	w(`<h3>StorageClasses</h3><table id="t-sc"><thead><tr>`)
+	for _, h := range []string{"Name", "Provisioner", "Reclaim", "Binding Mode", "Expandable"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, sc := range b.Inventory.StorageClasses {
 		exp := "–"
 		if sc.AllowVolumeExpansion != nil {
@@ -266,13 +340,21 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 4: Networking ────────────────────────────────────────────────────
 	w(`<div class="pane" id="p4"><h2>Networking</h2>`)
-	w(`<h3>Services</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>Type</th><th>Cluster IP</th><th>External IP</th></tr></thead><tbody>`)
+	w(`<h3>Services</h3><table id="t-svc"><thead><tr>`)
+	for _, h := range []string{"Namespace", "Name", "Type", "Cluster IP", "External IP"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, svc := range b.Inventory.Services {
 		wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 			e(svc.Namespace), e(svc.Name), e(svc.Type), e(svc.ClusterIP), e(svc.ExternalIP))
 	}
 	w(`</tbody></table>`)
-	w(`<h3>Ingresses</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>Class</th><th>TLS</th><th>Rules</th></tr></thead><tbody>`)
+	w(`<h3>Ingresses</h3><table id="t-ing"><thead><tr>`)
+	for _, h := range []string{"Namespace", "Name", "Class", "TLS", "Rules"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, ing := range b.Inventory.Ingresses {
 		tls := "–"
 		if ing.TLS {
@@ -286,7 +368,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			e(ing.Namespace), e(ing.Name), e(ing.ClassName), e(tls), e(strings.Join(rules, "; ")))
 	}
 	w(`</tbody></table>`)
-	w(`<h3>NetworkPolicies</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>Pod Selector</th><th>Ingress</th><th>Egress</th></tr></thead><tbody>`)
+	w(`<h3>NetworkPolicies</h3><table id="t-np"><thead><tr>`)
+	for _, h := range []string{"Namespace", "Name", "Pod Selector", "Ingress", "Egress"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, np := range b.Inventory.NetworkPolicies {
 		hasI, hasE := "–", "–"
 		if np.HasIngress {
@@ -306,7 +392,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.HelmReleases) == 0 {
 		w(`<div class="empty">No Helm releases detected.</div>`)
 	} else {
-		w(`<table><thead><tr><th>Namespace</th><th>Release</th><th>Chart</th><th>Version</th><th>Status</th></tr></thead><tbody>`)
+		w(`<table id="t-helm"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Release", "Chart", "Version", "Status"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, hr := range b.Inventory.HelmReleases {
 			sc := "#8b949e"
 			if hr.Status == "deployed" {
@@ -323,7 +413,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.Certificates) == 0 {
 		w(`<div class="empty">No cert-manager certificates detected.</div>`)
 	} else {
-		w(`<table><thead><tr><th>Namespace</th><th>Name</th><th>Issuer</th><th>Ready</th><th>Expires</th><th>Days Left</th></tr></thead><tbody>`)
+		w(`<table id="t-certs"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Name", "Issuer", "Ready", "Expires", "Days Left"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, c := range b.Inventory.Certificates {
 			rdStr := `<span class="ok">✓</span>`
 			if !c.Ready {
@@ -344,14 +438,17 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.CRDs) == 0 {
 		w(`<div class="empty">No custom API groups detected.</div>`)
 	} else {
-		w(`<table><thead><tr><th>Group</th><th>Versions</th><th>Scope</th></tr></thead><tbody>`)
+		w(`<table id="t-crds"><thead><tr>`)
+		for _, h := range []string{"Group", "Versions", "Scope"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, crd := range b.Inventory.CRDs {
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td></tr>`,
 				e(crd.Group), e(strings.Join(crd.Versions, ",")), e(crd.Scope))
 		}
 		w(`</tbody></table>`)
 	}
-	// ConfigMaps/Secrets by namespace
 	type nsCS struct{ cm, sec int }
 	nsCounts := map[string]*nsCS{}
 	for _, cm := range b.Inventory.ConfigMaps {
@@ -367,14 +464,22 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		nsCounts[s.Namespace].sec++
 	}
 	if len(nsCounts) > 0 {
-		w(`<h3>ConfigMaps &amp; Secrets by Namespace</h3><table><thead><tr><th>Namespace</th><th>ConfigMaps</th><th>Secrets</th></tr></thead><tbody>`)
+		w(`<h3>ConfigMaps &amp; Secrets by Namespace</h3><table id="t-cms"><thead><tr>`)
+		for _, h := range []string{"Namespace", "ConfigMaps", "Secrets"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for ns, c := range nsCounts {
 			wf(`<tr><td>%s</td><td>%d</td><td>%d</td></tr>`, e(ns), c.cm, c.sec)
 		}
 		w(`</tbody></table>`)
 	}
 	if len(b.Inventory.ResourceQuotas) > 0 {
-		w(`<h3>Resource Quotas</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>Resource</th><th>Hard</th><th>Used</th></tr></thead><tbody>`)
+		w(`<h3>Resource Quotas</h3><table id="t-rq"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Name", "Resource", "Hard", "Used"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, rq := range b.Inventory.ResourceQuotas {
 			for _, item := range rq.Items {
 				wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
@@ -390,7 +495,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.Images) == 0 {
 		w(`<div class="empty">No image data collected (run against a live cluster with workloads).</div>`)
 	} else {
-		w(`<table><thead><tr><th>Image</th><th>Registry</th><th>Type</th><th>Used By</th></tr></thead><tbody>`)
+		w(`<table id="t-images"><thead><tr>`)
+		for _, h := range []string{"Image", "Registry", "Type", "Used By"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
 		for _, img := range b.Inventory.Images {
 			cls, lbl := "prv", "private"
 			if img.IsPublic {
@@ -405,7 +514,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 7: DR Score ──────────────────────────────────────────────────────
 	w(`<div class="pane" id="p7"><h2>DR Score Breakdown</h2>`)
-	w(`<table><thead><tr><th>Domain</th><th>Score</th><th>Max</th><th>Weight</th></tr></thead><tbody>`)
+	w(`<table id="t-score"><thead><tr>`)
+	for _, h := range []string{"Domain", "Score", "Max", "Weight"} {
+		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+	}
+	w(`</tr></thead><tbody>`)
 	for _, d := range []struct {
 		n string
 		s int
@@ -426,14 +539,30 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		wf(`<tr><td>%s</td><td style="color:%s;font-weight:700">%d</td><td>100</td><td>%s</td></tr>`,
 			e(d.n), c, d.s, e(d.w))
 	}
-	w(`</tbody></table><h2>Findings</h2>`)
+	w(`</tbody></table>`)
+
+	w(`<h2 style="margin-top:20px">Findings</h2>`)
 	if len(b.Inventory.Findings) == 0 {
 		w(`<div class="empty">No findings.</div>`)
 	} else {
-		w(`<table><thead><tr><th>Severity</th><th>Resource</th><th>Finding</th><th>Recommendation</th></tr></thead><tbody>`)
+		// Severity filter bar
+		w(`<div class="filter-bar">
+<span>Filter:</span>
+<button class="fbtn active" data-sev="ALL" onclick="filterSev(this)">All</button>
+<button class="fbtn fc" data-sev="CRITICAL" onclick="filterSev(this)">Critical</button>
+<button class="fbtn fh" data-sev="HIGH" onclick="filterSev(this)">High</button>
+<button class="fbtn fm" data-sev="MEDIUM" onclick="filterSev(this)">Medium</button>
+<button class="fbtn" data-sev="LOW" onclick="filterSev(this)">Low</button>
+<button class="fbtn" data-sev="INFO" onclick="filterSev(this)">Info</button>
+</div>`)
+		w(`<table id="t-findings"><thead><tr>`)
+		for _, h := range []string{"Severity", "Resource", "Finding", "Recommendation"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody id="findings-tbody">`)
 		for _, f := range b.Inventory.Findings {
-			wf(`<tr><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message), e(f.Recommendation))
+			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message), e(f.Recommendation))
 		}
 		w(`</tbody></table>`)
 	}
@@ -444,6 +573,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if len(b.Inventory.RemediationSteps) == 0 {
 		w(`<div class="empty">No remediation steps generated. Run with a live cluster to produce findings.</div>`)
 	} else {
+		w(`<div class="rem-controls">
+<button class="btn-sm" onclick="remAll(true)">Expand All</button>
+<button class="btn-sm" onclick="remAll(false)">Collapse All</button>
+</div>`)
 		curPri := -1
 		priLabel := map[int]string{1: "Priority 1 — Must Fix Before DR", 2: "Priority 2 — Recommended", 3: "Priority 3 — Optional"}
 		priClass := map[int]string{1: "c-CRITICAL", 2: "c-HIGH", 3: "c-LOW"}
@@ -475,5 +608,33 @@ function show(n){
   document.querySelectorAll('.pane').forEach(function(p,i){p.classList.toggle('active',i===n)});
 }
 function tog(n){var b=document.getElementById('sb'+n);if(b)b.classList.toggle('open');}
+function remAll(open){document.querySelectorAll('.step-b').forEach(function(b){b.classList.toggle('open',open)});}
+function sortTbl(th){
+  var tbl=th.closest('table'),tbody=tbl.querySelector('tbody');
+  if(!tbody)return;
+  var rows=Array.from(tbody.querySelectorAll('tr'));
+  var idx=Array.from(th.parentNode.children).indexOf(th);
+  var asc=th.dataset.asc!=='1';
+  th.dataset.asc=asc?'1':'0';
+  tbl.querySelectorAll('th').forEach(function(h){h.classList.remove('asc','desc');delete h.dataset.asc;});
+  th.dataset.asc=asc?'1':'0';
+  th.classList.add(asc?'asc':'desc');
+  rows.sort(function(a,b){
+    var av=a.cells[idx]?a.cells[idx].textContent.trim():'';
+    var bv=b.cells[idx]?b.cells[idx].textContent.trim():'';
+    var an=parseFloat(av),bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn))return asc?an-bn:bn-an;
+    return asc?av.localeCompare(bv):bv.localeCompare(av);
+  });
+  rows.forEach(function(r){tbody.appendChild(r);});
+}
+function filterSev(btn){
+  var sev=btn.dataset.sev;
+  document.querySelectorAll('.filter-bar .fbtn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('#findings-tbody tr').forEach(function(r){
+    r.style.display=(sev==='ALL'||r.dataset.sev===sev)?'':'none';
+  });
+}
 </script></body></html>`)
 }

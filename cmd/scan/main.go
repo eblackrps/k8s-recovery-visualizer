@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"k8s-recovery-visualizer/internal/analyze"
@@ -104,71 +105,33 @@ func main() {
 	}
 
 	// ── Workload collectors ─────────────────────────────────────────────────
-	if err := collect.Deployments(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect deployments: %v (skipping)", err)
-	}
-	if err := collect.DaemonSets(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect daemonsets: %v (skipping)", err)
-	}
-	if err := collect.Jobs(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect jobs: %v (skipping)", err)
-	}
-	if err := collect.CronJobs(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect cronjobs: %v (skipping)", err)
-	}
+	tryCollect("Deployments", collect.Deployments(ctx, clientset, &bundle), &bundle)
+	tryCollect("DaemonSets", collect.DaemonSets(ctx, clientset, &bundle), &bundle)
+	tryCollect("Jobs", collect.Jobs(ctx, clientset, &bundle), &bundle)
+	tryCollect("CronJobs", collect.CronJobs(ctx, clientset, &bundle), &bundle)
 
 	// ── Networking collectors ───────────────────────────────────────────────
-	if err := collect.Services(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect services: %v (skipping)", err)
-	}
-	if err := collect.Ingresses(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect ingresses: %v (skipping)", err)
-	}
-	if err := collect.NetworkPolicies(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect networkpolicies: %v (skipping)", err)
-	}
+	tryCollect("Services", collect.Services(ctx, clientset, &bundle), &bundle)
+	tryCollect("Ingresses", collect.Ingresses(ctx, clientset, &bundle), &bundle)
+	tryCollect("NetworkPolicies", collect.NetworkPolicies(ctx, clientset, &bundle), &bundle)
 
 	// ── Config / RBAC collectors ────────────────────────────────────────────
-	if err := collect.ConfigMaps(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect configmaps: %v (skipping)", err)
-	}
-	if err := collect.Secrets(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect secrets: %v (skipping)", err)
-	}
-	if err := collect.ClusterRoles(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect clusterroles: %v (skipping)", err)
-	}
-	if err := collect.ClusterRoleBindings(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect clusterrolebindings: %v (skipping)", err)
-	}
-	if err := collect.HPAs(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect hpas: %v (skipping)", err)
-	}
-	if err := collect.PodDisruptionBudgets(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect pdbs: %v (skipping)", err)
-	}
-	if err := collect.ResourceQuotas(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect resourcequotas: %v (skipping)", err)
-	}
-	if err := collect.CRDs(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect crds: %v (skipping)", err)
-	}
+	tryCollect("ConfigMaps", collect.ConfigMaps(ctx, clientset, &bundle), &bundle)
+	tryCollect("Secrets", collect.Secrets(ctx, clientset, &bundle), &bundle)
+	tryCollect("ClusterRoles", collect.ClusterRoles(ctx, clientset, &bundle), &bundle)
+	tryCollect("ClusterRoleBindings", collect.ClusterRoleBindings(ctx, clientset, &bundle), &bundle)
+	tryCollect("HPAs", collect.HPAs(ctx, clientset, &bundle), &bundle)
+	tryCollect("PodDisruptionBudgets", collect.PodDisruptionBudgets(ctx, clientset, &bundle), &bundle)
+	tryCollect("ResourceQuotas", collect.ResourceQuotas(ctx, clientset, &bundle), &bundle)
+	tryCollect("CRDs", collect.CRDs(ctx, clientset, &bundle), &bundle)
 
 	// ── Advanced collectors ─────────────────────────────────────────────────
-	if err := collect.HelmReleases(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect helm: %v (skipping)", err)
-	}
-	if err := collect.Platform(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect platform: %v (skipping)", err)
-	}
-	if err := collect.Certificates(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect certificates: %v (skipping)", err)
-	}
+	tryCollect("HelmReleases", collect.HelmReleases(ctx, clientset, &bundle), &bundle)
+	tryCollect("Platform", collect.Platform(ctx, clientset, &bundle), &bundle)
+	tryCollect("Certificates", collect.Certificates(ctx, clientset, &bundle), &bundle)
 
 	// Images is post-collection (derives data from already-collected workloads)
-	if err := collect.Images(ctx, clientset, &bundle); err != nil {
-		log.Printf("collect images: %v (skipping)", err)
-	}
+	tryCollect("Images", collect.Images(ctx, clientset, &bundle), &bundle)
 
 	// ── Backup detection ────────────────────────────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)
@@ -279,6 +242,25 @@ func printCISummary(b *model.Bundle, minScore int, trendLabel string, trendDelta
 	raw, _ := json.Marshal(summary)
 	fmt.Println()
 	fmt.Println(string(raw))
+}
+
+// tryCollect records a collector skip when err != nil.
+// It logs the error and appends a CollectorSkip to the bundle.
+func tryCollect(name string, err error, bundle *model.Bundle) {
+	if err == nil {
+		return
+	}
+	msg := err.Error()
+	isRBAC := strings.Contains(msg, "forbidden") ||
+		strings.Contains(msg, "Forbidden") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "Unauthorized")
+	bundle.CollectorSkips = append(bundle.CollectorSkips, model.CollectorSkip{
+		Name:   name,
+		Reason: msg,
+		RBAC:   isRBAC,
+	})
+	log.Printf("collect %s: %v (skipping)", name, err)
 }
 
 func exitWithPolicy(b *model.Bundle, minScore int, quiet bool) {
