@@ -17,6 +17,7 @@ type Score struct {
 	Storage  DomainScore `json:"storage"`
 	Workload DomainScore `json:"workload"`
 	Config   DomainScore `json:"config"`
+	Backup   DomainScore `json:"backup"`
 	Overall  DomainScore `json:"overall"`
 	Maturity string      `json:"maturity"`
 }

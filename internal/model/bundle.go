@@ -11,6 +11,8 @@ type Bundle struct {
 	Cluster       Cluster   `json:"cluster"`
 	Inventory     Inventory `json:"inventory"`
 	Score         Score     `json:"score"`
+	// Target is the declared recovery destination: "baremetal" or "vm"
+	Target string `json:"target,omitempty"`
 }
 
 type Metadata struct {
@@ -40,17 +42,80 @@ type Cluster struct {
 	APIServer struct {
 		Endpoint string `json:"endpoint,omitempty"`
 	} `json:"apiServer"`
+	Platform Platform `json:"platform,omitempty"`
+}
+
+// BackupDetectedTool is one detected backup solution.
+type BackupDetectedTool struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace,omitempty"`
+	Version   string   `json:"version,omitempty"`
+	Detected  bool     `json:"detected"`
+	CRDsFound []string `json:"crdsFound,omitempty"`
+}
+
+// BackupInventory holds the result of backup tool detection.
+type BackupInventory struct {
+	Tools               []BackupDetectedTool `json:"tools"`
+	PrimaryTool         string               `json:"primaryTool"` // "none" if nothing found
+	CoveredNamespaces   []string             `json:"coveredNamespaces,omitempty"`
+	UncoveredStatefulNS []string             `json:"uncoveredStatefulNamespaces,omitempty"`
+}
+
+// RemediationStep is one prioritized DR remediation action.
+type RemediationStep struct {
+	Priority    int      `json:"priority"`    // 1=critical, 2=recommended, 3=optional
+	Category    string   `json:"category"`    // Storage, Backup, Workload, Network, Config
+	Title       string   `json:"title"`
+	Detail      string   `json:"detail"`
+	Commands    []string `json:"commands,omitempty"`
+	TargetNotes string   `json:"targetNotes,omitempty"`
+	FindingID   string   `json:"findingId,omitempty"`
 }
 
 type Inventory struct {
+	// Core resources (existing)
 	Namespaces   []Namespace             `json:"namespaces"`
 	PVCs         []PersistentVolumeClaim `json:"pvcs"`
 	PVs          []PersistentVolume      `json:"pvs"`
 	Pods         []Pod                   `json:"pods"`
 	StatefulSets []StatefulSet           `json:"statefulSets"`
-  Nodes          []Node         `json:"nodes"`
-  StorageClasses []StorageClass `json:"storageClasses"`
-	Findings     []Finding               `json:"findings"`
+	Nodes        []Node                  `json:"nodes"`
+	StorageClasses []StorageClass        `json:"storageClasses"`
+
+	// Workload resources
+	Deployments []Deployment `json:"deployments,omitempty"`
+	DaemonSets  []DaemonSet  `json:"daemonSets,omitempty"`
+	Jobs        []Job        `json:"jobs,omitempty"`
+	CronJobs    []CronJob    `json:"cronJobs,omitempty"`
+
+	// Network resources
+	Services       []Service       `json:"services,omitempty"`
+	Ingresses      []Ingress       `json:"ingresses,omitempty"`
+	NetworkPolicies []NetworkPolicy `json:"networkPolicies,omitempty"`
+
+	// Config resources
+	ConfigMaps     []ConfigMap          `json:"configMaps,omitempty"`
+	Secrets        []Secret             `json:"secrets,omitempty"`
+	ClusterRoles   []ClusterRole        `json:"clusterRoles,omitempty"`
+	ClusterRoleBindings []ClusterRoleBinding `json:"clusterRoleBindings,omitempty"`
+	ResourceQuotas []ResourceQuota      `json:"resourceQuotas,omitempty"`
+	HPAs           []HPA                `json:"hpas,omitempty"`
+	PodDisruptionBudgets []PodDisruptionBudget `json:"podDisruptionBudgets,omitempty"`
+
+	// Extended inventory
+	CRDs         []CRD           `json:"crds,omitempty"`
+	HelmReleases []HelmRelease   `json:"helmReleases,omitempty"`
+	Images       []ContainerImage `json:"images,omitempty"`
+	Certificates []Certificate   `json:"certificates,omitempty"`
+
+	// Backup detection result
+	Backup BackupInventory `json:"backup,omitempty"`
+
+	// Remediation steps
+	RemediationSteps []RemediationStep `json:"remediationSteps,omitempty"`
+
+	Findings []Finding `json:"findings"`
 }
 
 type Namespace struct {
@@ -60,14 +125,14 @@ type Namespace struct {
 
 func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
-		SchemaVersion: "1.0.0",
+		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "0.1.0",
+			ToolVersion: "0.4.0",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "0.1.0",
+			Version:   "0.4.0",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{
@@ -81,19 +146,21 @@ func NewBundle(scanID string, started time.Time) Bundle {
 			PVs:          []PersistentVolume{},
 			Pods:         []Pod{},
 			StatefulSets: []StatefulSet{},
-          Nodes:          []Node{},
-          StorageClasses: []StorageClass{},
+			Nodes:        []Node{},
+			StorageClasses: []StorageClass{},
 			Findings:     []Finding{},
+			Backup: BackupInventory{
+				PrimaryTool: "none",
+				Tools:       []BackupDetectedTool{},
+			},
 		},
 		Score: Score{
 			Storage:  DomainScore{Max: 100, Final: 100},
 			Workload: DomainScore{Max: 100, Final: 100},
 			Config:   DomainScore{Max: 100, Final: 100},
+			Backup:   DomainScore{Max: 100, Final: 100},
 			Overall:  DomainScore{Max: 100, Final: 100},
 			Maturity: "PLATINUM",
 		},
 	}
 }
-
-
-
