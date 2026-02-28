@@ -116,8 +116,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		e(b.Metadata.ClusterName), e(platform), e(scopeLabel), e(b.Metadata.GeneratedAt),
 		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
 
-	// Tab bar
+	// Tab bar — add Compare tab only when comparison data is present
 	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "DR Score", "Remediation"}
+	if b.Comparison != nil {
+		tabNames = append(tabNames, "Compare")
+	}
 	w(`<div class="tabs">`)
 	for i, t := range tabNames {
 		cls := "tab"
@@ -605,6 +608,105 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 	}
 	w(`</div>`) // p8
+
+	// ── Tab 9: Compare (only rendered when --compare was used) ───────────────
+	if c := b.Comparison; c != nil {
+		w(`<div class="pane" id="p9">`)
+		wf(`<h2>Comparison vs scan from %s</h2>`, e(c.PreviousScannedAt))
+
+		// Score delta card
+		deltaSign := ""
+		deltaColor := "#8b949e"
+		if c.ScoreDelta > 0 {
+			deltaSign = "+"
+			deltaColor = "#7ee787"
+		} else if c.ScoreDelta < 0 {
+			deltaColor = "#f85149"
+		}
+		wf(`<div class="card">
+<div class="grid">
+<div class="sbox"><div class="v" style="color:%s">%s%d</div><div class="l">Score Delta</div></div>
+<div class="sbox"><div class="v">%d</div><div class="l">Previous Score</div></div>
+<div class="sbox"><div class="v">%d</div><div class="l">Current Score</div></div>
+<div class="sbox"><div class="v" style="color:#8b949e;font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
+</div></div>`,
+			deltaColor, deltaSign, c.ScoreDelta,
+			c.PreviousScore, b.Score.Overall.Final,
+			e(c.PreviousMaturity), e(b.Score.Maturity))
+
+		// Backup tool change
+		if c.BackupToolChanged {
+			wf(`<div class="card" style="border-color:#f2cc60"><h2 style="color:#f2cc60">Backup Tool Changed</h2>
+<p style="color:#8b949e;font-size:.86em;margin-top:4px">%s → <strong style="color:#f0f6fc">%s</strong></p></div>`,
+				e(c.BackupToolPrevious), e(c.BackupToolCurrent))
+		}
+
+		// Resource delta table
+		type rowDef struct {
+			label   string
+			added   []string
+			removed []string
+		}
+		rows := []rowDef{
+			{"Namespaces", c.NamespacesAdded, c.NamespacesRemoved},
+			{"Workloads", c.WorkloadsAdded, c.WorkloadsRemoved},
+			{"PVCs", c.PVCsAdded, c.PVCsRemoved},
+			{"Images", c.ImagesAdded, c.ImagesRemoved},
+		}
+		w(`<div class="card"><h2>Resource Changes</h2><table><thead><tr>`)
+		for _, h := range []string{"Category", "Added", "Removed"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, row := range rows {
+			addedCell := fmt.Sprintf(`<span class="ok">+%d</span>`, len(row.added))
+			removedCell := fmt.Sprintf(`<span class="bad">-%d</span>`, len(row.removed))
+			if len(row.added) == 0 {
+				addedCell = `<span style="color:#8b949e">—</span>`
+			}
+			if len(row.removed) == 0 {
+				removedCell = `<span style="color:#8b949e">—</span>`
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td></tr>`, e(row.label), addedCell, removedCell)
+		}
+		w(`</tbody></table></div>`)
+
+		// New findings (regressions)
+		if len(c.FindingsNew) > 0 {
+			w(`<div class="card" style="border-color:#f85149"><h2 style="color:#f85149">New Findings (regressions)</h2>`)
+			w(`<table><thead><tr>`)
+			for _, h := range []string{"Severity", "Resource", "Message"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, f := range c.FindingsNew {
+				wf(`<tr><td class="sev-%s">%s</td><td>%s</td><td>%s</td></tr>`,
+					e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message))
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		// Resolved findings (improvements)
+		if len(c.FindingsResolved) > 0 {
+			w(`<div class="card" style="border-color:#7ee787"><h2 style="color:#7ee787">Resolved Findings (improvements)</h2>`)
+			w(`<table><thead><tr>`)
+			for _, h := range []string{"Severity", "Resource", "Message"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, f := range c.FindingsResolved {
+				wf(`<tr><td class="sev-%s">%s</td><td>%s</td><td>%s</td></tr>`,
+					e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message))
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		if len(c.FindingsNew) == 0 && len(c.FindingsResolved) == 0 {
+			w(`<div class="card"><p class="ok">No finding changes between scans.</p></div>`)
+		}
+
+		w(`</div>`) // p9
+	}
 
 	// JS
 	w(`<script>
