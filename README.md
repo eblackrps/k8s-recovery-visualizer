@@ -205,7 +205,11 @@ Provider is detected automatically from node labels:
 
 ## Example Report
 
-![Sample DR Report](images/sample-report.png)
+### Summary Tab
+![Summary Tab](images/report-summary.png)
+
+### DR Score Tab
+![DR Score Tab](images/report-dr-score.png)
 
 ---
 
