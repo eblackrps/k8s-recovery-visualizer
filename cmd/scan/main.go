@@ -18,6 +18,7 @@ import (
 	"k8s-recovery-visualizer/internal/enrich"
 	"k8s-recovery-visualizer/internal/history"
 	"k8s-recovery-visualizer/internal/kube"
+	"k8s-recovery-visualizer/internal/restore"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/output"
 	"k8s-recovery-visualizer/internal/remediation"
@@ -39,6 +40,8 @@ func main() {
 		csvExport  = flag.Bool("csv", false, "Also write CSV exports alongside HTML report")
 		namespace  = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
 		compareTo  = flag.String("compare", "", "Path to a previous recovery-scan.json to diff against")
+		summary    = flag.Bool("summary", false, "Also write a print-optimised executive summary HTML")
+		redactOut  = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
 	)
 	flag.Parse()
 
@@ -73,10 +76,12 @@ func main() {
 			{ID: "ns:default", Name: "default"},
 			{ID: "ns:test", Name: "test"},
 		}
+		sim := restore.Simulate(&bundle)
+		bundle.Inventory.Backup.RestoreSim = &sim
 		analyze.Evaluate(&bundle)
 		bundle.Inventory.RemediationSteps = remediation.Generate(&bundle, *target)
 		applyComparison(&bundle, *compareTo)
-		trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport)
+		trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut)
 		if *ci {
 			printCISummary(&bundle, *minScore, trendLabel, trendDelta)
 		}
@@ -145,8 +150,10 @@ func main() {
 	// Images is post-collection (derives data from already-collected workloads)
 	tryCollect("Images", collect.Images(ctx, clientset, &bundle), &bundle)
 
-	// ── Backup detection ────────────────────────────────────────────────────
+	// ── Backup detection + restore simulation ───────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)
+	sim := restore.Simulate(&bundle)
+	bundle.Inventory.Backup.RestoreSim = &sim
 
 	// ── Scoring + remediation ───────────────────────────────────────────────
 	analyze.Evaluate(&bundle)
@@ -156,7 +163,7 @@ func main() {
 	applyComparison(&bundle, *compareTo)
 
 	// ── Write outputs ───────────────────────────────────────────────────────
-	trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport)
+	trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut)
 
 	if *ci {
 		printCISummary(&bundle, *minScore, trendLabel, trendDelta)
@@ -165,7 +172,7 @@ func main() {
 }
 
 // write serialises all outputs and returns trend label + delta for CI summary.
-func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExport bool) (string, int) {
+func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExport, summaryOut, redactOut bool) (string, int) {
 	bundle.Scan.EndedAt = time.Now().UTC()
 	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
 	bundle.Checks = analyze.BuildChecks(bundle, minScore)
@@ -226,6 +233,30 @@ func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExp
 		}
 		if !quiet {
 			fmt.Println("CSV exports:", filepath.Join(outDir, "csv"))
+		}
+	}
+
+	// Optional executive summary
+	if summaryOut {
+		summaryPath := filepath.Join(outDir, "recovery-summary.html")
+		if err := output.WriteSummary(summaryPath, bundle); err != nil {
+			log.Fatalf("write summary: %v", err)
+		}
+		if !quiet {
+			fmt.Println("Executive Summary:", summaryPath)
+		}
+	}
+
+	// Optional redacted exports
+	if redactOut {
+		if err := output.WriteRedactedJSON(filepath.Join(outDir, "recovery-scan-redacted.json"), bundle); err != nil {
+			log.Fatalf("write redacted json: %v", err)
+		}
+		if err := output.WriteRedactedReport(filepath.Join(outDir, "recovery-report-redacted.html"), bundle); err != nil {
+			log.Fatalf("write redacted html: %v", err)
+		}
+		if !quiet {
+			fmt.Println("Redacted exports: recovery-scan-redacted.json, recovery-report-redacted.html")
 		}
 	}
 
