@@ -26,6 +26,9 @@ func HelmReleases(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle
 		if s.Type != "helm.sh/release.v1" {
 			continue
 		}
+		if !InScope(s.Namespace, b) {
+			continue
+		}
 		labels := s.Labels
 		name := labels["name"]
 		status := labels["status"]

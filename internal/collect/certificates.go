@@ -51,6 +51,9 @@ func Certificates(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle
 
 	now := time.Now().UTC()
 	for _, c := range cl.Items {
+		if !InScope(c.Metadata.Namespace, b) {
+			continue
+		}
 		ready := false
 		for _, cond := range c.Status.Conditions {
 			if cond.Type == "Ready" && cond.Status == "True" {

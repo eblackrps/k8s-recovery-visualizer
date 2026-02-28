@@ -14,6 +14,9 @@ func DaemonSets(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) 
 		return err
 	}
 	for _, ds := range list.Items {
+		if !InScope(ds.Namespace, b) {
+			continue
+		}
 		var images []string
 		for _, c := range ds.Spec.Template.Spec.Containers {
 			images = append(images, c.Image)

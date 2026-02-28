@@ -15,6 +15,8 @@ type Bundle struct {
 	Target        string           `json:"target,omitempty"`
 	// CollectorSkips records collectors that were skipped due to RBAC or missing APIs.
 	CollectorSkips []CollectorSkip `json:"collectorSkips,omitempty"`
+	// ScanNamespaces restricts the scan to specific namespaces. Empty = all namespaces.
+	ScanNamespaces []string `json:"scanNamespaces,omitempty"`
 }
 
 // CollectorSkip records a collector that was skipped during the scan.

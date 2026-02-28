@@ -14,6 +14,9 @@ func PodDisruptionBudgets(ctx context.Context, cs *kubernetes.Clientset, b *mode
 		return err
 	}
 	for _, pdb := range list.Items {
+		if !InScope(pdb.Namespace, b) {
+			continue
+		}
 		minAvail := ""
 		if pdb.Spec.MinAvailable != nil {
 			minAvail = pdb.Spec.MinAvailable.String()

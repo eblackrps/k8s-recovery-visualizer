@@ -36,6 +36,7 @@ func main() {
 		env        = flag.String("env", "", "Environment (prod/dev/test) (optional)")
 		target     = flag.String("target", "vm", "Recovery target type: baremetal or vm")
 		csvExport  = flag.Bool("csv", false, "Also write CSV exports alongside HTML report")
+		namespace  = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
 	)
 	flag.Parse()
 
@@ -56,6 +57,14 @@ func main() {
 	bundle.Metadata.ClusterName = *cluster
 	bundle.Metadata.Environment = *env
 	bundle.Target = *target
+	if *namespace != "" {
+		for _, ns := range strings.Split(*namespace, ",") {
+			ns = strings.TrimSpace(ns)
+			if ns != "" {
+				bundle.ScanNamespaces = append(bundle.ScanNamespaces, ns)
+			}
+		}
+	}
 
 	if *dryRun {
 		bundle.Inventory.Namespaces = []model.Namespace{

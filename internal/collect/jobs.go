@@ -14,6 +14,9 @@ func Jobs(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error 
 		return err
 	}
 	for _, j := range list.Items {
+		if !InScope(j.Namespace, b) {
+			continue
+		}
 		completed := j.Status.CompletionTime != nil
 		b.Inventory.Jobs = append(b.Inventory.Jobs, model.Job{
 			Namespace: j.Namespace,
@@ -33,6 +36,9 @@ func CronJobs(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) er
 		return err
 	}
 	for _, cj := range list.Items {
+		if !InScope(cj.Namespace, b) {
+			continue
+		}
 		lastRun := ""
 		if cj.Status.LastScheduleTime != nil {
 			lastRun = cj.Status.LastScheduleTime.UTC().Format("2006-01-02T15:04:05Z")

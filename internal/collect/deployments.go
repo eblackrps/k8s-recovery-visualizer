@@ -14,6 +14,9 @@ func Deployments(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle)
 		return err
 	}
 	for _, d := range list.Items {
+		if !InScope(d.Namespace, b) {
+			continue
+		}
 		var images []string
 		for _, c := range d.Spec.Template.Spec.Containers {
 			images = append(images, c.Image)

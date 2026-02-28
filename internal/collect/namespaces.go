@@ -15,6 +15,9 @@ func Namespaces(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) 
 	}
 
 	for _, ns := range list.Items {
+		if !InScope(ns.Name, b) {
+			continue
+		}
 		b.Inventory.Namespaces = append(b.Inventory.Namespaces, model.Namespace{
 			ID:   "ns:" + ns.Name,
 			Name: ns.Name,
