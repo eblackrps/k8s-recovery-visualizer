@@ -18,6 +18,7 @@ import (
 	"k8s-recovery-visualizer/internal/enrich"
 	"k8s-recovery-visualizer/internal/history"
 	"k8s-recovery-visualizer/internal/kube"
+	"k8s-recovery-visualizer/internal/restore"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/output"
 	"k8s-recovery-visualizer/internal/remediation"
@@ -75,6 +76,8 @@ func main() {
 			{ID: "ns:default", Name: "default"},
 			{ID: "ns:test", Name: "test"},
 		}
+		sim := restore.Simulate(&bundle)
+		bundle.Inventory.Backup.RestoreSim = &sim
 		analyze.Evaluate(&bundle)
 		bundle.Inventory.RemediationSteps = remediation.Generate(&bundle, *target)
 		applyComparison(&bundle, *compareTo)
@@ -147,8 +150,10 @@ func main() {
 	// Images is post-collection (derives data from already-collected workloads)
 	tryCollect("Images", collect.Images(ctx, clientset, &bundle), &bundle)
 
-	// ── Backup detection ────────────────────────────────────────────────────
+	// ── Backup detection + restore simulation ───────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)
+	sim := restore.Simulate(&bundle)
+	bundle.Inventory.Backup.RestoreSim = &sim
 
 	// ── Scoring + remediation ───────────────────────────────────────────────
 	analyze.Evaluate(&bundle)

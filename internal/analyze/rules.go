@@ -11,20 +11,22 @@ const (
 
 // Penalty constants — named for readability and auditing.
 const (
-	penPVCUnbound        = 25
-	penPVCNoStorageClass = 10
-	penPVHostPath        = 30
-	penPVDeletePolicy    = 15
-	penPVOrphan          = 5
-	penSTSNoPVC          = 15
-	penBackupNone        = 60
-	penBackupNoPolicies  = 30
-	penBackupPartial     = 20
-	penBackupNoOffsite   = 15
-	penCRDNoBackup       = 10
-	penCertExpiring      = 10
-	penImageExternal     = 5
-	penHelmUntracked     = 5
+	penPVCUnbound          = 25
+	penPVCNoStorageClass   = 10
+	penPVHostPath          = 30
+	penPVDeletePolicy      = 15
+	penPVOrphan            = 5
+	penSTSNoPVC            = 15
+	penBackupNone          = 60
+	penBackupNoPolicies    = 30
+	penBackupPartial       = 20
+	penBackupNoOffsite     = 15
+	penBackupRPOHigh       = 10 // worst-case RPO > 24 h
+	penRestoreSimUncovered = 20 // namespaces with stateful workloads not covered by any policy
+	penCRDNoBackup         = 10
+	penCertExpiring        = 10
+	penImageExternal       = 5
+	penHelmUntracked       = 5
 )
 
 func Evaluate(b *model.Bundle) {
@@ -127,6 +129,37 @@ func Evaluate(b *model.Bundle) {
 				"Backup tool detected but no backup policies or schedules found",
 				"Create backup schedules covering all production namespaces")
 		}
+	}
+
+	// Offsite backup check — tool present but no offsite/export policy found.
+	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.HasOffsite {
+		backup -= penBackupNoOffsite
+		addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", inv.PrimaryTool,
+			"Backup tool detected but no offsite/export location configured",
+			"Configure an offsite or cloud export target to protect against site-level failures")
+	}
+
+	// RPO check — flag when worst-case RPO exceeds 24 hours.
+	worstRPO := 0
+	for _, p := range inv.Policies {
+		if p.RPOHours > worstRPO {
+			worstRPO = p.RPOHours
+		}
+	}
+	if inv.PrimaryTool != "none" && len(inv.Policies) > 0 && worstRPO > 24 {
+		backup -= penBackupRPOHigh
+		addFinding(b, "BACKUP_RPO_HIGH", "MEDIUM", inv.PrimaryTool,
+			"Backup schedule results in RPO exposure greater than 24 hours",
+			"Increase backup frequency to reduce potential data loss window")
+	}
+
+	// Restore simulation — penalise when stateful namespaces have no coverage.
+	if sim := b.Inventory.Backup.RestoreSim; sim != nil && len(sim.UncoveredNS) > 0 {
+		backup -= penRestoreSimUncovered
+		addFinding(b, "RESTORE_SIM_UNCOVERED", "HIGH",
+			"namespaces:"+joinFirst(sim.UncoveredNS, 3),
+			"Restore simulation: stateful namespaces have no backup policy coverage",
+			"Add backup policies covering all namespaces with PVCs or StatefulSets")
 	}
 
 	// CRDs present with no backup = extra risk

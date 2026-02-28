@@ -117,7 +117,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
 
 	// Tab bar — add Compare tab only when comparison data is present
-	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "DR Score", "Remediation"}
+	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "Backup", "DR Score", "Remediation"}
 	if b.Comparison != nil {
 		tabNames = append(tabNames, "Compare")
 	}
@@ -520,8 +520,138 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	}
 	w(`</div>`) // p6
 
-	// ── Tab 7: DR Score ──────────────────────────────────────────────────────
-	w(`<div class="pane" id="p7"><h2>DR Score Breakdown</h2>`)
+	// ── Tab 7: Backup ────────────────────────────────────────────────────────
+	w(`<div class="pane" id="p7">`)
+	backupInv := b.Inventory.Backup
+
+	// Detected tools card
+	w(`<div class="card"><h2>Detected Backup Tools</h2>`)
+	if len(backupInv.Tools) == 0 {
+		w(`<div class="empty">No backup tools scanned.</div>`)
+	} else {
+		w(`<table id="t-bktools"><thead><tr>`)
+		for _, h := range []string{"Tool", "Detected", "Namespace", "Version", "CRDs Found"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, t := range backupInv.Tools {
+			detectedCell := `<span class="chip n">no</span>`
+			if t.Detected {
+				detectedCell = `<span class="chip p">yes</span>`
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(t.Name), detectedCell, e(t.Namespace), e(t.Version),
+				e(strings.Join(t.CRDsFound, ", ")))
+		}
+		w(`</tbody></table>`)
+	}
+	w(`</div>`) // detected tools card
+
+	// Backup policies card
+	w(`<div class="card"><h2>Backup Policies / Schedules</h2>`)
+	if backupInv.PrimaryTool == "none" || backupInv.PrimaryTool == "" {
+		w(`<div class="empty">No backup tool detected — no policies to display.</div>`)
+	} else if len(backupInv.Policies) == 0 {
+		wf(`<div class="empty" style="color:#ffa657">%s detected but no policies or schedules found. Create backup schedules to establish coverage.</div>`,
+			e(backupInv.PrimaryTool))
+	} else {
+		offsiteCount := 0
+		for _, p := range backupInv.Policies {
+			if p.HasOffsite {
+				offsiteCount++
+			}
+		}
+		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export</p>`,
+			len(backupInv.Policies), offsiteCount)
+		w(`<table id="t-policies"><thead><tr>`)
+		for _, h := range []string{"Tool", "Name", "Namespaces", "Schedule", "RPO (h)", "Offsite", "Retention"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, p := range backupInv.Policies {
+			nsCell := "all"
+			if len(p.IncludedNS) > 0 {
+				nsCell = strings.Join(p.IncludedNS, ", ")
+			}
+			rpoCell := "unknown"
+			if p.RPOHours >= 0 {
+				rpoCell = fmt.Sprintf("%d", p.RPOHours)
+			}
+			offsiteCell := `<span class="chip n">no</span>`
+			if p.HasOffsite {
+				offsiteCell = `<span class="chip p">yes</span>`
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(p.Tool), e(p.Name), e(nsCell), e(p.Schedule), rpoCell, offsiteCell, e(p.RetentionTTL))
+		}
+		w(`</tbody></table>`)
+	}
+	w(`</div>`) // policies card
+
+	// Restore simulation card
+	w(`<div class="card"><h2>Restore Simulation</h2>`)
+	if sim := backupInv.RestoreSim; sim == nil {
+		w(`<div class="empty">Restore simulation not available (dry-run mode or no cluster data).</div>`)
+	} else if len(sim.Namespaces) == 0 {
+		w(`<div class="empty" style="color:#7ee787">No stateful namespaces found — nothing to simulate.</div>`)
+	} else {
+		covPct := 0.0
+		if sim.TotalPVCsGB > 0 {
+			covPct = sim.CoveredPVCsGB / sim.TotalPVCsGB * 100
+		}
+		wf(`<div class="grid" style="margin-bottom:12px">
+<div class="sbox"><div class="v">%d</div><div class="l">Namespaces</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Uncovered</div></div>
+<div class="sbox"><div class="v">%.1f GB</div><div class="l">Total PVC Data</div></div>
+<div class="sbox"><div class="v">%.0f%%</div><div class="l">Coverage by Volume</div></div>
+</div>`,
+			len(sim.Namespaces),
+			func() string {
+				if len(sim.UncoveredNS) > 0 {
+					return "#f85149"
+				}
+				return "#7ee787"
+			}(),
+			len(sim.UncoveredNS),
+			sim.TotalPVCsGB,
+			covPct)
+		w(`<table id="t-sim"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Coverage", "RPO (h)", "PVC Data (GB)", "Blockers", "Warnings"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, ns := range sim.Namespaces {
+			covCell := `<span class="chip f">none</span>`
+			if ns.HasCoverage {
+				covCell = `<span class="chip p">covered</span>`
+			}
+			rpoCell := `<span style="color:#8b949e">unknown</span>`
+			if ns.RPOHours >= 0 {
+				color := "#7ee787"
+				if ns.RPOHours > 24 {
+					color = "#ffa657"
+				}
+				rpoCell = fmt.Sprintf(`<span style="color:%s">%d</span>`, color, ns.RPOHours)
+			}
+			sizeCell := fmt.Sprintf("%.1f", ns.PVCSizeGB)
+			blockersCell := `<span style="color:#8b949e">—</span>`
+			if len(ns.Blockers) > 0 {
+				blockersCell = fmt.Sprintf(`<span class="c-CRITICAL">%s</span>`, e(strings.Join(ns.Blockers, "; ")))
+			}
+			warningsCell := `<span style="color:#8b949e">—</span>`
+			if len(ns.Warnings) > 0 {
+				warningsCell = fmt.Sprintf(`<span class="c-MEDIUM">%s</span>`, e(strings.Join(ns.Warnings, "; ")))
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(ns.Namespace), covCell, rpoCell, sizeCell, blockersCell, warningsCell)
+		}
+		w(`</tbody></table>`)
+	}
+	w(`</div>`) // restore sim card
+	w(`</div>`) // p7
+
+	// ── Tab 8: DR Score ──────────────────────────────────────────────────────
+	w(`<div class="pane" id="p8"><h2>DR Score Breakdown</h2>`)
 	w(`<table id="t-score"><thead><tr>`)
 	for _, h := range []string{"Domain", "Score", "Max", "Weight"} {
 		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -574,10 +704,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		w(`</tbody></table>`)
 	}
-	w(`</div>`) // p7
+	w(`</div>`) // p8
 
-	// ── Tab 8: Remediation ───────────────────────────────────────────────────
-	w(`<div class="pane" id="p8"><h2>Remediation Plan</h2>`)
+	// ── Tab 9: Remediation ───────────────────────────────────────────────────
+	w(`<div class="pane" id="p9"><h2>Remediation Plan</h2>`)
 	if len(b.Inventory.RemediationSteps) == 0 {
 		w(`<div class="empty">No remediation steps generated. Run with a live cluster to produce findings.</div>`)
 	} else {
@@ -607,11 +737,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			w(`</div></div>`)
 		}
 	}
-	w(`</div>`) // p8
+	w(`</div>`) // p9
 
-	// ── Tab 9: Compare (only rendered when --compare was used) ───────────────
+	// ── Tab 10: Compare (only rendered when --compare was used) ──────────────
 	if c := b.Comparison; c != nil {
-		w(`<div class="pane" id="p9">`)
+		w(`<div class="pane" id="p10">`)
 		wf(`<h2>Comparison vs scan from %s</h2>`, e(c.PreviousScannedAt))
 
 		// Score delta card
@@ -705,7 +835,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			w(`<div class="card"><p class="ok">No finding changes between scans.</p></div>`)
 		}
 
-		w(`</div>`) // p9
+		w(`</div>`) // p10
 	}
 
 	// JS

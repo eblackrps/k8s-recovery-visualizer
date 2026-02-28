@@ -94,12 +94,47 @@ type BackupDetectedTool struct {
 	CRDsFound []string `json:"crdsFound,omitempty"`
 }
 
+// BackupPolicy represents a detected backup schedule or policy object.
+type BackupPolicy struct {
+	Tool            string   `json:"tool"`
+	Name            string   `json:"name"`
+	PolicyNamespace string   `json:"policyNamespace,omitempty"` // namespace the policy object lives in
+	IncludedNS      []string `json:"includedNamespaces,omitempty"` // empty = all namespaces
+	ExcludedNS      []string `json:"excludedNamespaces,omitempty"`
+	Schedule        string   `json:"schedule,omitempty"`      // cron expression or label e.g. "@daily"
+	RetentionTTL    string   `json:"retentionTtl,omitempty"` // e.g. "720h0m0s"
+	RPOHours        int      `json:"rpoHours"`                // estimated RPO in hours; -1 = unknown
+	HasOffsite      bool     `json:"hasOffsite"`
+	StorageLocation string   `json:"storageLocation,omitempty"`
+}
+
+// RestoreSimNamespace holds the restore feasibility assessment for one namespace.
+type RestoreSimNamespace struct {
+	Namespace   string   `json:"namespace"`
+	HasCoverage bool     `json:"hasCoverage"`
+	RPOHours    int      `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
+	PVCSizeGB   float64  `json:"pvcSizeGb"`
+	Blockers    []string `json:"blockers,omitempty"`
+	Warnings    []string `json:"warnings,omitempty"`
+}
+
+// RestoreSimResult holds the full restore simulation output.
+type RestoreSimResult struct {
+	Namespaces    []RestoreSimNamespace `json:"namespaces"`
+	TotalPVCsGB   float64               `json:"totalPvcsGb"`
+	CoveredPVCsGB float64               `json:"coveredPvcsGb"`
+	UncoveredNS   []string              `json:"uncoveredNamespaces,omitempty"`
+}
+
 // BackupInventory holds the result of backup tool detection.
 type BackupInventory struct {
 	Tools               []BackupDetectedTool `json:"tools"`
 	PrimaryTool         string               `json:"primaryTool"` // "none" if nothing found
 	CoveredNamespaces   []string             `json:"coveredNamespaces,omitempty"`
 	UncoveredStatefulNS []string             `json:"uncoveredStatefulNamespaces,omitempty"`
+	Policies            []BackupPolicy       `json:"policies,omitempty"`
+	HasOffsite          bool                 `json:"hasOffsite"`
+	RestoreSim          *RestoreSimResult    `json:"restoreSim,omitempty"`
 }
 
 // RemediationStep is one prioritized DR remediation action.
