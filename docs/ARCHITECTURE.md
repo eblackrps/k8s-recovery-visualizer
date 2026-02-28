@@ -4,4 +4,4 @@ Scan -> Enrich -> Score -> Report -> Trend -> Normalize -> Theme -> Screenshot (
 
 Key point:
 The report post-processing pipeline does NOT scan Kubernetes.
-Always run scan.exe first if you want fresh cluster data.
+Always run the scan binary first if you want fresh cluster data.

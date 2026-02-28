@@ -11,8 +11,23 @@
 You likely re-ran the report pipeline without running the scan.
 Verify timestamps:
 
-    Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\recovery-report.html |
-      Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
+```bash
+# Linux / macOS
+ls -lh out/recovery-scan.json out/recovery-enriched.json out/recovery-report.html
+```
 
-If recovery-report.html is newer than recovery-scan.json, rerun:
-    .\scan.exe -out (Resolve-Path .\out).Path
+```powershell
+# Windows
+Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\recovery-report.html |
+  Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
+```
+
+If `recovery-report.html` is newer than `recovery-scan.json`, rerun the scan:
+
+```bash
+# Linux / macOS
+./scan --out ./out
+
+# Windows
+.\scan.exe --out .\out
+```
