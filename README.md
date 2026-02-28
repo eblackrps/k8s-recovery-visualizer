@@ -2,7 +2,7 @@
 
 Full Kubernetes cluster inventory and Disaster Recovery assessment tool.
 
-Scan a live cluster to get a complete RVTools-style inventory, a weighted DR readiness score across four domains, backup tool detection, platform identification, and a prioritized remediation plan — all in a single self-contained HTML report.
+Scan a live cluster to get a complete RVTools-style inventory, a weighted DR readiness score across four domains, backup tool detection, backup policy analysis, restore simulation, and a prioritized remediation plan — all in a single self-contained HTML report.
 
 ---
 
@@ -13,7 +13,8 @@ Building DR clusters without structured discovery leads to:
 - Storage classes that don't exist in the target environment
 - Orphaned PVs with Delete reclaim policies that vanish on PVC deletion
 - Public registry images that aren't reachable in air-gapped DR sites
-- No backup tool, or a backup tool with no policies configured
+- Backup tools installed but no policies or schedules configured
+- No offsite target — a site-level failure takes the backups with it
 
 k8s-recovery-visualizer performs deterministic environment analysis and produces a full picture of DR readiness before a rebuild or recovery event.
 
@@ -31,7 +32,7 @@ k8s-recovery-visualizer performs deterministic environment analysis and produces
 | **Images** | All container images grouped by registry; public vs. private flag |
 | **Helm** | All Helm v3 releases detected via K8s secrets (no Helm CLI required) |
 | **Certificates** | cert-manager Certificate resources with expiry and days-to-renewal |
-| **Backup** | Auto-detects Kasten K10, Velero, Rubrik, Longhorn, Trilio, Stash, CloudCasa |
+| **Backup** | Auto-detects 7 tools; collects Velero Schedules, Kasten K10 Policies, Longhorn RecurringJobs |
 
 ---
 
@@ -44,9 +45,20 @@ Scoring covers four weighted domains:
 | **Storage** | 35% | PVC binding, storageClass presence, hostPath usage, reclaim policies |
 | **Workload** | 20% | StatefulSet persistence, deployment coverage |
 | **Config** | 15% | CRD backup readiness, certificate expiry, image registry risk |
-| **Backup/Recovery** | 30% | Backup tool presence, policy coverage, Helm values, public images |
+| **Backup/Recovery** | 30% | Tool presence, policy coverage, offsite config, RPO, restore simulation |
 
 **Maturity levels:** PLATINUM (≥90) · GOLD (≥75) · SILVER (≥50) · BRONZE (<50)
+
+### Backup/Recovery Scoring Rules
+
+| Finding ID | Severity | Penalty | Condition |
+|---|---|---|---|
+| `BACKUP_NONE` | CRITICAL | −60 | No backup tool detected |
+| `BACKUP_NO_POLICIES` | HIGH | −30 | Tool detected but no schedules/policies found |
+| `BACKUP_PARTIAL_COVERAGE` | HIGH | −20 | StatefulSets in namespaces not covered by any policy |
+| `BACKUP_NO_OFFSITE` | HIGH | −15 | No offsite or export location configured |
+| `BACKUP_RPO_HIGH` | MEDIUM | −10 | Worst-case RPO across all policies exceeds 24 hours |
+| `RESTORE_SIM_UNCOVERED` | HIGH | −20 | Stateful namespaces have no matching backup policy |
 
 ### Example Scoring Breakdown
 
@@ -98,8 +110,10 @@ The HTML report is fully self-contained (no CDN, no external dependencies) — s
 | **Networking** | Services, Ingresses with TLS status, NetworkPolicies |
 | **Config** | ConfigMaps, Secrets, CRDs, ClusterRoles, Helm releases, Certificates |
 | **Images** | Container images grouped by registry; public vs. private |
+| **Backup** | Detected tools, backup policies with RPO + offsite flag, restore simulation per namespace |
 | **DR Score** | 4-domain scoring breakdown + all findings sorted by severity |
 | **Remediation** | Prioritized, tool-specific remediation steps with commands |
+| **Compare** | Scan-to-scan diff (only shown when `--compare` is used) |
 
 ---
 
@@ -119,17 +133,23 @@ go build -o scan.exe ./cmd/scan
 ### Run
 
 ```powershell
-# Basic scan (VM recovery target, no CSV)
+# Basic scan (VM recovery target)
 .\scan.exe --out .\out
+
+# Scoped to specific namespaces
+.\scan.exe --namespace=prod,staging --out .\out
 
 # Bare metal recovery target with CSV export
 .\scan.exe --target=baremetal --csv --out .\out
 
-# With explicit kubeconfig
-.\scan.exe --kubeconfig C:\Users\you\.kube\config --target=vm --csv --out .\out
+# Diff against a previous scan
+.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
 
 # CI mode (exit code 2 if score below threshold)
 .\scan.exe --ci --min-score=75 --out .\out
+
+# Write a redacted JSON copy (no secret values)
+.\scan.exe --redact --out .\out
 
 # Dry run (no cluster required)
 .\scan.exe --dry-run --out .\out
@@ -150,7 +170,11 @@ Start-Process .\out\recovery-report.html
 | `--kubeconfig` | `""` | Path to kubeconfig (uses in-cluster config if empty) |
 | `--out` | `./out` | Output directory |
 | `--target` | `vm` | Recovery target: `baremetal` or `vm` |
+| `--namespace` | `""` | Comma-separated namespaces to scan (empty = all namespaces) |
+| `--compare` | `""` | Path to a previous `recovery-scan.json` to diff against |
 | `--csv` | `false` | Write CSV exports to `out/csv/` |
+| `--summary` | `false` | Print a one-line summary to stdout on completion |
+| `--redact` | `false` | Write a redacted JSON copy with secret values removed |
 | `--dry-run` | `false` | Run without a cluster (for testing) |
 | `--ci` | `false` | CI mode: emit JSON summary + exit code 2 on failure |
 | `--min-score` | `90` | Minimum acceptable overall score for CI pass |
@@ -162,19 +186,39 @@ Start-Process .\out\recovery-report.html
 
 ---
 
-## Backup Tool Detection
+## Backup Tool Detection & Policy Analysis
 
-The tool automatically detects these backup solutions — no configuration required:
+The tool automatically detects these backup solutions and — for supported tools — collects detailed policy data:
 
-| Tool | Detection Method |
-|------|-----------------|
-| **Kasten K10** | `kasten-io` namespace, `policies.config.kio.kasten.io` CRD |
-| **Velero** | `velero` namespace, `backups.velero.io` CRD |
-| **Rubrik** | `rubrik`/`rbs` namespace, `rubrik-backup-service` pods |
-| **Longhorn** | `longhorn-system` namespace, `driver.longhorn.io` StorageClass provisioner |
-| **Trilio** | `trilio-system` namespace, `backupplans.triliovault.trilio.io` CRD |
-| **Stash** | `stash.appscode.com` CRD group |
-| **CloudCasa** | `cloudcasa-io` namespace |
+| Tool | Detection | Policy Collection |
+|------|-----------|-------------------|
+| **Kasten K10** | `kasten-io` namespace, `kio.kasten.io` CRDs | Policies: frequency, namespace selector, export actions |
+| **Velero** | `velero` namespace, `velero.io` CRDs | Schedules: namespace coverage, cron, TTL, storage location |
+| **Longhorn** | `longhorn-system` namespace, `longhorn.io` CRDs | RecurringJobs (backup tasks), BackupTarget setting |
+| **Rubrik** | `rubrik`/`rbs` namespace, `rubrik.com` CRDs | Detection only |
+| **Trilio** | `trilio-system` namespace, `triliovault.trilio.io` CRDs | Detection only |
+| **Stash** | `stash` namespace, `stash.appscode.com` CRDs | Detection only |
+| **CloudCasa** | `cloudcasa-io` namespace, `cloudcasa.io` CRDs | Detection only |
+
+RPO is estimated from cron expressions and frequency labels (`@daily`, `@weekly`, `*/6 * * * *`, etc.).
+
+An offsite/export location is detected from Velero storage locations (non-default), Kasten export actions, and Longhorn BackupTarget settings.
+
+---
+
+## Restore Simulation
+
+After backup detection, the tool runs a per-namespace restore feasibility assessment for every namespace containing StatefulSets or PVCs:
+
+| Field | Description |
+|-------|-------------|
+| **Coverage** | Whether at least one backup policy covers the namespace |
+| **RPO (h)** | Best-case RPO in hours from applicable policies |
+| **PVC Data (GB)** | Total persistent storage that would need to be restored |
+| **Blockers** | hostPath volumes, unbound PVCs — prevent clean restore |
+| **Warnings** | StorageClasses referenced in PVCs but not present in cluster |
+
+Results are visible in the **Backup** tab and drive the `BACKUP_NO_OFFSITE`, `BACKUP_RPO_HIGH`, and `RESTORE_SIM_UNCOVERED` scoring rules.
 
 ---
 
@@ -197,8 +241,9 @@ Provider is detected automatically from node labels:
 
 - Pre-migration DR assessment before cluster rebuild
 - Customer environment intake validation for DRaaS onboarding
-- Identifying backup gaps before a DR event
+- Identifying backup gaps and offsite coverage before a DR event
 - Repeatable DR maturity measurement over time
+- Scan-to-scan comparison to track posture changes across sprints
 - CSV/Excel inventory export for documentation or handoff
 
 ---
