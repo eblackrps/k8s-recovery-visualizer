@@ -150,22 +150,19 @@ go build -o scan.exe ./cmd/scan
 ./scan --out ./out
 
 # Scoped to specific namespaces
-.\scan.exe --namespace=prod,staging --out .\out
+./scan --namespace=prod,staging --out ./out
 
 # Bare metal recovery target with CSV export
 ./scan --target=baremetal --csv --out ./out
 
-# Scoped to specific namespaces
-./scan --namespace=production,monitoring --out ./out
-
-# With explicit kubeconfig
-./scan --kubeconfig ~/.kube/config --target=vm --csv --out ./out
+# Diff against a previous scan
+./scan --compare=./previous/recovery-scan.json --out ./out
 
 # CI mode (exit code 2 if score below threshold)
 ./scan --ci --min-score=75 --out ./out
 
 # Write a redacted JSON copy (no secret values)
-.\scan.exe --redact --out .\out
+./scan --redact --out ./out
 
 # Dry run (no cluster required)
 ./scan --dry-run --out ./out
@@ -174,8 +171,10 @@ go build -o scan.exe ./cmd/scan
 **Windows**
 ```powershell
 .\scan.exe --out .\out
-.\scan.exe --target=baremetal --csv --out .\out
-.\scan.exe --kubeconfig C:\Users\you\.kube\config --target=vm --csv --out .\out
+.\scan.exe --namespace=prod,staging --out .\out
+.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
+.\scan.exe --redact --out .\out
+.\scan.exe --ci --min-score=75 --out .\out
 ```
 
 ### Open Report
