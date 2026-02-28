@@ -121,44 +121,73 @@ The HTML report is fully self-contained (no CDN, no external dependencies) — s
 
 ### Prerequisites
 
-- Go 1.21+
+- Go 1.21+ **or** a pre-built binary from [Releases](../../releases)
 - A valid `kubeconfig` with read access to the cluster
 
 ### Build
 
+**Linux / macOS**
+```bash
+make build
+# binary: ./scan
+```
+
+**One-liner without make**
+```bash
+go build -o scan ./cmd/scan
+```
+
+**Windows**
 ```powershell
 go build -o scan.exe ./cmd/scan
 ```
 
 ### Run
 
-```powershell
+**Linux / macOS**
+```bash
 # Basic scan (VM recovery target)
-.\scan.exe --out .\out
+./scan --out ./out
 
 # Scoped to specific namespaces
-.\scan.exe --namespace=prod,staging --out .\out
+./scan --namespace=prod,staging --out ./out
 
 # Bare metal recovery target with CSV export
-.\scan.exe --target=baremetal --csv --out .\out
+./scan --target=baremetal --csv --out ./out
 
 # Diff against a previous scan
-.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
+./scan --compare=./previous/recovery-scan.json --out ./out
 
 # CI mode (exit code 2 if score below threshold)
-.\scan.exe --ci --min-score=75 --out .\out
+./scan --ci --min-score=75 --out ./out
 
 # Write a redacted JSON copy (no secret values)
-.\scan.exe --redact --out .\out
+./scan --redact --out ./out
 
 # Dry run (no cluster required)
-.\scan.exe --dry-run --out .\out
+./scan --dry-run --out ./out
+```
+
+**Windows**
+```powershell
+.\scan.exe --out .\out
+.\scan.exe --namespace=prod,staging --out .\out
+.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
+.\scan.exe --redact --out .\out
+.\scan.exe --ci --min-score=75 --out .\out
 ```
 
 ### Open Report
 
-```powershell
-Start-Process .\out\recovery-report.html
+```bash
+# Linux
+xdg-open ./out/recovery-report.html
+
+# macOS
+open ./out/recovery-report.html
+
+# Windows
+start .\out\recovery-report.html
 ```
 
 ---
