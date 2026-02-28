@@ -30,6 +30,9 @@ const (
 	penCertExpiring        = 10
 	penImageExternal       = 5
 	penHelmUntracked       = 5
+	penRBACWildcard        = 20 // custom ClusterRole with wildcard verb
+	penRBACEscalate        = 10 // custom ClusterRole with escalate/bind/impersonate
+	penRBACSecrets         = 10 // custom ClusterRole with broad secrets read
 )
 
 // profileGet returns the weight multiplier for key from a profile weight map.
@@ -233,6 +236,44 @@ func Evaluate(b *model.Bundle) {
 		addFinding(b, "HELM_UNTRACKED", "LOW", "helm",
 			"Helm releases detected with no backup tool to capture release values",
 			"Back up Helm values (helm get values <release>) for each release before DR")
+	}
+
+	// ── Config domain — RBAC privilege audit ────────────────────────────────
+	var wildRoles, escalateRoles, secretRoles []string
+	for _, cr := range b.Inventory.ClusterRoles {
+		if !cr.Custom {
+			continue // skip built-in system: roles
+		}
+		if cr.HasWildcardVerb {
+			wildRoles = append(wildRoles, cr.Name)
+		}
+		if cr.HasEscalatePriv {
+			escalateRoles = append(escalateRoles, cr.Name)
+		}
+		if cr.HasSecretAccess {
+			secretRoles = append(secretRoles, cr.Name)
+		}
+	}
+	if len(wildRoles) > 0 {
+		config -= penScale(penRBACWildcard, wSec)
+		addFinding(b, "RBAC_WILDCARD_VERB", "CRITICAL",
+			"roles:"+joinFirst(wildRoles, 3),
+			"Custom ClusterRole grants wildcard verb permissions",
+			"Scope roles to specific resources and verbs; wildcard permissions are equivalent to cluster-admin")
+	}
+	if len(escalateRoles) > 0 {
+		config -= penScale(penRBACEscalate, wSec)
+		addFinding(b, "RBAC_ESCALATE_PRIV", "HIGH",
+			"roles:"+joinFirst(escalateRoles, 3),
+			"Custom ClusterRole grants escalate, bind, or impersonate verbs",
+			"Remove privilege escalation verbs unless explicitly required by the workload")
+	}
+	if len(secretRoles) > 0 {
+		config -= penScale(penRBACSecrets, wSec)
+		addFinding(b, "RBAC_SECRET_ACCESS", "HIGH",
+			"roles:"+joinFirst(secretRoles, 3),
+			"Custom ClusterRole grants broad read access to Secrets",
+			"Restrict secret access to specific secrets by name; prefer Role/RoleBinding scoped to a namespace")
 	}
 
 	storage = clamp(storage)

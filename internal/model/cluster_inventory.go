@@ -115,9 +115,13 @@ type Secret struct {
 
 // ClusterRole represents a Kubernetes ClusterRole.
 type ClusterRole struct {
-	Name     string `json:"name"`
-	Custom   bool   `json:"custom"` // true if not a built-in system: role
-	RuleCount int   `json:"ruleCount"`
+	Name            string   `json:"name"`
+	Custom          bool     `json:"custom"` // true if not a built-in system: role
+	RuleCount       int      `json:"ruleCount"`
+	HasWildcardVerb bool     `json:"hasWildcardVerb,omitempty"`  // any rule grants wildcard verb
+	HasSecretAccess bool     `json:"hasSecretAccess,omitempty"`  // any rule grants read on secrets
+	HasEscalatePriv bool     `json:"hasEscalatePriv,omitempty"`  // escalate/bind/impersonate verbs
+	DangerousRules  []string `json:"dangerousRules,omitempty"`   // human-readable risk summary
 }
 
 // ClusterRoleBinding represents a Kubernetes ClusterRoleBinding.
