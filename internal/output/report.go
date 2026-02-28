@@ -179,6 +179,46 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <span class="chip n">MEDIUM: %d</span>
 <p style="margin-top:10px;color:#8b949e;font-size:.86em">Full findings → <strong>DR Score</strong> tab. Action steps → <strong>Remediation</strong> tab.</p>
 </div>`, crit, high, med)
+
+	// Scan coverage / skipped collectors callout
+	totalCollectors := 24 // total number of optional collectors attempted
+	skipped := len(b.CollectorSkips)
+	rbacSkips := 0
+	for _, sk := range b.CollectorSkips {
+		if sk.RBAC {
+			rbacSkips++
+		}
+	}
+	if skipped > 0 {
+		w(`<div class="card" style="border-color:#f2cc60">`)
+		wf(`<h2 style="color:#f2cc60">Scan Coverage — %d/%d collectors skipped</h2>`, skipped, totalCollectors)
+		if rbacSkips > 0 {
+			wf(`<p style="color:#8b949e;font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
+		}
+		w(`<table style="margin-top:4px"><thead><tr>`)
+		for _, h := range []string{"Collector", "Reason", "RBAC?"} {
+			wf(`<th>%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, sk := range b.CollectorSkips {
+			rbacCell := `<span class="bad">✗ No</span>`
+			if sk.RBAC {
+				rbacCell = `<span style="color:#f2cc60">⚠ Yes</span>`
+			}
+			// Truncate long reasons for display
+			reason := sk.Reason
+			if len(reason) > 120 {
+				reason = reason[:117] + "..."
+			}
+			wf(`<tr><td>%s</td><td style="color:#8b949e;font-size:.84em">%s</td><td>%s</td></tr>`,
+				e(sk.Name), e(reason), rbacCell)
+		}
+		w(`</tbody></table></div>`)
+	} else {
+		wf(`<div class="card" style="border-color:#30363d"><h2>Scan Coverage</h2>
+<p style="color:#7ee787;font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
+	}
+
 	w(`</div>`) // p0
 
 	// ── Tab 1: Nodes ─────────────────────────────────────────────────────────
