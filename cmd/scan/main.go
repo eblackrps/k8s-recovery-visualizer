@@ -18,10 +18,11 @@ import (
 	"k8s-recovery-visualizer/internal/enrich"
 	"k8s-recovery-visualizer/internal/history"
 	"k8s-recovery-visualizer/internal/kube"
-	"k8s-recovery-visualizer/internal/restore"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/output"
+	"k8s-recovery-visualizer/internal/profile"
 	"k8s-recovery-visualizer/internal/remediation"
+	"k8s-recovery-visualizer/internal/restore"
 )
 
 func main() {
@@ -41,7 +42,8 @@ func main() {
 		namespace  = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
 		compareTo  = flag.String("compare", "", "Path to a previous recovery-scan.json to diff against")
 		summary    = flag.Bool("summary", false, "Also write a print-optimised executive summary HTML")
-		redactOut  = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
+		redactOut   = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
+		profileName = flag.String("profile", "standard", "Scoring profile: standard|enterprise|dev|airgap")
 	)
 	flag.Parse()
 
@@ -62,6 +64,7 @@ func main() {
 	bundle.Metadata.ClusterName = *cluster
 	bundle.Metadata.Environment = *env
 	bundle.Target = *target
+	bundle.Profile = string(profile.Normalize(*profileName))
 	if *namespace != "" {
 		for _, ns := range strings.Split(*namespace, ",") {
 			ns = strings.TrimSpace(ns)
@@ -69,6 +72,10 @@ func main() {
 				bundle.ScanNamespaces = append(bundle.ScanNamespaces, ns)
 			}
 		}
+	}
+
+	if !*ci {
+		fmt.Printf("Profile: %s\n", bundle.Profile)
 	}
 
 	if *dryRun {
@@ -278,6 +285,7 @@ func printCISummary(b *model.Bundle, minScore int, trendLabel string, trendDelta
 		Maturity:     b.Score.Maturity,
 		Status:       "PASSED",
 		MinScore:     minScore,
+		Profile:      b.Profile,
 		Categories:   analyze.BuildCategories(b),
 		Trend:        trendLabel,
 		Delta:        trendDelta,

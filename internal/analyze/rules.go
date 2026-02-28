@@ -1,6 +1,9 @@
 package analyze
 
-import "k8s-recovery-visualizer/internal/model"
+import (
+	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/profile"
+)
 
 const (
 	storageWeight  = 35
@@ -29,11 +32,39 @@ const (
 	penHelmUntracked       = 5
 )
 
+// profileGet returns the weight multiplier for key from a profile weight map.
+// Returns 1.0 when the key is absent (no scaling).
+func profileGet(weights map[string]float64, key string) float64 {
+	if v, ok := weights[key]; ok {
+		return v
+	}
+	return 1.0
+}
+
+// penScale multiplies a base penalty by a profile multiplier, rounding to nearest int.
+// The result is clamped to a minimum of 1 so a penalty is never fully erased.
+func penScale(base int, multiplier float64) int {
+	v := int(float64(base)*multiplier + 0.5)
+	if v < 1 {
+		return 1
+	}
+	return v
+}
+
 func Evaluate(b *model.Bundle) {
 	storage := 100
 	workload := 100
 	config := 100
 	backup := 100
+
+	// Resolve profile weights once; missing keys fall back to 1.0 via profileGet.
+	p := profile.Normalize(b.Profile)
+	weights := profile.Weights(p)
+	wImmut := profileGet(weights, "immutability")
+	wRepl := profileGet(weights, "replication")
+	wRestore := profileGet(weights, "restoreTesting")
+	wSec := profileGet(weights, "security")
+	wAirgap := profileGet(weights, "airgap")
 
 	pvMap := map[string]model.PersistentVolume{}
 	for _, pv := range b.Inventory.PVs {
@@ -58,13 +89,13 @@ func Evaluate(b *model.Bundle) {
 				"Define explicit storageClass for DR predictability")
 		}
 		if bound && pv.Backend == "hostPath" {
-			storage -= penPVHostPath
+			storage -= penScale(penPVHostPath, wImmut)
 			addFinding(b, "PV_HOSTPATH", "CRITICAL", pv.Name,
 				"PV uses hostPath storage",
 				"Migrate to CSI/network storage before DR onboarding")
 		}
 		if bound && pv.ReclaimPolicy == "Delete" {
-			storage -= penPVDeletePolicy
+			storage -= penScale(penPVDeletePolicy, wImmut)
 			addFinding(b, "PV_DELETE_POLICY", "HIGH", pv.Name,
 				"PV reclaimPolicy is Delete",
 				"Consider Retain for DR recoverability")
@@ -124,7 +155,7 @@ func Evaluate(b *model.Bundle) {
 				"Extend backup policies to cover all stateful namespaces")
 		}
 		if len(inv.CoveredNamespaces) == 0 {
-			backup -= penBackupNoPolicies
+			backup -= penScale(penBackupNoPolicies, wRestore)
 			addFinding(b, "BACKUP_NO_POLICIES", "HIGH", inv.PrimaryTool,
 				"Backup tool detected but no backup policies or schedules found",
 				"Create backup schedules covering all production namespaces")
@@ -133,7 +164,7 @@ func Evaluate(b *model.Bundle) {
 
 	// Offsite backup check — tool present but no offsite/export policy found.
 	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.HasOffsite {
-		backup -= penBackupNoOffsite
+		backup -= penScale(penBackupNoOffsite, wRepl)
 		addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", inv.PrimaryTool,
 			"Backup tool detected but no offsite/export location configured",
 			"Configure an offsite or cloud export target to protect against site-level failures")
@@ -155,7 +186,7 @@ func Evaluate(b *model.Bundle) {
 
 	// Restore simulation — penalise when stateful namespaces have no coverage.
 	if sim := b.Inventory.Backup.RestoreSim; sim != nil && len(sim.UncoveredNS) > 0 {
-		backup -= penRestoreSimUncovered
+		backup -= penScale(penRestoreSimUncovered, wRestore)
 		addFinding(b, "RESTORE_SIM_UNCOVERED", "HIGH",
 			"namespaces:"+joinFirst(sim.UncoveredNS, 3),
 			"Restore simulation: stateful namespaces have no backup policy coverage",
@@ -173,7 +204,7 @@ func Evaluate(b *model.Bundle) {
 	// Certificates expiring within 30 days
 	for _, cert := range b.Inventory.Certificates {
 		if cert.DaysToExpiry >= 0 && cert.DaysToExpiry <= 30 {
-			backup -= penCertExpiring
+			backup -= penScale(penCertExpiring, wSec)
 			addFinding(b, "CERT_EXPIRING_SOON", "HIGH",
 				cert.Namespace+"/"+cert.Name,
 				"Certificate expires within 30 days",
@@ -190,7 +221,7 @@ func Evaluate(b *model.Bundle) {
 		}
 	}
 	if externalCount > 0 {
-		backup -= penImageExternal
+		backup -= penScale(penImageExternal, wAirgap)
 		addFinding(b, "IMAGE_EXTERNAL_REGISTRY", "MEDIUM", "images",
 			"Workloads depend on public container registries",
 			"Mirror critical images to a private registry accessible from the DR environment")
