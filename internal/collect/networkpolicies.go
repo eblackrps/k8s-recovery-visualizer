@@ -15,6 +15,9 @@ func NetworkPolicies(ctx context.Context, cs *kubernetes.Clientset, b *model.Bun
 		return err
 	}
 	for _, np := range list.Items {
+		if !InScope(np.Namespace, b) {
+			continue
+		}
 		sel := ""
 		if len(np.Spec.PodSelector.MatchLabels) > 0 {
 			for k, v := range np.Spec.PodSelector.MatchLabels {

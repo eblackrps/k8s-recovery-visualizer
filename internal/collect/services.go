@@ -14,6 +14,9 @@ func Services(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) er
 		return err
 	}
 	for _, svc := range list.Items {
+		if !InScope(svc.Namespace, b) {
+			continue
+		}
 		var ports []model.ServicePort
 		for _, p := range svc.Spec.Ports {
 			ports = append(ports, model.ServicePort{

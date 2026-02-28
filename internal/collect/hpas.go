@@ -15,6 +15,9 @@ func HPAs(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error 
 		return err
 	}
 	for _, hpa := range list.Items {
+		if !InScope(hpa.Namespace, b) {
+			continue
+		}
 		minRep := int32(1)
 		if hpa.Spec.MinReplicas != nil {
 			minRep = *hpa.Spec.MinReplicas

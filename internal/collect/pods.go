@@ -16,6 +16,9 @@ func Pods(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error 
 	}
 
 	for _, pod := range list.Items {
+		if !InScope(pod.Namespace, b) {
+			continue
+		}
 
 		usesHostPath := false
 

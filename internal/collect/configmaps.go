@@ -14,6 +14,9 @@ func ConfigMaps(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) 
 		return err
 	}
 	for _, cm := range list.Items {
+		if !InScope(cm.Namespace, b) {
+			continue
+		}
 		b.Inventory.ConfigMaps = append(b.Inventory.ConfigMaps, model.ConfigMap{
 			Namespace: cm.Namespace,
 			Name:      cm.Name,

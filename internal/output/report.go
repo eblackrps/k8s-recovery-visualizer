@@ -38,6 +38,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	if backupTool == "" {
 		backupTool = "none"
 	}
+	scopeLabel := "all namespaces"
+	if len(b.ScanNamespaces) > 0 {
+		scopeLabel = strings.Join(b.ScanNamespaces, ", ")
+	}
 
 	w(`<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -104,12 +108,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// Header
 	wf(`<div class="hdr"><div><h1>K8s DR Recovery Report</h1>
-<div class="hdr-meta">Cluster: %s &nbsp;|&nbsp; Platform: %s &nbsp;|&nbsp; %s</div></div>
+<div class="hdr-meta">Cluster: %s &nbsp;|&nbsp; Platform: %s &nbsp;|&nbsp; Scope: %s &nbsp;|&nbsp; %s</div></div>
 <div style="margin-left:auto;text-align:right">
 <div class="badge" style="color:%s;border-color:%s;font-size:1.1em">%s</div>
 <div style="color:#8b949e;font-size:.83em;margin-top:3px">Score: <strong style="color:#f0f6fc">%d / 100</strong></div>
 </div></div>`,
-		e(b.Metadata.ClusterName), e(platform), e(b.Metadata.GeneratedAt),
+		e(b.Metadata.ClusterName), e(platform), e(scopeLabel), e(b.Metadata.GeneratedAt),
 		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
 
 	// Tab bar
@@ -155,12 +159,13 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <tr><td>Helm Releases</td><td>%d</td></tr>
 <tr><td>Certificates</td><td>%d</td></tr>
 <tr><td>Recovery Target</td><td>%s</td></tr>
+<tr><td>Namespace Scope</td><td>%s</td></tr>
 </tbody></table></div>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion), e(b.Cluster.Platform.ClusterUID),
 		btClass, e(backupTool),
 		len(b.Inventory.Nodes), len(b.Inventory.Namespaces),
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates),
-		e(b.Target))
+		e(b.Target), e(scopeLabel))
 
 	crit, high, med := 0, 0, 0
 	for _, f := range b.Inventory.Findings {

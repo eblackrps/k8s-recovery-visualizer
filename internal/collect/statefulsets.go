@@ -16,6 +16,9 @@ func StatefulSets(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle
 	}
 
 	for _, sts := range list.Items {
+		if !InScope(sts.Namespace, b) {
+			continue
+		}
 
 		hasPVC := len(sts.Spec.VolumeClaimTemplates) > 0
 

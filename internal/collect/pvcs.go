@@ -16,6 +16,9 @@ func PVCs(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error 
 	}
 
 	for _, pvc := range list.Items {
+		if !InScope(pvc.Namespace, b) {
+			continue
+		}
 		size := ""
 		if qty, ok := pvc.Spec.Resources.Requests["storage"]; ok {
 			size = qty.String()

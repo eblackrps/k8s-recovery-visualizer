@@ -14,6 +14,9 @@ func ResourceQuotas(ctx context.Context, cs *kubernetes.Clientset, b *model.Bund
 		return err
 	}
 	for _, rq := range list.Items {
+		if !InScope(rq.Namespace, b) {
+			continue
+		}
 		var items []model.ResourceQuotaItem
 		for resource, hard := range rq.Spec.Hard {
 			used := ""

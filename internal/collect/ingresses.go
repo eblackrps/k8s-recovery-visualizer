@@ -15,6 +15,9 @@ func Ingresses(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) e
 		return err
 	}
 	for _, ing := range list.Items {
+		if !InScope(ing.Namespace, b) {
+			continue
+		}
 		hasTLS := len(ing.Spec.TLS) > 0
 		className := ""
 		if ing.Spec.IngressClassName != nil {

@@ -14,6 +14,9 @@ func Secrets(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) err
 		return err
 	}
 	for _, s := range list.Items {
+		if !InScope(s.Namespace, b) {
+			continue
+		}
 		b.Inventory.Secrets = append(b.Inventory.Secrets, model.Secret{
 			Namespace: s.Namespace,
 			Name:      s.Name,
