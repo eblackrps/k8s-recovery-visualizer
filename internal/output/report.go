@@ -842,6 +842,84 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`</tbody></table>`)
 	}
 
+	// ── Round 14: LimitRange enforcement ─────────────────────────────────
+	w(`<h3>LimitRange Enforcement</h3>`)
+	if len(b.Inventory.LimitRanges) == 0 {
+		w(`<div class="empty" style="color:#ffa657">No LimitRanges found — namespaces have no default resource constraints.</div>`)
+	} else {
+		w(`<table id="t-lr"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Name", "Type", "Max CPU", "Max Memory", "Default CPU", "Default Memory"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, lr := range b.Inventory.LimitRanges {
+			if len(lr.Items) == 0 {
+				wf(`<tr><td>%s</td><td>%s</td><td colspan="5"><span style="color:#8b949e">no items</span></td></tr>`,
+					e(lr.Namespace), e(lr.Name))
+				continue
+			}
+			for _, item := range lr.Items {
+				dash := `<span style="color:#8b949e">—</span>`
+				maxCPU, maxMem, defCPU, defMem := dash, dash, dash, dash
+				if item.MaxCPU != "" {
+					maxCPU = e(item.MaxCPU)
+				}
+				if item.MaxMemory != "" {
+					maxMem = e(item.MaxMemory)
+				}
+				if item.DefaultCPU != "" {
+					defCPU = e(item.DefaultCPU)
+				}
+				if item.DefaultMemory != "" {
+					defMem = e(item.DefaultMemory)
+				}
+				wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(lr.Namespace), e(lr.Name), e(item.Type), maxCPU, maxMem, defCPU, defMem)
+			}
+		}
+		w(`</tbody></table>`)
+	}
+
+	// ── Round 14: PSA label coverage ─────────────────────────────────────
+	w(`<h3>Pod Security Admission (PSA) Coverage</h3>`)
+	w(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">Namespaces should carry <code>pod-security.kubernetes.io/enforce</code> labels to activate PSA admission control. System namespaces are excluded.</p>`)
+	if len(b.Inventory.Namespaces) == 0 {
+		w(`<div class="empty">No namespace data collected.</div>`)
+	} else {
+		w(`<table id="t-psa"><thead><tr>`)
+		for _, h := range []string{"Namespace", "Enforce", "Warn", "Audit", "Status"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, ns := range b.Inventory.Namespaces {
+			if ns.Name == "kube-system" || ns.Name == "kube-public" || ns.Name == "kube-node-lease" {
+				continue
+			}
+			dash := `<span style="color:#8b949e">—</span>`
+			enf := dash
+			if ns.PSAEnforce != "" {
+				enf = fmt.Sprintf(`<span class="chip p">%s</span>`, e(ns.PSAEnforce))
+			}
+			wrn := dash
+			if ns.PSAWarn != "" {
+				wrn = e(ns.PSAWarn)
+			}
+			aud := dash
+			if ns.PSAAudit != "" {
+				aud = e(ns.PSAAudit)
+			}
+			statusCell := `<span class="bad">missing</span>`
+			if ns.PSAEnforce != "" {
+				statusCell = `<span class="ok">✓</span>`
+			} else if ns.PSAWarn != "" || ns.PSAAudit != "" {
+				statusCell = `<span style="color:#ffa657">warn/audit only</span>`
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(ns.Name), enf, wrn, aud, statusCell)
+		}
+		w(`</tbody></table>`)
+	}
+
 	// RBAC privilege audit — custom ClusterRoles only
 	w(`<h3>RBAC Security — Custom ClusterRoles</h3>`)
 	var customRoles []model.ClusterRole
@@ -1098,6 +1176,31 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`</tbody></table>`)
 	}
 	w(`</div>`) // restore sim card
+
+	// ── Round 14: etcd backup status ─────────────────────────────────────
+	w(`<div class="card"><h2>etcd Backup Status</h2>`)
+	if eb := b.Inventory.EtcdBackup; eb == nil {
+		w(`<div class="empty">etcd backup detection not run (dry-run mode or collector skipped).</div>`)
+	} else if eb.Detected {
+		sourceLabel := map[string]string{
+			"provider-managed":   "Provider-managed",
+			"cronjob":            "CronJob",
+			"configmap":          "ConfigMap",
+			"velero-cluster":     "Velero cluster-scoped backup",
+		}[eb.Source]
+		if sourceLabel == "" {
+			sourceLabel = eb.Source
+		}
+		wf(`<p><span class="ok">✓</span> <strong>etcd backup detected</strong> — source: <em>%s</em></p>`, e(sourceLabel))
+		if eb.Detail != "" {
+			wf(`<p style="color:#8b949e;font-size:.84em">%s</p>`, e(eb.Detail))
+		}
+	} else {
+		w(`<p><span class="bad">✗</span> <strong style="color:#f85149">No etcd backup evidence found</strong></p>`)
+		w(`<p style="color:#8b949e;font-size:.84em">etcd holds all cluster state. Without a backup, the cluster cannot be recovered after catastrophic failure. Configure periodic <code>etcdctl snapshot save</code> via a CronJob, or migrate to a managed K8s service.</p>`)
+	}
+	w(`</div>`) // etcd backup card
+
 	w(`</div>`) // p7
 
 	// ── Tab 8: DR Score ──────────────────────────────────────────────────────

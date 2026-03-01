@@ -199,6 +199,10 @@ type Inventory struct {
 	VolumeSnapshotClasses []VolumeSnapshotClass `json:"volumeSnapshotClasses,omitempty"`
 	VolumeSnapshots       []VolumeSnapshot      `json:"volumeSnapshots,omitempty"`
 
+	// Round 14 — LimitRange enforcement + etcd backup
+	LimitRanges []LimitRange        `json:"limitRanges,omitempty"`
+	EtcdBackup  *EtcdBackupEvidence `json:"etcdBackup,omitempty"`
+
 	// Backup detection result
 	Backup BackupInventory `json:"backup,omitempty"`
 
@@ -211,18 +215,22 @@ type Inventory struct {
 type Namespace struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// PSA label values — empty string means label is absent.
+	PSAEnforce string `json:"psaEnforce,omitempty"` // pod-security.kubernetes.io/enforce
+	PSAWarn    string `json:"psaWarn,omitempty"`    // pod-security.kubernetes.io/warn
+	PSAAudit   string `json:"psaAudit,omitempty"`   // pod-security.kubernetes.io/audit
 }
 
 func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
 		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "0.8.0",
+			ToolVersion: "0.9.0",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "0.8.0",
+			Version:   "0.9.0",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{

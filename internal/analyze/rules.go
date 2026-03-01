@@ -44,6 +44,15 @@ const (
 
 	// Round 13 — VolumeSnapshot coverage (Storage domain)
 	penNoSnapshot = 10 // PVCs with no matching VolumeSnapshot
+
+	// Round 14 — LimitRange enforcement (Config domain)
+	penLRMissing = 10 // namespaces with workloads but no LimitRange
+
+	// Round 14 — PSA label coverage (Config domain)
+	penPSAMissing = 12 // non-system namespaces with pods but no pod-security.kubernetes.io/enforce label
+
+	// Round 14 — etcd backup (Backup domain)
+	penEtcdNoBackup = 25 // no etcd backup evidence found on self-managed cluster
 )
 
 // profileGet returns the weight multiplier for key from a profile weight map.
@@ -370,6 +379,64 @@ func Evaluate(b *model.Bundle) {
 				"PVCs have no VolumeSnapshot — point-in-time recovery not available for these volumes",
 				"Create VolumeSnapshots (or a schedule via the snapshot-controller) for all production PVCs")
 		}
+	}
+
+	// ── Round 14 — LimitRange enforcement (Config domain) ───────────────────
+	// Build set of namespaces that have at least one LimitRange.
+	nsWithLR := map[string]bool{}
+	for _, lr := range b.Inventory.LimitRanges {
+		nsWithLR[lr.Namespace] = true
+	}
+	// Find namespaces that have pods but no LimitRange.
+	nsWithPods := map[string]bool{}
+	for _, pod := range b.Inventory.Pods {
+		if pod.Namespace == "kube-system" {
+			continue
+		}
+		nsWithPods[pod.Namespace] = true
+	}
+	var lrMissingNS []string
+	for ns := range nsWithPods {
+		if !nsWithLR[ns] {
+			lrMissingNS = append(lrMissingNS, ns)
+		}
+	}
+	if len(lrMissingNS) > 0 {
+		config -= penScale(penLRMissing, wSec)
+		addFinding(b, "LR_MISSING_NAMESPACE", "MEDIUM",
+			"namespaces:"+joinFirst(lrMissingNS, 3),
+			"Namespaces have pods but no LimitRange — unbounded resource consumption possible",
+			"Add a LimitRange to each namespace to enforce default CPU/memory requests and limits")
+	}
+
+	// ── Round 14 — PSA label coverage (Config domain) ────────────────────────
+	var psaMissingNS []string
+	for _, ns := range b.Inventory.Namespaces {
+		if ns.Name == "kube-system" || ns.Name == "kube-public" || ns.Name == "kube-node-lease" {
+			continue // control-plane namespaces — PSA labels not expected
+		}
+		if !nsWithPods[ns.Name] {
+			continue // skip namespaces with no running pods
+		}
+		if ns.PSAEnforce == "" {
+			psaMissingNS = append(psaMissingNS, ns.Name)
+		}
+	}
+	if len(psaMissingNS) > 0 {
+		config -= penScale(penPSAMissing, wSec)
+		addFinding(b, "PSA_MISSING_ENFORCE_LABEL", "MEDIUM",
+			"namespaces:"+joinFirst(psaMissingNS, 3),
+			"Namespaces lack pod-security.kubernetes.io/enforce label — PSA admission not enforced",
+			"Set pod-security.kubernetes.io/enforce=baseline (or restricted) on each namespace to enable Pod Security Admission")
+	}
+
+	// ── Round 14 — etcd backup detection (Backup domain) ─────────────────────
+	if eb := b.Inventory.EtcdBackup; eb != nil && !eb.Detected {
+		backup -= penScale(penEtcdNoBackup, wSec)
+		addFinding(b, "ETCD_BACKUP_MISSING", "HIGH",
+			"cluster",
+			"No etcd backup evidence found — complete cluster state loss is unrecoverable without etcd",
+			"Configure periodic etcd snapshots (e.g. etcdctl snapshot save) via a CronJob, or use a managed K8s service that handles this automatically")
 	}
 
 	storage = clamp(storage)
