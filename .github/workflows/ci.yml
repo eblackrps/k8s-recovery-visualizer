@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    name: Build, vet, cross-compile, smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # ── 1. Compile every package ──────────────────────────────────────────
+      - name: go build ./...
+        run: go build ./...
+
+      # ── 2. Static analysis ───────────────────────────────────────────────
+      - name: go vet ./...
+        run: go vet ./...
+
+      # ── 3. Unit tests ───────────────────────────────────────────────────
+      - name: go test ./...
+        run: go test ./...
+
+      # ── 4. Cross-compile release binaries with explicit GOOS/GOARCH ─────
+      #     This is the key regression guard: a bare 'go build' with GOOS set
+      #     in the environment can produce a Linux ELF named scan.exe.
+      #     Explicit flags here catch that class of mistake in CI.
+      - name: Build Linux binary (GOOS=linux GOARCH=amd64)
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-linux-amd64 ./cmd/scan
+
+      - name: Build Windows binary (GOOS=windows GOARCH=amd64)
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan.exe ./cmd/scan
+
+      # ── 5. Verify binary formats ─────────────────────────────────────────
+      - name: Verify scan-linux-amd64 is ELF
+        run: |
+          file dist/scan-linux-amd64 | grep -q "ELF 64-bit" || \
+            { echo "ERROR: scan-linux-amd64 is not a Linux ELF binary"; exit 1; }
+
+      - name: Verify scan.exe is PE32+
+        run: |
+          file dist/scan.exe | grep -q "PE32+" || \
+            { echo "ERROR: scan.exe is not a Windows PE32+ binary"; exit 1; }
+
+      # ── 6. Dry-run smoke test ────────────────────────────────────────────
+      - name: Smoke test -- dry-run
+        run: |
+          mkdir -p /tmp/smoke
+          # --min-score 0 ensures exit 0 even on a bare dry-run bundle
+          ./dist/scan-linux-amd64 --dry-run --out /tmp/smoke --min-score 0
+
+      - name: Smoke test -- verify JSON output
+        run: |
+          JSON=/tmp/smoke/recovery-scan.json
+          # schemaVersion must be present and non-empty
+          grep -q '"schemaVersion"' "$JSON" || \
+            { echo "ERROR: missing schemaVersion in output JSON"; exit 1; }
+          # overall score must be present
+          grep -q '"overall"' "$JSON" || \
+            { echo "ERROR: missing overall score in output JSON"; exit 1; }
+          # findings array must be present (can be empty)
+          grep -q '"findings"' "$JSON" || \
+            { echo "ERROR: missing findings array in output JSON"; exit 1; }
+          echo "JSON smoke test passed"
+
+      - name: Smoke test -- verify HTML report was generated
+        run: |
+          HTML=/tmp/smoke/recovery-report.html
+          test -f "$HTML" || { echo "ERROR: HTML report not generated"; exit 1; }
+          # All expected tab names must appear in the report
+          for tab in Summary Nodes Workloads Storage Networking Config Images Backup "DR Score" Findings Remediation; do
+            grep -q "$tab" "$HTML" || \
+              { echo "ERROR: tab '$tab' missing from HTML report"; exit 1; }
+          done
+          echo "HTML smoke test passed"
