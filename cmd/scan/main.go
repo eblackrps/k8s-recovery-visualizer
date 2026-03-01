@@ -44,6 +44,7 @@ func main() {
 		summary    = flag.Bool("summary", false, "Also write a print-optimised executive summary HTML")
 		redactOut   = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
 		profileName = flag.String("profile", "standard", "Scoring profile: standard|enterprise|dev|airgap")
+		runbook     = flag.Bool("runbook", false, "Also write a customer-facing DR runbook HTML")
 	)
 	flag.Parse()
 
@@ -88,7 +89,7 @@ func main() {
 		analyze.Evaluate(&bundle)
 		bundle.Inventory.RemediationSteps = remediation.Generate(&bundle, *target)
 		applyComparison(&bundle, *compareTo)
-		trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut)
+		trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut, *runbook)
 		if *ci {
 			printCISummary(&bundle, *minScore, trendLabel, trendDelta)
 		}
@@ -170,7 +171,7 @@ func main() {
 	applyComparison(&bundle, *compareTo)
 
 	// ── Write outputs ───────────────────────────────────────────────────────
-	trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut)
+	trendLabel, trendDelta := write(&bundle, *outDir, *ci, *minScore, *csvExport, *summary, *redactOut, *runbook)
 
 	if *ci {
 		printCISummary(&bundle, *minScore, trendLabel, trendDelta)
@@ -179,7 +180,7 @@ func main() {
 }
 
 // write serialises all outputs and returns trend label + delta for CI summary.
-func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExport, summaryOut, redactOut bool) (string, int) {
+func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExport, summaryOut, redactOut, runbookOut bool) (string, int) {
 	bundle.Scan.EndedAt = time.Now().UTC()
 	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
 	bundle.Checks = analyze.BuildChecks(bundle, minScore)
@@ -251,6 +252,17 @@ func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExp
 		}
 		if !quiet {
 			fmt.Println("Executive Summary:", summaryPath)
+		}
+	}
+
+	// Optional DR runbook
+	if runbookOut {
+		runbookPath := filepath.Join(outDir, "recovery-runbook.html")
+		if err := output.WriteRunbook(runbookPath, bundle); err != nil {
+			log.Fatalf("write runbook: %v", err)
+		}
+		if !quiet {
+			fmt.Println("DR Runbook:", runbookPath)
 		}
 	}
 

@@ -44,7 +44,7 @@ Scoring covers four weighted domains:
 |--------|--------|-----------------|
 | **Storage** | 35% | PVC binding, storageClass presence, hostPath usage, reclaim policies |
 | **Workload** | 20% | StatefulSet persistence, deployment coverage |
-| **Config** | 15% | CRD backup readiness, certificate expiry, image registry risk |
+| **Config** | 15% | CRD backup readiness, certificate expiry, image registry risk, RBAC privilege audit |
 | **Backup/Recovery** | 30% | Tool presence, policy coverage, offsite config, RPO, restore simulation |
 
 **Maturity levels:** PLATINUM (≥90) · GOLD (≥75) · SILVER (≥50) · BRONZE (<50)
@@ -67,10 +67,20 @@ Profile multipliers apply to the following scoring rules:
 | `restoreTesting` | `RESTORE_SIM_UNCOVERED`, `BACKUP_NO_POLICIES` |
 | `immutability` | `PV_HOSTPATH`, `PV_DELETE_POLICY` |
 | `replication` | `BACKUP_NO_OFFSITE` |
-| `security` | `CERT_EXPIRING_SOON` |
+| `security` | `CERT_EXPIRING_SOON`, `RBAC_WILDCARD_VERB`, `RBAC_ESCALATE_PRIV`, `RBAC_SECRET_ACCESS` |
 | `airgap` | `IMAGE_EXTERNAL_REGISTRY` |
 
 The active profile and its multipliers are shown in the **DR Score** tab of the HTML report.
+
+### Config Domain Scoring Rules
+
+| Finding ID | Severity | Penalty | Condition |
+|---|---|---|---|
+| `RBAC_WILDCARD_VERB` | CRITICAL | −20 | Custom ClusterRole grants wildcard verb permissions |
+| `RBAC_ESCALATE_PRIV` | HIGH | −10 | Custom ClusterRole grants escalate, bind, or impersonate verbs |
+| `RBAC_SECRET_ACCESS` | HIGH | −10 | Custom ClusterRole grants broad read access to Secrets |
+
+All three RBAC rules are scaled by the `security` profile multiplier.
 
 ### Backup/Recovery Scoring Rules
 
@@ -102,6 +112,7 @@ out/
 ├── recovery-scan.json          # Full cluster inventory + scores + findings
 ├── recovery-enriched.json      # Enriched DR analysis with trend + risk
 ├── recovery-report.md          # Markdown summary
+├── recovery-runbook.html       # (--runbook) Customer-facing DR runbook, print-ready
 ├── recovery-report.html        # Self-contained dark-mode tabbed HTML report
 ├── history/
 │   └── index.json              # Trend history across scans
@@ -190,6 +201,9 @@ go build -o scan.exe ./cmd/scan
 # Airgap profile — elevated weight on image registry isolation and immutability
 ./scan --profile=airgap --out ./out
 
+# Write a customer-facing DR runbook (print-ready HTML)
+./scan --runbook --out ./out
+
 # Write a redacted JSON copy (no secret values)
 ./scan --redact --out ./out
 
@@ -229,6 +243,7 @@ start .\out\recovery-report.html
 | `--out` | `./out` | Output directory |
 | `--target` | `vm` | Recovery target: `baremetal` or `vm` |
 | `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, or `airgap` |
+| `--runbook` | `false` | Write a customer-facing DR runbook HTML (`recovery-runbook.html`) |
 | `--namespace` | `""` | Comma-separated namespaces to scan (empty = all namespaces) |
 | `--compare` | `""` | Path to a previous `recovery-scan.json` to diff against |
 | `--csv` | `false` | Write CSV exports to `out/csv/` |

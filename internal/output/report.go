@@ -501,6 +501,48 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		w(`</tbody></table>`)
 	}
+
+	// RBAC privilege audit — custom ClusterRoles only
+	w(`<h3>RBAC Security — Custom ClusterRoles</h3>`)
+	var customRoles []model.ClusterRole
+	for _, cr := range b.Inventory.ClusterRoles {
+		if cr.Custom {
+			customRoles = append(customRoles, cr)
+		}
+	}
+	if len(customRoles) == 0 {
+		w(`<div class="empty">No custom ClusterRoles detected (only built-in system: roles present).</div>`)
+	} else {
+		w(`<table id="t-rbac"><thead><tr>`)
+		for _, h := range []string{"Name", "Rules", "Wildcard Verb", "Secret Access", "Escalate/Bind", "Risk"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, cr := range customRoles {
+			wcCell := `<span style="color:#8b949e">—</span>`
+			if cr.HasWildcardVerb {
+				wcCell = `<span class="bad">yes</span>`
+			}
+			saCell := `<span style="color:#8b949e">—</span>`
+			if cr.HasSecretAccess {
+				saCell = `<span class="c-HIGH">yes</span>`
+			}
+			esCell := `<span style="color:#8b949e">—</span>`
+			if cr.HasEscalatePriv {
+				esCell = `<span class="c-HIGH">yes</span>`
+			}
+			riskLabel, riskColor := "clean", "#7ee787"
+			if cr.HasWildcardVerb {
+				riskLabel, riskColor = "CRITICAL", "#f85149"
+			} else if cr.HasSecretAccess || cr.HasEscalatePriv {
+				riskLabel, riskColor = "HIGH", "#ffa657"
+			}
+			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, riskLabel)
+			wf(`<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(cr.Name), cr.RuleCount, wcCell, saCell, esCell, riskCell)
+		}
+		w(`</tbody></table>`)
+	}
 	w(`</div>`) // p5
 
 	// ── Tab 6: Images ────────────────────────────────────────────────────────
