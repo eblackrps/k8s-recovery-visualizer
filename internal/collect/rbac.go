@@ -81,7 +81,11 @@ func ClusterRoleBindings(ctx context.Context, cs *kubernetes.Clientset, b *model
 	for _, crb := range list.Items {
 		var subjects []string
 		for _, s := range crb.Subjects {
-			subjects = append(subjects, fmt.Sprintf("%s:%s", s.Kind, s.Name))
+			if s.Namespace != "" {
+				subjects = append(subjects, fmt.Sprintf("%s:%s/%s", s.Kind, s.Namespace, s.Name))
+			} else {
+				subjects = append(subjects, fmt.Sprintf("%s:%s", s.Kind, s.Name))
+			}
 		}
 		b.Inventory.ClusterRoleBindings = append(b.Inventory.ClusterRoleBindings, model.ClusterRoleBinding{
 			Name:     crb.Name,

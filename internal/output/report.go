@@ -122,7 +122,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
 
 	// Tab bar — add Compare tab only when comparison data is present
-	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "Backup", "DR Score", "Remediation"}
+	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "Backup", "DR Score", "Findings", "Remediation"}
 	if b.Comparison != nil {
 		tabNames = append(tabNames, "Compare")
 	}
@@ -175,7 +175,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates),
 		e(b.Target), e(scopeLabel))
 
-	crit, high, med := 0, 0, 0
+	crit, high, med, low := 0, 0, 0, 0
 	for _, f := range b.Inventory.Findings {
 		switch f.Severity {
 		case "CRITICAL":
@@ -184,17 +184,51 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			high++
 		case "MEDIUM":
 			med++
+		case "LOW", "INFO":
+			low++
 		}
 	}
-	wf(`<div class="card"><h2>Findings Summary</h2>
-<span class="chip f">CRITICAL: %d</span>
-<span class="chip w">HIGH: %d</span>
-<span class="chip n">MEDIUM: %d</span>
-<p style="margin-top:10px;color:#8b949e;font-size:.86em">Full findings → <strong>DR Score</strong> tab. Action steps → <strong>Remediation</strong> tab.</p>
-</div>`, crit, high, med)
+	// Severity bar chart — proportional bars, max bar = 200px
+	sevMax := crit
+	if high > sevMax {
+		sevMax = high
+	}
+	if med > sevMax {
+		sevMax = med
+	}
+	if low > sevMax {
+		sevMax = low
+	}
+	sevBar := func(count, maxCount int, color string) string {
+		if maxCount == 0 || count == 0 {
+			return fmt.Sprintf(`<div style="width:0;height:10px;border-radius:3px;background:%s;display:inline-block"></div>`, color)
+		}
+		w := count * 200 / maxCount
+		if w < 4 {
+			w = 4
+		}
+		return fmt.Sprintf(`<div style="width:%dpx;height:10px;border-radius:3px;background:%s;display:inline-block"></div>`, w, color)
+	}
+	w(`<div class="card"><h2>Findings Summary</h2>`)
+	w(`<table style="border-collapse:collapse;margin-top:6px;font-size:.86em">`)
+	for _, row := range []struct {
+		label, color string
+		count        int
+	}{
+		{"CRITICAL", "#f85149", crit},
+		{"HIGH", "#ffa657", high},
+		{"MEDIUM", "#f2cc60", med},
+		{"LOW / INFO", "#8b949e", low},
+	} {
+		wf(`<tr><td style="color:%s;width:80px;padding:3px 0">%s</td><td style="padding:3px 8px">%s</td><td style="padding:3px 0;color:%s">%d</td></tr>`,
+			row.color, row.label, sevBar(row.count, sevMax, row.color), row.color, row.count)
+	}
+	w(`</table>`)
+	w(`<p style="margin-top:10px;color:#8b949e;font-size:.86em">Full details → <strong onclick="showTab('Findings')" style="cursor:pointer;color:#58a6ff">Findings</strong> tab. Action steps → <strong onclick="showTab('Remediation')" style="cursor:pointer;color:#58a6ff">Remediation</strong> tab.</p>`)
+	w(`</div>`)
 
 	// Scan coverage / skipped collectors callout
-	totalCollectors := 24 // total number of optional collectors attempted
+	totalCollectors := 25 // total number of optional collectors attempted
 	skipped := len(b.CollectorSkips)
 	rbacSkips := 0
 	for _, sk := range b.CollectorSkips {
@@ -305,7 +339,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`<div class="empty">No node data collected.</div>`)
 	} else {
 		w(`<table id="t-nodes"><thead><tr>`)
-		for _, h := range []string{"Name", "Roles", "Ready", "OS", "Kernel", "Runtime", "Kubelet", "Internal IP", "Taints"} {
+		for _, h := range []string{"Name", "Roles", "Ready", "Zone", "OS", "Kernel", "Runtime", "Kubelet", "Internal IP", "Taints"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody>`)
@@ -314,8 +348,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			if n.Ready {
 				rdStr = `<span class="ok">✓</span>`
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(n.Name), e(strings.Join(n.Roles, ",")), rdStr,
+			zone := n.Zone
+			if zone == "" {
+				zone = "—"
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(n.Name), e(strings.Join(n.Roles, ",")), rdStr, e(zone),
 				e(n.OSImage), e(n.KernelVersion), e(n.ContainerRuntime),
 				e(n.KubeletVersion), e(n.InternalIP), e(strings.Join(n.Taints, " ")))
 		}
@@ -1294,8 +1332,102 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	}
 	w(`</div>`) // p8
 
-	// ── Tab 9: Remediation ───────────────────────────────────────────────────
-	w(`<div class="pane" id="p9"><h2>Remediation Plan</h2>`)
+	// ── Tab 9: Findings ───────────────────────────────────────────────────────
+	w(`<div class="pane" id="p9"><h2>Findings</h2>`)
+	if len(b.Inventory.Findings) == 0 {
+		w(`<div class="empty">No findings — cluster passed all checks.</div>`)
+	} else {
+		// Build remediation index: findingID → step index
+		remIdx := map[string]int{}
+		for i, step := range b.Inventory.RemediationSteps {
+			if step.FindingID != "" {
+				remIdx[step.FindingID] = i
+			}
+		}
+
+		// Severity breakdown bar chart
+		fCrit, fHigh, fMed, fLow := 0, 0, 0, 0
+		for _, f := range b.Inventory.Findings {
+			switch f.Severity {
+			case "CRITICAL":
+				fCrit++
+			case "HIGH":
+				fHigh++
+			case "MEDIUM":
+				fMed++
+			default:
+				fLow++
+			}
+		}
+		fMax := fCrit
+		if fHigh > fMax {
+			fMax = fHigh
+		}
+		if fMed > fMax {
+			fMax = fMed
+		}
+		if fLow > fMax {
+			fMax = fLow
+		}
+		barW := func(n, total int) int {
+			if total == 0 || n == 0 {
+				return 0
+			}
+			v := n * 180 / total
+			if v < 4 {
+				v = 4
+			}
+			return v
+		}
+		w(`<div class="card" style="margin-bottom:14px">`)
+		w(`<h2 style="margin-bottom:10px">Severity Breakdown</h2>`)
+		w(`<svg viewBox="0 0 300 80" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:340px;height:80px;display:block">`)
+		for row, sev := range []struct {
+			label, color string
+			count        int
+		}{
+			{"CRITICAL", "#f85149", fCrit},
+			{"HIGH", "#ffa657", fHigh},
+			{"MEDIUM", "#f2cc60", fMed},
+			{"LOW/INFO", "#8b949e", fLow},
+		} {
+			y := float64(row)*18 + 8
+			bw := barW(sev.count, fMax)
+			wf(`<text x="0" y="%.1f" fill="%s" font-size="9" dominant-baseline="middle">%s</text>`, y+4, sev.color, sev.label)
+			wf(`<rect x="70" y="%.1f" width="%d" height="10" rx="3" fill="%s" opacity="0.85"/>`, y-1, bw, sev.color)
+			wf(`<text x="%d" y="%.1f" fill="%s" font-size="9" dominant-baseline="middle">%d</text>`, bw+74, y+4, sev.color, sev.count)
+		}
+		w(`</svg></div>`)
+
+		// Filter bar
+		w(`<div class="filter-bar">
+<span>Filter:</span>
+<button class="fbtn active" data-sev="ALL" onclick="filterSev2(this)">All</button>
+<button class="fbtn fc" data-sev="CRITICAL" onclick="filterSev2(this)">Critical</button>
+<button class="fbtn fh" data-sev="HIGH" onclick="filterSev2(this)">High</button>
+<button class="fbtn fm" data-sev="MEDIUM" onclick="filterSev2(this)">Medium</button>
+<button class="fbtn" data-sev="LOW" onclick="filterSev2(this)">Low/Info</button>
+</div>`)
+
+		w(`<table id="t-findings2"><thead><tr>`)
+		for _, h := range []string{"Severity", "ID", "Resource", "Finding", "Recommendation", "Action"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody id="findings2-tbody">`)
+		for _, f := range b.Inventory.Findings {
+			actionCell := `<span style="color:#8b949e;font-size:.82em">—</span>`
+			if remI, ok := remIdx[f.ID]; ok {
+				actionCell = fmt.Sprintf(`<a href="#" onclick="showRemStep(%d);return false;" style="color:#58a6ff;font-size:.82em;white-space:nowrap">→ Remediation #%d</a>`, remI, remI+1)
+			}
+			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:#8b949e;font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ID), e(f.ResourceID), e(f.Message), e(f.Recommendation), actionCell)
+		}
+		w(`</tbody></table>`)
+	}
+	w(`</div>`) // p9
+
+	// ── Tab 10: Remediation ───────────────────────────────────────────────────
+	w(`<div class="pane" id="p10"><h2>Remediation Plan</h2>`)
 	if len(b.Inventory.RemediationSteps) == 0 {
 		w(`<div class="empty">No remediation steps generated. Run with a live cluster to produce findings.</div>`)
 	} else {
@@ -1325,11 +1457,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			w(`</div></div>`)
 		}
 	}
-	w(`</div>`) // p9
+	w(`</div>`) // p10
 
-	// ── Tab 10: Compare (only rendered when --compare was used) ──────────────
+	// ── Tab 11: Compare (only rendered when --compare was used) ──────────────
 	if c := b.Comparison; c != nil {
-		w(`<div class="pane" id="p10">`)
+		w(`<div class="pane" id="p11">`)
 		wf(`<h2>Comparison vs scan from %s</h2>`, e(c.PreviousScannedAt))
 
 		// Score delta card
@@ -1460,6 +1592,23 @@ function filterSev(btn){
   document.querySelectorAll('#findings-tbody tr').forEach(function(r){
     r.style.display=(sev==='ALL'||r.dataset.sev===sev)?'':'none';
   });
+}
+function filterSev2(btn){
+  var sev=btn.dataset.sev;
+  btn.closest('.filter-bar').querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('#findings2-tbody tr').forEach(function(r){
+    var ms=sev==='LOW'?['LOW','INFO']:null;
+    r.style.display=(sev==='ALL'||(ms?ms.indexOf(r.dataset.sev)>=0:r.dataset.sev===sev))?'':'none';
+  });
+}
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(t,i){if(t.textContent.trim()===name)show(i);});
+}
+function showRemStep(idx){
+  showTab('Remediation');
+  var el=document.getElementById('sb'+idx);
+  if(el){el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'center'});}
 }
 </script></body></html>`)
 }

@@ -53,16 +53,20 @@ func Pods(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error 
 			}
 		}
 
+		// Round 18 — ServiceAccount token: automount enabled when field is nil (default) or explicitly true
+		automount := pod.Spec.AutomountServiceAccountToken == nil || *pod.Spec.AutomountServiceAccountToken
+
 		b.Inventory.Pods = append(b.Inventory.Pods, model.Pod{
-			Namespace:      pod.Namespace,
-			Name:           pod.Name,
-			UsesHostPath:   usesHostPath,
-			ContainerCount: len(pod.Spec.Containers),
-			HasRequests:    allHaveRequests,
-			HasLimits:      allHaveLimits,
-			Privileged:     hasPrivileged,
-			HostNetwork:    pod.Spec.HostNetwork,
-			HostPID:        pod.Spec.HostPID,
+			Namespace:        pod.Namespace,
+			Name:             pod.Name,
+			UsesHostPath:     usesHostPath,
+			ContainerCount:   len(pod.Spec.Containers),
+			HasRequests:      allHaveRequests,
+			HasLimits:        allHaveLimits,
+			Privileged:       hasPrivileged,
+			HostNetwork:      pod.Spec.HostNetwork,
+			HostPID:          pod.Spec.HostPID,
+			AutomountSAToken: automount,
 		})
 	}
 

@@ -1,6 +1,8 @@
 package analyze
 
 import (
+	"strings"
+
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/profile"
 )
@@ -53,6 +55,22 @@ const (
 
 	// Round 14 — etcd backup (Backup domain)
 	penEtcdNoBackup = 25 // no etcd backup evidence found on self-managed cluster
+
+	// Round 15 — NetworkPolicy coverage (Config domain)
+	penNPMissing = 12 // namespaces with pods but no NetworkPolicy
+
+	// Round 16 — Node health + zone topology (Workload domain)
+	penNodeNotReady = 20 // one or more nodes are NotReady
+	penSingleAZ     = 15 // all nodes share the same availability zone (single-AZ risk)
+
+	// Round 17 — StorageClass DR suitability (Storage domain)
+	penSCDeletePolicy = 10 // StorageClass(es) use ReclaimPolicy=Delete — data loss on PVC deletion
+	penSCHostPath     = 20 // hostPath provisioner detected — node-local storage, not portable
+	penSCZoneUnaware  = 8  // StorageClass provisioner may not be zone-aware
+
+	// Round 18 — ServiceAccount token audit (Config domain)
+	penDefaultSAOverPriv = 15 // default ServiceAccount has explicit ClusterRoleBinding
+	penAutoMountSA       = 10 // pods automount service account token without need
 )
 
 // profileGet returns the weight multiplier for key from a profile weight map.
@@ -437,6 +455,146 @@ func Evaluate(b *model.Bundle) {
 			"cluster",
 			"No etcd backup evidence found — complete cluster state loss is unrecoverable without etcd",
 			"Configure periodic etcd snapshots (e.g. etcdctl snapshot save) via a CronJob, or use a managed K8s service that handles this automatically")
+	}
+
+	// ── Round 15 — NetworkPolicy coverage (Config domain) ────────────────────
+	nsWithNP := map[string]bool{}
+	for _, np := range b.Inventory.NetworkPolicies {
+		nsWithNP[np.Namespace] = true
+	}
+	var npMissingNS []string
+	for ns := range nsWithPods {
+		if ns == "kube-system" {
+			continue
+		}
+		if !nsWithNP[ns] {
+			npMissingNS = append(npMissingNS, ns)
+		}
+	}
+	if len(npMissingNS) > 0 {
+		config -= penScale(penNPMissing, wSec)
+		addFinding(b, "NETPOL_MISSING_NAMESPACE", "MEDIUM",
+			"namespaces:"+joinFirst(npMissingNS, 3),
+			"Namespaces have pods but no NetworkPolicy — unrestricted east-west traffic between all pods",
+			"Add default-deny NetworkPolicies to each namespace and allow only required traffic paths")
+	}
+
+	// ── Round 16 — Node health + zone topology (Workload domain) ─────────────
+	var notReadyNodes []string
+	zoneSet := map[string]bool{}
+	for _, node := range b.Inventory.Nodes {
+		if !node.Ready {
+			notReadyNodes = append(notReadyNodes, node.Name)
+		}
+		if z := node.Zone; z != "" {
+			zoneSet[z] = true
+		}
+	}
+	if len(notReadyNodes) > 0 {
+		workload -= penScale(penNodeNotReady, wRepl)
+		addFinding(b, "NODE_NOT_READY", "HIGH",
+			"nodes:"+joinFirst(notReadyNodes, 3),
+			"One or more nodes are NotReady — workload capacity is reduced and DR failover may be impaired",
+			"Investigate node conditions (kubectl describe node) and resolve underlying issues; ensure cluster has sufficient spare capacity")
+	}
+	if len(b.Inventory.Nodes) > 1 && len(zoneSet) == 1 {
+		workload -= penScale(penSingleAZ, wRepl)
+		addFinding(b, "SINGLE_AZ_CLUSTER", "MEDIUM",
+			"cluster",
+			"All nodes reside in a single availability zone — an AZ outage would take down the entire cluster",
+			"Distribute nodes across at least 3 availability zones; use topology spread constraints on critical workloads")
+	}
+
+	// ── Round 17 — StorageClass DR suitability (Storage domain) ──────────────
+	var scDelete, scHostPath, scZoneUnaware []string
+	for _, sc := range b.Inventory.StorageClasses {
+		if sc.ReclaimPolicy == "Delete" {
+			scDelete = append(scDelete, sc.Name)
+		}
+		p := sc.Provisioner
+		if p == "kubernetes.io/host-path" || p == "rancher.io/local-path" ||
+			p == "docker.io/hostpath" || p == "microk8s.io/hostpath" {
+			scHostPath = append(scHostPath, sc.Name)
+		}
+		// Zone-unaware if WaitForFirstConsumer not set AND no topology params
+		if sc.VolumeBindingMode != "WaitForFirstConsumer" {
+			_, hasZone := sc.Parameters["zone"]
+			_, hasZones := sc.Parameters["zones"]
+			_, hasFSType := sc.Parameters["type"] // some provisioners use type-only
+			_ = hasFSType
+			if !hasZone && !hasZones {
+				scZoneUnaware = append(scZoneUnaware, sc.Name)
+			}
+		}
+	}
+	if len(scDelete) > 0 {
+		storage -= penScale(penSCDeletePolicy, wImmut)
+		addFinding(b, "SC_RECLAIM_DELETE", "MEDIUM",
+			"storageclasses:"+joinFirst(scDelete, 3),
+			"StorageClass uses ReclaimPolicy=Delete — PV (and data) is destroyed when the PVC is deleted",
+			"Change reclaimPolicy to Retain on production StorageClasses to prevent accidental data loss")
+	}
+	if len(scHostPath) > 0 {
+		storage -= penScale(penSCHostPath, wImmut)
+		addFinding(b, "SC_HOSTPATH_PROVISIONER", "HIGH",
+			"storageclasses:"+joinFirst(scHostPath, 3),
+			"StorageClass uses a hostPath provisioner — volumes are node-local and cannot be recovered after node failure",
+			"Replace hostPath storage with a network-attached CSI driver (e.g. AWS EBS, Azure Disk, Ceph/Rook) for portable, recoverable storage")
+	}
+	if len(scZoneUnaware) > 0 && len(zoneSet) > 1 {
+		// Only penalise when cluster spans multiple zones — single-AZ clusters get single-AZ finding instead
+		storage -= penScale(penSCZoneUnaware, wImmut)
+		addFinding(b, "SC_ZONE_UNAWARE", "LOW",
+			"storageclasses:"+joinFirst(scZoneUnaware, 3),
+			"StorageClass may not be zone-aware in a multi-AZ cluster — PVs could be provisioned in a different AZ than the pod",
+			"Set volumeBindingMode: WaitForFirstConsumer so volumes are provisioned in the same zone as the consuming pod")
+	}
+
+	// ── Round 18 — ServiceAccount token audit (Config domain) ─────────────────
+	// Build set of SA names that have an explicit ClusterRoleBinding (covers default SA abuse).
+	saBoundCRBs := map[string]bool{} // key: "namespace/sa-name"
+	for _, crb := range b.Inventory.ClusterRoleBindings {
+		for _, subj := range crb.Subjects {
+			// subjects stored as "ServiceAccount:ns/name" or "ServiceAccount:name"
+			if !strings.HasPrefix(subj, "ServiceAccount:") {
+				continue
+			}
+			rest := strings.TrimPrefix(subj, "ServiceAccount:")
+			saBoundCRBs[rest] = true
+		}
+	}
+	var defaultSAOverPriv []string
+	for _, sa := range b.Inventory.ServiceAccounts {
+		if sa.Name != "default" {
+			continue
+		}
+		key := sa.Namespace + "/default"
+		if saBoundCRBs[key] || saBoundCRBs["default"] {
+			defaultSAOverPriv = append(defaultSAOverPriv, sa.Namespace+"/default")
+		}
+	}
+	if len(defaultSAOverPriv) > 0 {
+		config -= penScale(penDefaultSAOverPriv, wSec)
+		addFinding(b, "SA_DEFAULT_OVERPRIV", "HIGH",
+			"serviceaccounts:"+joinFirst(defaultSAOverPriv, 3),
+			"Default ServiceAccount has explicit ClusterRoleBinding — any pod in the namespace inherits elevated cluster permissions",
+			"Remove the ClusterRoleBinding from the default SA; create dedicated ServiceAccounts with minimal required permissions")
+	}
+	var autoMountPods []string
+	for _, pod := range b.Inventory.Pods {
+		if pod.Namespace == "kube-system" {
+			continue
+		}
+		if pod.AutomountSAToken {
+			autoMountPods = append(autoMountPods, pod.Namespace+"/"+pod.Name)
+		}
+	}
+	if len(autoMountPods) > 0 {
+		config -= penScale(penAutoMountSA, wSec)
+		addFinding(b, "SA_AUTOMOUNT_TOKEN", "MEDIUM",
+			"pods:"+joinFirst(autoMountPods, 3),
+			"Pods have automountServiceAccountToken enabled — token is mounted even when the pod does not call the Kubernetes API",
+			"Set automountServiceAccountToken: false on pods (or their ServiceAccount) that do not need API access")
 	}
 
 	storage = clamp(storage)

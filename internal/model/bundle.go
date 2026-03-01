@@ -203,6 +203,9 @@ type Inventory struct {
 	LimitRanges []LimitRange        `json:"limitRanges,omitempty"`
 	EtcdBackup  *EtcdBackupEvidence `json:"etcdBackup,omitempty"`
 
+	// Round 18 — ServiceAccount token audit
+	ServiceAccounts []ServiceAccount `json:"serviceAccounts,omitempty"`
+
 	// Backup detection result
 	Backup BackupInventory `json:"backup,omitempty"`
 
@@ -225,12 +228,12 @@ func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
 		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "0.9.0",
+			ToolVersion: "1.0.0",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "0.9.0",
+			Version:   "1.0.0",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{

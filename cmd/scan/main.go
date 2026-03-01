@@ -172,6 +172,9 @@ func main() {
 	tryCollect("LimitRanges", collect.LimitRanges(ctx, clientset, &bundle), &bundle)
 	tryCollect("EtcdBackup", collect.EtcdBackup(ctx, clientset, &bundle), &bundle)
 
+	// ── Round 18: ServiceAccount token audit ─────────────────────────────────
+	tryCollect("ServiceAccounts", collect.ServiceAccounts(ctx, clientset, &bundle), &bundle)
+
 	// ── Backup detection + restore simulation ───────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)
 	sim := restore.Simulate(&bundle)
@@ -307,6 +310,20 @@ func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExp
 }
 
 func printCISummary(b *model.Bundle, minScore int, trendLabel string, trendDelta int) {
+	counts := model.FindingCounts{}
+	for _, f := range b.Inventory.Findings {
+		counts.Total++
+		switch f.Severity {
+		case "CRITICAL":
+			counts.Critical++
+		case "HIGH":
+			counts.High++
+		case "MEDIUM":
+			counts.Medium++
+		default:
+			counts.Low++
+		}
+	}
 	summary := model.ScanSummary{
 		ScanID:       b.Scan.ScanID,
 		TimestampUtc: time.Now().UTC().Format(time.RFC3339),
@@ -318,6 +335,7 @@ func printCISummary(b *model.Bundle, minScore int, trendLabel string, trendDelta
 		Categories:   analyze.BuildCategories(b),
 		Trend:        trendLabel,
 		Delta:        trendDelta,
+		Findings:     counts,
 	}
 	if b.Score.Overall.Final < minScore {
 		summary.Status = "FAILED"
