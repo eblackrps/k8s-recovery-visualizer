@@ -168,6 +168,10 @@ func main() {
 	tryCollect("VolumeSnapshotClasses", collect.VolumeSnapshotClasses(ctx, dc, &bundle), &bundle)
 	tryCollect("VolumeSnapshots", collect.VolumeSnapshots(ctx, dc, &bundle), &bundle)
 
+	// ── Round 14: LimitRange + etcd backup collectors ────────────────────────
+	tryCollect("LimitRanges", collect.LimitRanges(ctx, clientset, &bundle), &bundle)
+	tryCollect("EtcdBackup", collect.EtcdBackup(ctx, clientset, &bundle), &bundle)
+
 	// ── Backup detection + restore simulation ───────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)
 	sim := restore.Simulate(&bundle)
