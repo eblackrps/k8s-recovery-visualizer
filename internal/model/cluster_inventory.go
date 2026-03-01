@@ -215,3 +215,21 @@ type Platform struct {
 	K8sVersion string `json:"k8sVersion,omitempty"`
 	ClusterUID string `json:"clusterUID,omitempty"`
 }
+
+// VolumeSnapshotClass represents a snapshot.storage.k8s.io/v1 VolumeSnapshotClass.
+type VolumeSnapshotClass struct {
+	Name           string `json:"name"`
+	Driver         string `json:"driver,omitempty"`
+	DeletionPolicy string `json:"deletionPolicy,omitempty"` // Delete or Retain
+}
+
+// VolumeSnapshot represents a snapshot.storage.k8s.io/v1 VolumeSnapshot.
+type VolumeSnapshot struct {
+	Namespace  string  `json:"namespace"`
+	Name       string  `json:"name"`
+	PVCName    string  `json:"pvcName,omitempty"`
+	ClassName  string  `json:"className,omitempty"`
+	ReadyToUse bool    `json:"readyToUse"`
+	CreatedAt  string  `json:"createdAt,omitempty"`
+	SizeGB     float64 `json:"sizeGb,omitempty"`
+}
