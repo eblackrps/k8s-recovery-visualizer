@@ -23,6 +23,7 @@ import (
 	"k8s-recovery-visualizer/internal/profile"
 	"k8s-recovery-visualizer/internal/remediation"
 	"k8s-recovery-visualizer/internal/restore"
+	"k8s.io/client-go/dynamic"
 )
 
 func main() {
@@ -102,6 +103,11 @@ func main() {
 		log.Fatalf("kube error: %v", err)
 	}
 
+	dc, err := dynamic.NewForConfig(restCfg)
+	if err != nil {
+		log.Fatalf("dynamic client error: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*timeoutSec)*time.Second)
 	defer cancel()
 	bundle.Cluster.APIServer.Endpoint = restCfg.Host
@@ -157,6 +163,10 @@ func main() {
 
 	// Images is post-collection (derives data from already-collected workloads)
 	tryCollect("Images", collect.Images(ctx, clientset, &bundle), &bundle)
+
+	// ── Round 13: VolumeSnapshot collectors (dynamic client) ────────────────
+	tryCollect("VolumeSnapshotClasses", collect.VolumeSnapshotClasses(ctx, dc, &bundle), &bundle)
+	tryCollect("VolumeSnapshots", collect.VolumeSnapshots(ctx, dc, &bundle), &bundle)
 
 	// ── Backup detection + restore simulation ───────────────────────────────
 	backup.Detect(ctx, clientset, &bundle)

@@ -325,6 +325,94 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 2: Workloads ─────────────────────────────────────────────────────
 	w(`<div class="pane" id="p2"><h2>Workloads</h2>`)
+
+	// ── Round 11: Resource Governance + Round 12 pod security summary ──────
+	{
+		totalPods := len(b.Inventory.Pods)
+		noReq, noLim, priv, hostNS := 0, 0, 0, 0
+		for _, pod := range b.Inventory.Pods {
+			if pod.Namespace == "kube-system" {
+				continue
+			}
+			if !pod.HasRequests {
+				noReq++
+			}
+			if !pod.HasLimits {
+				noLim++
+			}
+			if pod.Privileged {
+				priv++
+			}
+			if pod.HostNetwork || pod.HostPID {
+				hostNS++
+			}
+		}
+		reqColor := "#7ee787"
+		if noReq > 0 {
+			reqColor = "#ffa657"
+		}
+		limColor := "#7ee787"
+		if noLim > 0 {
+			limColor = "#f2cc60"
+		}
+		privColor := "#7ee787"
+		if priv > 0 {
+			privColor = "#f85149"
+		}
+		hostColor := "#7ee787"
+		if hostNS > 0 {
+			hostColor = "#ffa657"
+		}
+		wf(`<div class="card"><h2>Resource Governance &amp; Pod Security</h2>
+<p style="color:#8b949e;font-size:.84em;margin-bottom:10px">kube-system pods are excluded from governance checks.</p>
+<div class="grid">
+<div class="sbox"><div class="v">%d</div><div class="l">Total Pods</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Missing Requests</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Missing Limits</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Privileged</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Host Net/PID</div></div>
+</div>`,
+			totalPods, reqColor, noReq, limColor, noLim, privColor, priv, hostColor, hostNS)
+
+		if totalPods > 0 {
+			w(`<h3 style="margin-top:12px">Pod Inventory</h3>`)
+			w(`<table id="t-pods"><thead><tr>`)
+			for _, h := range []string{"Namespace", "Name", "Containers", "Requests", "Limits", "Privileged", "HostNet/PID"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, pod := range b.Inventory.Pods {
+				reqCell := `<span class="ok">✓</span>`
+				if !pod.HasRequests {
+					reqCell = `<span class="bad">✗</span>`
+				}
+				limCell := `<span class="ok">✓</span>`
+				if !pod.HasLimits {
+					limCell = `<span class="c-MEDIUM">✗</span>`
+				}
+				privCell := `<span style="color:#8b949e">—</span>`
+				if pod.Privileged {
+					privCell = `<span class="bad">yes</span>`
+				}
+				hnCell := `<span style="color:#8b949e">—</span>`
+				if pod.HostNetwork || pod.HostPID {
+					parts := []string{}
+					if pod.HostNetwork {
+						parts = append(parts, "net")
+					}
+					if pod.HostPID {
+						parts = append(parts, "pid")
+					}
+					hnCell = fmt.Sprintf(`<span class="c-HIGH">%s</span>`, e(strings.Join(parts, "+")))
+				}
+				wf(`<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(pod.Namespace), e(pod.Name), pod.ContainerCount, reqCell, limCell, privCell, hnCell)
+			}
+			w(`</tbody></table>`)
+		}
+		w(`</div>`) // governance card
+	}
+
 	w(`<table id="t-workloads"><thead><tr>`)
 	for _, h := range []string{"Type", "Namespace", "Name", "Replicas", "Ready/Status", "Images"} {
 		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -414,7 +502,71 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 			e(sc.Name), e(sc.Provisioner), e(sc.ReclaimPolicy), e(sc.VolumeBindingMode), exp)
 	}
-	w(`</tbody></table></div>`) // p3
+	w(`</tbody></table>`)
+
+	// ── Round 13: VolumeSnapshot coverage ─────────────────────────────────
+	{
+		snappedPVCs := map[string]bool{}
+		for _, vs := range b.Inventory.VolumeSnapshots {
+			if vs.PVCName != "" {
+				snappedPVCs[vs.Namespace+"/"+vs.PVCName] = true
+			}
+		}
+
+		w(`<h3>VolumeSnapshot Coverage</h3>`)
+		if len(b.Inventory.VolumeSnapshotClasses) == 0 {
+			w(`<div class="empty" style="color:#ffa657">No VolumeSnapshotClasses found — CSI snapshot infrastructure not configured.</div>`)
+		} else {
+			// Snapshot class table
+			w(`<table id="t-vsc" style="margin-bottom:12px"><thead><tr>`)
+			for _, h := range []string{"VolumeSnapshotClass", "Driver", "Deletion Policy"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, vsc := range b.Inventory.VolumeSnapshotClasses {
+				dpColor := "#7ee787"
+				if vsc.DeletionPolicy == "Delete" {
+					dpColor = "#ffa657"
+				}
+				wf(`<tr><td>%s</td><td>%s</td><td style="color:%s">%s</td></tr>`,
+					e(vsc.Name), e(vsc.Driver), dpColor, e(vsc.DeletionPolicy))
+			}
+			w(`</tbody></table>`)
+		}
+
+		if len(b.Inventory.PVCs) > 0 {
+			w(`<table id="t-vsnap"><thead><tr>`)
+			for _, h := range []string{"Namespace", "PVC", "Snapshot", "Ready", "Size (GB)", "Created"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			// Show PVCs first, annotated with snapshot status
+			for _, pvc := range b.Inventory.PVCs {
+				key := pvc.Namespace + "/" + pvc.Name
+				if snappedPVCs[key] {
+					continue // will be shown via snapshots below
+				}
+				snapCell := `<span class="bad">none</span>`
+				wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>—</td><td>—</td><td>—</td></tr>`,
+					e(pvc.Namespace), e(pvc.Name), snapCell)
+			}
+			for _, vs := range b.Inventory.VolumeSnapshots {
+				rdyCell := `<span class="bad">✗</span>`
+				if vs.ReadyToUse {
+					rdyCell = `<span class="ok">✓</span>`
+				}
+				sizeCell := "–"
+				if vs.SizeGB > 0 {
+					sizeCell = fmt.Sprintf("%.1f", vs.SizeGB)
+				}
+				wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(vs.Namespace), e(vs.PVCName), e(vs.Name), rdyCell, sizeCell, e(vs.CreatedAt))
+			}
+			w(`</tbody></table>`)
+		}
+	}
+
+	w(`</div>`) // p3
 
 	// ── Tab 4: Networking ────────────────────────────────────────────────────
 	w(`<div class="pane" id="p4"><h2>Networking</h2>`)

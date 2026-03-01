@@ -33,6 +33,17 @@ const (
 	penRBACWildcard        = 20 // custom ClusterRole with wildcard verb
 	penRBACEscalate        = 10 // custom ClusterRole with escalate/bind/impersonate
 	penRBACSecrets         = 10 // custom ClusterRole with broad secrets read
+
+	// Round 11 — resource governance (Workload domain)
+	penNoRequests = 15 // pods without CPU+memory requests
+	penNoLimits   = 8  // pods without CPU+memory limits
+
+	// Round 12 — pod security (Config domain)
+	penPrivileged     = 20 // any pod runs a privileged container
+	penHostNetworkPID = 10 // any pod uses hostNetwork or hostPID
+
+	// Round 13 — VolumeSnapshot coverage (Storage domain)
+	penNoSnapshot = 10 // PVCs with no matching VolumeSnapshot
 )
 
 // profileGet returns the weight multiplier for key from a profile weight map.
@@ -139,6 +150,34 @@ func Evaluate(b *model.Bundle) {
 				"StatefulSet has no volumeClaimTemplate",
 				"Stateful workloads should use persistent storage")
 		}
+	}
+
+	// Round 11 — resource governance: flag pods missing requests or limits (once per scan).
+	var noRequestPods, noLimitPods []string
+	for _, pod := range b.Inventory.Pods {
+		if pod.Namespace == "kube-system" {
+			continue // system pods are exempt
+		}
+		if !pod.HasRequests {
+			noRequestPods = append(noRequestPods, pod.Namespace+"/"+pod.Name)
+		}
+		if !pod.HasLimits {
+			noLimitPods = append(noLimitPods, pod.Namespace+"/"+pod.Name)
+		}
+	}
+	if len(noRequestPods) > 0 {
+		workload -= penNoRequests
+		addFinding(b, "POD_NO_REQUESTS", "HIGH",
+			"pods:"+joinFirst(noRequestPods, 3),
+			"Pods running without CPU/memory requests — scheduler cannot make placement guarantees",
+			"Set requests on all containers; use LimitRange to enforce namespace defaults")
+	}
+	if len(noLimitPods) > 0 {
+		workload -= penNoLimits
+		addFinding(b, "POD_NO_LIMITS", "MEDIUM",
+			"pods:"+joinFirst(noLimitPods, 3),
+			"Pods running without CPU/memory limits — risk of noisy-neighbour resource exhaustion",
+			"Set limits on all containers; use LimitRange to enforce namespace defaults")
 	}
 
 	// ── Backup/Recovery domain ──────────────────────────────────────────────
@@ -274,6 +313,63 @@ func Evaluate(b *model.Bundle) {
 			"roles:"+joinFirst(secretRoles, 3),
 			"Custom ClusterRole grants broad read access to Secrets",
 			"Restrict secret access to specific secrets by name; prefer Role/RoleBinding scoped to a namespace")
+	}
+
+	// Round 12 — pod security audit (Config domain)
+	var privilegedPods, hostNSPods []string
+	for _, pod := range b.Inventory.Pods {
+		if pod.Namespace == "kube-system" {
+			continue // control-plane/CNI pods are expected to use elevated privileges
+		}
+		if pod.Privileged {
+			privilegedPods = append(privilegedPods, pod.Namespace+"/"+pod.Name)
+		}
+		if pod.HostNetwork || pod.HostPID {
+			hostNSPods = append(hostNSPods, pod.Namespace+"/"+pod.Name)
+		}
+	}
+	if len(privilegedPods) > 0 {
+		config -= penScale(penPrivileged, wSec)
+		addFinding(b, "POD_PRIVILEGED", "CRITICAL",
+			"pods:"+joinFirst(privilegedPods, 3),
+			"Pods run privileged containers — full host kernel access granted",
+			"Remove privileged:true; use specific capabilities (CAP_NET_ADMIN etc.) instead")
+	}
+	if len(hostNSPods) > 0 {
+		config -= penScale(penHostNetworkPID, wSec)
+		addFinding(b, "POD_HOST_NAMESPACE", "HIGH",
+			"pods:"+joinFirst(hostNSPods, 3),
+			"Pods share host network or PID namespace — increases blast radius on node compromise",
+			"Set hostNetwork:false and hostPID:false unless explicitly required by the workload")
+	}
+
+	// Round 13 — VolumeSnapshot coverage (Storage domain)
+	if len(b.Inventory.VolumeSnapshotClasses) == 0 && len(b.Inventory.PVCs) > 0 {
+		// No snapshot infrastructure at all
+		storage -= penNoSnapshot
+		addFinding(b, "SNAPSHOT_NO_CLASS", "MEDIUM", "cluster",
+			"No VolumeSnapshotClass found — CSI snapshot capability not configured",
+			"Install a CSI driver that supports snapshots and create a VolumeSnapshotClass")
+	} else if len(b.Inventory.VolumeSnapshotClasses) > 0 {
+		// Snapshot infra present — find PVCs with no snapshot
+		snappedPVCs := map[string]bool{}
+		for _, vs := range b.Inventory.VolumeSnapshots {
+			snappedPVCs[vs.Namespace+"/"+vs.PVCName] = true
+		}
+		var unsnapshottedPVCs []string
+		for _, pvc := range b.Inventory.PVCs {
+			key := pvc.Namespace + "/" + pvc.Name
+			if !snappedPVCs[key] {
+				unsnapshottedPVCs = append(unsnapshottedPVCs, key)
+			}
+		}
+		if len(unsnapshottedPVCs) > 0 {
+			storage -= penNoSnapshot
+			addFinding(b, "SNAPSHOT_PVC_UNCOVERED", "MEDIUM",
+				"pvcs:"+joinFirst(unsnapshottedPVCs, 3),
+				"PVCs have no VolumeSnapshot — point-in-time recovery not available for these volumes",
+				"Create VolumeSnapshots (or a schedule via the snapshot-controller) for all production PVCs")
+		}
 	}
 
 	storage = clamp(storage)
