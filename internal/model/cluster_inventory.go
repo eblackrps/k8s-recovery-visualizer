@@ -5,6 +5,7 @@ type Node struct {
 	Name             string            `json:"name"`
 	Roles            []string          `json:"roles,omitempty"`
 	Ready            bool              `json:"ready"`
+	Zone             string            `json:"zone,omitempty"` // topology.kubernetes.io/zone
 	KubeletVersion   string            `json:"kubeletVersion,omitempty"`
 	OSImage          string            `json:"osImage,omitempty"`
 	KernelVersion    string            `json:"kernelVersion,omitempty"`
@@ -232,4 +233,11 @@ type VolumeSnapshot struct {
 	ReadyToUse bool    `json:"readyToUse"`
 	CreatedAt  string  `json:"createdAt,omitempty"`
 	SizeGB     float64 `json:"sizeGb,omitempty"`
+}
+
+// ServiceAccount represents a Kubernetes ServiceAccount for token audit checks.
+type ServiceAccount struct {
+	Namespace                    string `json:"namespace"`
+	Name                         string `json:"name"`
+	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
 }

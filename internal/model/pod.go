@@ -14,4 +14,7 @@ type Pod struct {
 	Privileged  bool `json:"privileged,omitempty"`  // any container runs privileged
 	HostNetwork bool `json:"hostNetwork,omitempty"` // pod uses host network namespace
 	HostPID     bool `json:"hostPid,omitempty"`     // pod shares host PID namespace
+
+	// Round 18 — ServiceAccount token audit
+	AutomountSAToken bool `json:"automountSaToken,omitempty"` // pod explicitly has automountServiceAccountToken=true
 }

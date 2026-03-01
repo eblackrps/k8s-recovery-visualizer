@@ -37,6 +37,13 @@ func toModelNode(n *v1.Node) model.Node {
     m.Labels[k] = v
   }
 
+  // Zone — prefer stable GA label, fall back to deprecated beta label
+  if z, ok := n.Labels["topology.kubernetes.io/zone"]; ok && z != "" {
+    m.Zone = z
+  } else if z, ok := n.Labels["failure-domain.beta.kubernetes.io/zone"]; ok && z != "" {
+    m.Zone = z
+  }
+
   // Roles from labels (common convention)
   // node-role.kubernetes.io/<role>=true or empty
   for k := range n.Labels {
