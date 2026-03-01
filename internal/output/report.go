@@ -232,6 +232,71 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <p style="color:#7ee787;font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
 	}
 
+	// ── Round 10c: Score Trend sparkline ──────────────────────────────────
+	if len(b.TrendHistory) > 1 {
+		n := len(b.TrendHistory)
+		const svgW, svgH = 500, 90
+		last := b.TrendHistory[n-1]
+		prev := b.TrendHistory[n-2]
+		trendColor := "#58a6ff"
+		trendLabel := "STABLE"
+		if last.Overall > prev.Overall {
+			trendColor = "#7ee787"
+			trendLabel = "IMPROVING"
+		} else if last.Overall < prev.Overall {
+			trendColor = "#f85149"
+			trendLabel = "DECLINING"
+		}
+
+		var ptsSlice []string
+		type dot struct{ cx, cy float64 }
+		var dots []dot
+		for i, tp := range b.TrendHistory {
+			x := float64(10) + float64(i)*float64(svgW-20)/float64(n-1)
+			y := float64(svgH-18) - float64(tp.Overall)*float64(svgH-28)/100.0 + 4
+			ptsSlice = append(ptsSlice, fmt.Sprintf("%.1f,%.1f", x, y))
+			dots = append(dots, dot{x, y})
+		}
+
+		w(`<div class="card"><h2>Score Trend`)
+		wf(` &nbsp;<span style="color:%s;font-size:.82em;font-weight:400">%s</span></h2>`, trendColor, trendLabel)
+		wf(`<svg viewBox="0 0 %d %d" xmlns="http://www.w3.org/2000/svg" style="width:100%%;max-width:500px;height:%dpx;display:block;margin:4px 0">`,
+			svgW, svgH, svgH)
+		for _, ref := range []struct {
+			v   int
+			lbl string
+		}{{100, "100"}, {75, "75"}, {50, "50"}, {0, "0"}} {
+			ry := float64(svgH-18) - float64(ref.v)*float64(svgH-28)/100.0 + 4
+			dash := "4,4"
+			if ref.v == 75 {
+				dash = "2,6"
+			}
+			wf(`<line x1="30" y1="%.1f" x2="%d" y2="%.1f" stroke="#21262d" stroke-dasharray="%s" stroke-width="1"/>`, ry, svgW-5, ry, dash)
+			wf(`<text x="0" y="%.1f" fill="#8b949e" font-size="9" dominant-baseline="middle">%s</text>`, ry, ref.lbl)
+		}
+		wf(`<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="%s" stop-opacity="0.25"/><stop offset="1" stop-color="%s" stop-opacity="0"/></linearGradient></defs>`,
+			trendColor, trendColor)
+		firstDot := dots[0]
+		lastDot := dots[n-1]
+		wf(`<polygon points="%s %.1f,%.1f %.1f,%.1f" fill="url(#sg)"/>`,
+			strings.Join(ptsSlice, " "),
+			lastDot.cx, float64(svgH-14),
+			firstDot.cx, float64(svgH-14))
+		wf(`<polyline points="%s" fill="none" stroke="%s" stroke-width="2" stroke-linejoin="round"/>`,
+			strings.Join(ptsSlice, " "), trendColor)
+		for i, d := range dots {
+			r := "2.5"
+			if i == n-1 {
+				r = "4"
+			}
+			wf(`<circle cx="%.1f" cy="%.1f" r="%s" fill="%s"/>`, d.cx, d.cy, r, trendColor)
+		}
+		w(`</svg>`)
+		wf(`<div style="color:#8b949e;font-size:.83em;margin-top:4px">Last <strong style="color:#f0f6fc">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
+			n, trendColor, last.Overall, e(last.Maturity))
+		w(`</div>`)
+	}
+
 	w(`</div>`) // p0
 
 	// ── Tab 1: Nodes ─────────────────────────────────────────────────────────
@@ -353,6 +418,129 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 4: Networking ────────────────────────────────────────────────────
 	w(`<div class="pane" id="p4"><h2>Networking</h2>`)
+
+	// ── Round 10b: Network Topology card ──────────────────────────────────
+	{
+		// Count service types
+		lbCount, npCount, nodePortCount := 0, 0, 0
+		npNamespaces := map[string]bool{}
+		for _, svc := range b.Inventory.Services {
+			switch svc.Type {
+			case "LoadBalancer":
+				lbCount++
+			case "NodePort":
+				nodePortCount++
+			}
+		}
+		for _, np := range b.Inventory.NetworkPolicies {
+			npNamespaces[np.Namespace] = true
+			npCount++
+		}
+		totalNS := len(b.Inventory.Namespaces)
+		coveredNS := len(npNamespaces)
+
+		npColor := "#7ee787"
+		if coveredNS < totalNS/2 {
+			npColor = "#f85149"
+		} else if coveredNS < totalNS {
+			npColor = "#ffa657"
+		}
+
+		// Count total ingress rules
+		ingressRules := 0
+		for _, ing := range b.Inventory.Ingresses {
+			ingressRules += len(ing.Rules)
+		}
+
+		w(`<div class="card"><h2>Network Topology</h2>`)
+		wf(`<div class="grid" style="margin-bottom:14px">
+<div class="sbox"><div class="v">%d</div><div class="l">LoadBalancer</div></div>
+<div class="sbox"><div class="v">%d</div><div class="l">NodePort</div></div>
+<div class="sbox"><div class="v">%d</div><div class="l">Ingress Rules</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d / %d</div><div class="l">NS w/ NetworkPolicy</div></div>
+</div>`, lbCount, nodePortCount, ingressRules, npColor, coveredNS, totalNS)
+
+		// Ingress → Service adjacency map (build from ingress rules)
+		if len(b.Inventory.Ingresses) > 0 {
+			w(`<h3 style="margin-top:10px">Ingress → Service Connectivity</h3>`)
+			w(`<table style="margin-top:6px"><thead><tr>`)
+			for _, h := range []string{"Ingress", "Namespace", "Host", "Backend Service", "TLS", "NP Covered"} {
+				wf(`<th>%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, ing := range b.Inventory.Ingresses {
+				tlsStr := "–"
+				if ing.TLS {
+					tlsStr = `<span class="ok">✓ TLS</span>`
+				}
+				npCovered := npNamespaces[ing.Namespace]
+				npCell := `<span class="bad">✗</span>`
+				if npCovered {
+					npCell = `<span class="ok">✓</span>`
+				}
+				if len(ing.Rules) == 0 {
+					wf(`<tr><td>%s</td><td>%s</td><td colspan="2"><span style="color:#8b949e">no rules</span></td><td>%s</td><td>%s</td></tr>`,
+						e(ing.Name), e(ing.Namespace), tlsStr, npCell)
+					continue
+				}
+				for i, r := range ing.Rules {
+					if i == 0 {
+						wf(`<tr><td rowspan="%d">%s</td><td rowspan="%d">%s</td><td>%s</td><td>%s</td><td rowspan="%d">%s</td><td rowspan="%d">%s</td></tr>`,
+							len(ing.Rules), e(ing.Name),
+							len(ing.Rules), e(ing.Namespace),
+							e(r.Host), e(r.Backend),
+							len(ing.Rules), tlsStr,
+							len(ing.Rules), npCell)
+					} else {
+						wf(`<tr><td>%s</td><td>%s</td></tr>`, e(r.Host), e(r.Backend))
+					}
+				}
+			}
+			w(`</tbody></table>`)
+		}
+
+		// Namespace protection summary
+		if totalNS > 0 {
+			w(`<h3 style="margin-top:14px">Namespace Exposure Summary</h3>`)
+			w(`<table style="margin-top:6px"><thead><tr>`)
+			for _, h := range []string{"Namespace", "Ingress", "LB Service", "NetworkPolicy"} {
+				wf(`<th>%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+
+			// Build lookup maps
+			nsHasIngress := map[string]bool{}
+			nsHasLB := map[string]bool{}
+			for _, ing := range b.Inventory.Ingresses {
+				nsHasIngress[ing.Namespace] = true
+			}
+			for _, svc := range b.Inventory.Services {
+				if svc.Type == "LoadBalancer" {
+					nsHasLB[svc.Namespace] = true
+				}
+			}
+
+			for _, ns := range b.Inventory.Namespaces {
+				ingCell := `<span style="color:#8b949e">—</span>`
+				if nsHasIngress[ns.Name] {
+					ingCell = `<span class="c-HIGH">exposed</span>`
+				}
+				lbCell := `<span style="color:#8b949e">—</span>`
+				if nsHasLB[ns.Name] {
+					lbCell = `<span class="c-HIGH">exposed</span>`
+				}
+				npCell := `<span class="bad">none</span>`
+				if npNamespaces[ns.Name] {
+					npCell = `<span class="ok">covered</span>`
+				}
+				wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(ns.Name), ingCell, lbCell, npCell)
+			}
+			w(`</tbody></table>`)
+		}
+		w(`</div>`) // topology card
+	}
+
 	w(`<h3>Services</h3><table id="t-svc"><thead><tr>`)
 	for _, h := range []string{"Namespace", "Name", "Type", "Cluster IP", "External IP"} {
 		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -540,6 +728,69 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, riskLabel)
 			wf(`<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 				e(cr.Name), cr.RuleCount, wcCell, saCell, esCell, riskCell)
+		}
+		w(`</tbody></table>`)
+	}
+
+	// ── Round 10a: ClusterRoleBinding subject audit ───────────────────────
+	if len(b.Inventory.ClusterRoleBindings) > 0 {
+		// Build role-risk index from collected ClusterRoles.
+		roleRisk := map[string]string{}
+		for _, cr := range b.Inventory.ClusterRoles {
+			switch {
+			case cr.Name == "cluster-admin":
+				roleRisk[cr.Name] = "CRITICAL"
+			case cr.HasWildcardVerb || cr.HasEscalatePriv:
+				if roleRisk[cr.Name] == "" {
+					roleRisk[cr.Name] = "HIGH"
+				}
+			case cr.HasSecretAccess:
+				if roleRisk[cr.Name] == "" {
+					roleRisk[cr.Name] = "MEDIUM"
+				}
+			}
+		}
+
+		w(`<h3>RBAC: ClusterRoleBinding Subject Audit</h3>`)
+		w(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">Shows who holds cluster-level permissions. System-to-system bindings (both role and all subjects prefixed with <code>system:</code>) are hidden for clarity.</p>`)
+		w(`<table id="t-crbs"><thead><tr>`)
+		for _, h := range []string{"Binding", "Role", "Subjects", "Risk"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, crb := range b.Inventory.ClusterRoleBindings {
+			// Skip pure system-to-system noise: role AND every subject start with system:
+			allSysSubjects := true
+			for _, s := range crb.Subjects {
+				if !strings.HasPrefix(s, "ServiceAccount:system:") &&
+					!strings.HasPrefix(s, "User:system:") &&
+					!strings.HasPrefix(s, "Group:system:") {
+					allSysSubjects = false
+					break
+				}
+			}
+			if strings.HasPrefix(crb.RoleName, "system:") && allSysSubjects {
+				continue
+			}
+
+			risk := roleRisk[crb.RoleName]
+			if crb.RoleName == "cluster-admin" && risk == "" {
+				risk = "CRITICAL"
+			}
+			if risk == "" {
+				risk = "LOW"
+			}
+
+			riskColor := map[string]string{
+				"CRITICAL": "#f85149", "HIGH": "#ffa657", "MEDIUM": "#f2cc60", "LOW": "#8b949e",
+			}[risk]
+			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, risk)
+			subjCell := e(strings.Join(crb.Subjects, ", "))
+			if len(crb.Subjects) == 0 {
+				subjCell = `<span style="color:#8b949e">—</span>`
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td style="font-size:.82em">%s</td><td>%s</td></tr>`,
+				e(crb.Name), e(crb.RoleName), subjCell, riskCell)
 		}
 		w(`</tbody></table>`)
 	}

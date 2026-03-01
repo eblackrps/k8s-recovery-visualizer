@@ -111,6 +111,33 @@ func Record(outDir string, b *model.Bundle) (Trend, error) {
 	return tr, nil
 }
 
+// LoadRecent reads the last n scan entries from the history index and returns
+// them as TrendPoints for sparkline rendering. Returns nil if no history exists.
+func LoadRecent(outDir string, n int) []model.TrendPoint {
+	indexPath := filepath.Join(outDir, "history", "index.json")
+	raw, err := os.ReadFile(indexPath)
+	if err != nil || len(raw) == 0 {
+		return nil
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		return nil
+	}
+	entries := idx.Entries
+	if len(entries) > n {
+		entries = entries[len(entries)-n:]
+	}
+	pts := make([]model.TrendPoint, len(entries))
+	for i, e := range entries {
+		pts[i] = model.TrendPoint{
+			TimestampUTC: e.TimestampUTC,
+			Overall:      e.Overall,
+			Maturity:     e.Maturity,
+		}
+	}
+	return pts
+}
+
 func writeJSON(path string, b *model.Bundle) error {
 	f, err := os.Create(path)
 	if err != nil {

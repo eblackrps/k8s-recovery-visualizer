@@ -21,6 +21,15 @@ type Bundle struct {
 	ScanNamespaces []string `json:"scanNamespaces,omitempty"`
 	// Comparison holds the diff against a previous scan when --compare is used.
 	Comparison *ComparisonSummary `json:"comparison,omitempty"`
+	// TrendHistory holds the last N scan scores for sparkline rendering in the report.
+	TrendHistory []TrendPoint `json:"trendHistory,omitempty"`
+}
+
+// TrendPoint is a single data point for the score trend sparkline.
+type TrendPoint struct {
+	TimestampUTC string `json:"ts"`
+	Overall      int    `json:"score"`
+	Maturity     string `json:"maturity"`
 }
 
 // ComparisonSummary is a lightweight reference stored in the bundle.
@@ -204,12 +213,12 @@ func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
 		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "0.6.0",
+			ToolVersion: "0.7.0",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "0.6.0",
+			Version:   "0.7.0",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{

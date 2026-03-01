@@ -229,6 +229,9 @@ func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExp
 		}
 	}
 
+	// Attach recent trend history for sparkline rendering in the HTML report.
+	bundle.TrendHistory = history.LoadRecent(outDir, 20)
+
 	// New tabbed HTML report (overwrites the simple one produced by enrich)
 	if err := output.WriteReport(htmlPath, bundle); err != nil {
 		log.Fatalf("write html report: %v", err)
