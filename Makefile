@@ -1,12 +1,32 @@
-BINARY   := scan
 PKG      := ./cmd/scan
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS  := -s -w
 
-# Default: build for the current OS/arch
+# Auto-detect host OS so the default build target always uses explicit GOOS/GOARCH.
+# This prevents a GOOS=linux environment variable from silently producing a Linux
+# ELF binary named scan.exe on a Windows machine.
+ifeq ($(OS),Windows_NT)
+  HOST_GOOS   := windows
+  HOST_GOARCH := amd64
+  HOST_BINARY := dist/scan.exe
+else
+  UNAME_S := $(shell uname -s)
+  ifeq ($(UNAME_S),Darwin)
+    HOST_GOOS   := darwin
+    HOST_GOARCH := $(shell uname -m | sed 's/x86_64/amd64/')
+    HOST_BINARY := dist/scan-darwin-$(HOST_GOARCH)
+  else
+    HOST_GOOS   := linux
+    HOST_GOARCH := amd64
+    HOST_BINARY := dist/scan-linux-amd64
+  endif
+endif
+
+# Default: build for the detected host OS/arch with explicit flags -> dist/
 .PHONY: build
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
+	GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH) go build -ldflags "$(LDFLAGS)" -o $(HOST_BINARY) $(PKG)
+	@echo "Built $(HOST_BINARY) (GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH))"
 
 # Linux
 .PHONY: build-linux
@@ -48,12 +68,12 @@ vet:
 
 .PHONY: clean
 clean:
-	rm -f $(BINARY) dist/scan-*
+	rm -f dist/scan-*
 
 .PHONY: help
 help:
 	@echo "Targets:"
-	@echo "  build               Build for current OS/arch  -> ./scan"
+	@echo "  build               Build for detected host OS/arch (explicit GOOS/GOARCH) -> dist/"
 	@echo "  build-linux         linux/amd64                -> dist/scan-linux-amd64"
 	@echo "  build-linux-arm64   linux/arm64                -> dist/scan-linux-arm64"
 	@echo "  build-darwin        darwin/amd64               -> dist/scan-darwin-amd64"
