@@ -24,15 +24,16 @@ k8s-recovery-visualizer performs deterministic environment analysis and produces
 
 | Category | Resources |
 |----------|-----------|
-| **Cluster** | Nodes, namespaces, platform/provider, K8s version |
+| **Cluster** | Nodes (with zone), namespaces (with PSA labels), platform/provider, K8s version |
 | **Workloads** | Deployments, DaemonSets, StatefulSets, Jobs, CronJobs |
-| **Storage** | PVCs, PVs, StorageClasses |
+| **Storage** | PVCs, PVs, StorageClasses, VolumeSnapshotClasses, VolumeSnapshots |
 | **Networking** | Services, Ingresses, NetworkPolicies |
-| **Config** | ConfigMaps, Secrets (metadata only), ClusterRoles, CRDs, ResourceQuotas, HPAs, PodDisruptionBudgets |
+| **Config** | ConfigMaps, Secrets (metadata only), ClusterRoles, ClusterRoleBindings, CRDs, ResourceQuotas, LimitRanges, HPAs, PodDisruptionBudgets |
+| **Security** | ServiceAccounts (with automount token flag), RBAC escalation audit |
 | **Images** | All container images grouped by registry; public vs. private flag |
 | **Helm** | All Helm v3 releases detected via K8s secrets (no Helm CLI required) |
 | **Certificates** | cert-manager Certificate resources with expiry and days-to-renewal |
-| **Backup** | Auto-detects 7 tools; collects Velero Schedules, Kasten K10 Policies, Longhorn RecurringJobs |
+| **Backup** | Auto-detects 7 tools; collects Velero Schedules, Kasten K10 Policies, Longhorn RecurringJobs; etcd backup evidence |
 
 ---
 
@@ -72,6 +73,32 @@ Profile multipliers apply to the following scoring rules:
 
 The active profile and its multipliers are shown in the **DR Score** tab of the HTML report.
 
+### Storage Domain Scoring Rules
+
+| Finding ID | Severity | Penalty | Condition |
+|---|---|---|---|
+| `PVC_UNBOUND` | HIGH | −15 | PVC stuck in Pending state |
+| `PV_HOST_PATH` | HIGH | −20 | PersistentVolume uses hostPath (not portable across nodes) |
+| `PV_DELETE_POLICY` | HIGH | −15 | PersistentVolume has ReclaimPolicy=Delete |
+| `PV_ORPHAN` | MEDIUM | −10 | PersistentVolume is released but not reclaimed |
+| `STS_NO_PVC` | MEDIUM | −10 | StatefulSet has no PersistentVolumeClaim templates |
+| `SNAPSHOT_NO_CLASS` | MEDIUM | −10 | No VolumeSnapshotClass present in cluster |
+| `SNAPSHOT_PVC_UNCOVERED` | MEDIUM | −8 | PVCs with no corresponding VolumeSnapshot |
+| `SC_RECLAIM_DELETE` | MEDIUM | −10 | StorageClass has ReclaimPolicy=Delete |
+| `SC_HOSTPATH_PROVISIONER` | HIGH | −20 | StorageClass uses a hostPath provisioner |
+| `SC_ZONE_UNAWARE` | MEDIUM | −8 | Multi-zone cluster has StorageClass not using WaitForFirstConsumer |
+
+`PV_HOST_PATH` and `PV_DELETE_POLICY` are scaled by the `immutability` profile multiplier.
+
+### Workload Domain Scoring Rules
+
+| Finding ID | Severity | Penalty | Condition |
+|---|---|---|---|
+| `POD_PRIVILEGED` | HIGH | −15 | Pod runs with `privileged: true` security context |
+| `POD_HOST_NAMESPACE` | MEDIUM | −10 | Pod uses hostPID, hostIPC, or hostNetwork |
+| `NODE_NOT_READY` | HIGH | −20 | One or more nodes in NotReady state |
+| `SINGLE_AZ_CLUSTER` | MEDIUM | −15 | Multi-node cluster with all nodes in a single availability zone |
+
 ### Config Domain Scoring Rules
 
 | Finding ID | Severity | Penalty | Condition |
@@ -79,8 +106,17 @@ The active profile and its multipliers are shown in the **DR Score** tab of the 
 | `RBAC_WILDCARD_VERB` | CRITICAL | −20 | Custom ClusterRole grants wildcard verb permissions |
 | `RBAC_ESCALATE_PRIV` | HIGH | −10 | Custom ClusterRole grants escalate, bind, or impersonate verbs |
 | `RBAC_SECRET_ACCESS` | HIGH | −10 | Custom ClusterRole grants broad read access to Secrets |
+| `CERT_EXPIRING_SOON` | HIGH | −15 | cert-manager Certificate expires within 30 days |
+| `IMAGE_EXTERNAL_REGISTRY` | MEDIUM | −10 | Container images pulled from public registries |
+| `HELM_UNTRACKED_RESOURCES` | LOW | −5 | Helm releases with resources not tracked in the release secret |
+| `LR_MISSING_NAMESPACE` | MEDIUM | −8 | Namespace with workloads has no LimitRange defined |
+| `PSA_MISSING_ENFORCE_LABEL` | MEDIUM | −10 | Namespace missing `pod-security.kubernetes.io/enforce` label |
+| `ETCD_BACKUP_MISSING` | HIGH | −20 | No evidence of etcd backup (self-managed clusters only) |
+| `NETPOL_MISSING_NAMESPACE` | MEDIUM | −12 | Namespace with running pods has no NetworkPolicy |
+| `SA_DEFAULT_OVERPRIV` | HIGH | −15 | Default ServiceAccount has ClusterRoleBinding granting broad access |
+| `SA_AUTOMOUNT_TOKEN` | MEDIUM | −10 | Pod has automountServiceAccountToken=true without a service account need |
 
-All three RBAC rules are scaled by the `security` profile multiplier.
+RBAC rules are scaled by the `security` profile multiplier. `IMAGE_EXTERNAL_REGISTRY` is scaled by the `airgap` multiplier.
 
 ### Backup/Recovery Scoring Rules
 
@@ -88,10 +124,12 @@ All three RBAC rules are scaled by the `security` profile multiplier.
 |---|---|---|---|
 | `BACKUP_NONE` | CRITICAL | −60 | No backup tool detected |
 | `BACKUP_NO_POLICIES` | HIGH | −30 | Tool detected but no schedules/policies found |
-| `BACKUP_PARTIAL_COVERAGE` | HIGH | −20 | StatefulSets in namespaces not covered by any policy |
+| `BACKUP_PARTIAL` | HIGH | −20 | StatefulSets in namespaces not covered by any policy |
 | `BACKUP_NO_OFFSITE` | HIGH | −15 | No offsite or export location configured |
-| `BACKUP_RPO_HIGH` | MEDIUM | −10 | Worst-case RPO across all policies exceeds 24 hours |
 | `RESTORE_SIM_UNCOVERED` | HIGH | −20 | Stateful namespaces have no matching backup policy |
+| `CRD_BACKUP_MISSING` | MEDIUM | −10 | Custom CRDs present but no backup tool to capture them |
+
+`RESTORE_SIM_UNCOVERED` and `BACKUP_NO_POLICIES` are scaled by the `restoreTesting` multiplier. `BACKUP_NO_OFFSITE` is scaled by the `replication` multiplier.
 
 ### Example Scoring Breakdown
 
@@ -156,7 +194,7 @@ The HTML report is fully self-contained (no CDN, no external dependencies) — s
 
 ### Prerequisites
 
-- Go 1.21+ **or** a pre-built binary from [Releases](../../releases)
+- Go 1.25+ **or** a pre-built binary from [Releases](../../releases)
 - A valid `kubeconfig` with read access to the cluster
 
 ### Build
