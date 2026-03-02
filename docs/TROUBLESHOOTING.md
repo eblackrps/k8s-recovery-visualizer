@@ -56,8 +56,8 @@ If `recovery-report.html` is newer than `recovery-scan.json`, rerun the scan:
 
 ```bash
 # Linux / macOS
-./scan --out ./out
+./dist/scan-linux-amd64 --out ./out
 
 # Windows
-.\scan.exe --out .\out
+.\dist\scan.exe --out .\out
 ```
