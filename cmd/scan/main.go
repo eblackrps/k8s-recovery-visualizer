@@ -46,6 +46,7 @@ func main() {
 		redactOut   = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
 		profileName = flag.String("profile", "standard", "Scoring profile: standard|enterprise|dev|airgap")
 		runbook     = flag.Bool("runbook", false, "Also write a customer-facing DR runbook HTML")
+		insecure    = flag.Bool("insecure", false, "Skip TLS certificate verification (use for self-signed certs, e.g. RKE2/k3s)")
 	)
 	flag.Parse()
 
@@ -98,7 +99,11 @@ func main() {
 		return
 	}
 
-	clientset, restCfg, err := kube.NewClient(*kubeconfig)
+	if *insecure && !*ci {
+		fmt.Println("WARNING: --insecure is set — TLS certificate verification is disabled.")
+	}
+
+	clientset, restCfg, err := kube.NewClient(*kubeconfig, *insecure)
 	if err != nil {
 		log.Fatalf("kube error: %v", err)
 	}
