@@ -228,12 +228,12 @@ func NewBundle(scanID string, started time.Time) Bundle {
 	return Bundle{
 		SchemaVersion: "2.0.0",
 		Metadata: Metadata{
-			ToolVersion: "1.0.0",
+			ToolVersion: "1.0.1",
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "1.0.0",
+			Version:   "1.0.1",
 			BuildDate: time.Now().UTC().Format("2006-01-02"),
 		},
 		Scan: Scan{

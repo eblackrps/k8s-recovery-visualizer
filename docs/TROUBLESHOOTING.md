@@ -1,5 +1,35 @@
 # Troubleshooting
 
+## TLS Certificate Verification Errors
+
+If the scan fails with an error like:
+
+```
+x509: certificate signed by unknown authority
+```
+
+This is common on RKE2, k3s, and bare-metal clusters that use self-signed CA certificates. Use the `--insecure` flag to skip TLS verification:
+
+```bash
+# Linux
+./dist/scan-linux-amd64 --insecure --kubeconfig /etc/rancher/rke2/rke2.yaml --out ./out
+
+# Windows
+.\dist\scan.exe --insecure --kubeconfig C:\path\to\rke2.yaml --out .\out
+```
+
+A warning is printed when `--insecure` is active:
+
+```
+WARNING: --insecure is set — TLS certificate verification is disabled.
+```
+
+This warning is suppressed in `--ci` mode.
+
+> Only use `--insecure` on clusters you trust. It disables verification of the server's certificate chain.
+
+---
+
 ## Cluster access check
     kubectl config current-context
     kubectl cluster-info

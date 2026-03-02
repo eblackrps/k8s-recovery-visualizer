@@ -137,15 +137,16 @@ The HTML report is fully self-contained (no CDN, no external dependencies) — s
 
 | Tab | Content |
 |-----|---------|
-| **Summary** | Score card, maturity badge, platform, backup tool status, findings count |
-| **Nodes** | Node name, roles, OS image, kernel, container runtime, ready status, taints |
+| **Summary** | Score card, maturity badge, platform, backup tool status, findings severity chart |
+| **Nodes** | Node name, roles, OS image, kernel, container runtime, ready status, zone, taints |
 | **Workloads** | All workload types (Deployments, StatefulSets, DaemonSets, Jobs, CronJobs) |
 | **Storage** | PVCs + PVs + StorageClasses with binding status, backend, reclaim policy |
 | **Networking** | Services, Ingresses with TLS status, NetworkPolicies |
 | **Config** | ConfigMaps, Secrets, CRDs, ClusterRoles, Helm releases, Certificates |
 | **Images** | Container images grouped by registry; public vs. private |
 | **Backup** | Detected tools, backup policies with RPO + offsite flag, restore simulation per namespace |
-| **DR Score** | 4-domain scoring breakdown + all findings sorted by severity |
+| **DR Score** | 4-domain scoring breakdown with weighted domain scores and profile multipliers |
+| **Findings** | All findings filterable by severity, with deep-links to remediation steps |
 | **Remediation** | Prioritized, tool-specific remediation steps with commands |
 | **Compare** | Scan-to-scan diff (only shown when `--compare` is used) |
 
@@ -163,17 +164,17 @@ The HTML report is fully self-contained (no CDN, no external dependencies) — s
 **Linux / macOS**
 ```bash
 make build
-# binary: ./scan
+# binary: dist/scan-linux-amd64  (or dist/scan-darwin-arm64 on Apple Silicon)
 ```
 
 **One-liner without make**
 ```bash
-go build -o scan ./cmd/scan
+GOOS=linux GOARCH=amd64 go build -o dist/scan-linux-amd64 ./cmd/scan
 ```
 
 **Windows**
 ```powershell
-go build -o scan.exe ./cmd/scan
+$env:GOOS="windows"; $env:GOARCH="amd64"; go build -o dist\scan.exe .\cmd\scan
 ```
 
 ### Run
@@ -181,43 +182,47 @@ go build -o scan.exe ./cmd/scan
 **Linux / macOS**
 ```bash
 # Basic scan (VM recovery target)
-./scan --out ./out
+./dist/scan-linux-amd64 --out ./out
 
 # Scoped to specific namespaces
-./scan --namespace=prod,staging --out ./out
+./dist/scan-linux-amd64 --namespace=prod,staging --out ./out
 
 # Bare metal recovery target with CSV export
-./scan --target=baremetal --csv --out ./out
+./dist/scan-linux-amd64 --target=baremetal --csv --out ./out
 
 # Diff against a previous scan
-./scan --compare=./previous/recovery-scan.json --out ./out
+./dist/scan-linux-amd64 --compare=./previous/recovery-scan.json --out ./out
 
 # CI mode (exit code 2 if score below threshold)
-./scan --ci --min-score=75 --out ./out
+./dist/scan-linux-amd64 --ci --min-score=75 --out ./out
 
 # Enterprise profile — elevated weight on restore testing and immutability
-./scan --profile=enterprise --out ./out
+./dist/scan-linux-amd64 --profile=enterprise --out ./out
 
 # Airgap profile — elevated weight on image registry isolation and immutability
-./scan --profile=airgap --out ./out
+./dist/scan-linux-amd64 --profile=airgap --out ./out
+
+# Self-signed / RKE2 / k3s clusters — skip TLS certificate verification
+./dist/scan-linux-amd64 --insecure --out ./out
 
 # Write a customer-facing DR runbook (print-ready HTML)
-./scan --runbook --out ./out
+./dist/scan-linux-amd64 --runbook --out ./out
 
 # Write a redacted JSON copy (no secret values)
-./scan --redact --out ./out
+./dist/scan-linux-amd64 --redact --out ./out
 
 # Dry run (no cluster required)
-./scan --dry-run --out ./out
+./dist/scan-linux-amd64 --dry-run --out ./out
 ```
 
 **Windows**
 ```powershell
-.\scan.exe --out .\out
-.\scan.exe --namespace=prod,staging --out .\out
-.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
-.\scan.exe --redact --out .\out
-.\scan.exe --ci --min-score=75 --out .\out
+.\dist\scan.exe --out .\out
+.\dist\scan.exe --namespace=prod,staging --out .\out
+.\dist\scan.exe --insecure --out .\out
+.\dist\scan.exe --compare=.\previous\recovery-scan.json --out .\out
+.\dist\scan.exe --redact --out .\out
+.\dist\scan.exe --ci --min-score=75 --out .\out
 ```
 
 ### Open Report
@@ -240,6 +245,7 @@ start .\out\recovery-report.html
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--kubeconfig` | `""` | Path to kubeconfig (uses in-cluster config if empty) |
+| `--insecure` | `false` | Skip TLS certificate verification (use for self-signed certs, e.g. RKE2/k3s) |
 | `--out` | `./out` | Output directory |
 | `--target` | `vm` | Recovery target: `baremetal` or `vm` |
 | `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, or `airgap` |
@@ -305,9 +311,11 @@ Provider is detected automatically from node labels:
 | **EKS** | `eks.amazonaws.com/*` node labels |
 | **AKS** | `kubernetes.azure.com/*` node labels |
 | **GKE** | `cloud.google.com/*` node labels |
-| **Rancher** | `rancher.io/*` StorageClass provisioners |
+| **Rancher / RKE2** | `rancher.io/*` StorageClass provisioners |
 | **k3s** | `k3s.io/*` node labels |
 | **Vanilla** | Fallback |
+
+> **Note:** RKE2 and k3s clusters use self-signed CA certificates by default. Use `--insecure` to skip TLS verification if you see `x509: certificate signed by unknown authority` errors.
 
 ---
 
