@@ -95,13 +95,25 @@ func LoadConfig(kubeconfigPath string) (*rest.Config, error) {
 	return cfg, nil
 }
 
-// NewClient matches cmd/scan/main.go usage:
+// NewClient creates a Kubernetes clientset from the given kubeconfig path.
 //
-//	clientset, cfg, err := kube.NewClient(kubeconfigPath)
-func NewClient(kubeconfigPath string) (*kubernetes.Clientset, *rest.Config, error) {
+//	clientset, cfg, err := kube.NewClient(kubeconfigPath, insecure)
+//
+// When insecure is true, TLS certificate verification is disabled.
+// Use this for clusters with self-signed certificates (RKE2, k3s, bare-metal)
+// where the CA bundle is unavailable or the certificate has expired.
+// Clearing CAFile/CAData is required so client-go does not re-verify the cert
+// using the embedded bundle after Insecure is set.
+func NewClient(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, *rest.Config, error) {
 	cfg, err := LoadConfig(kubeconfigPath)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if insecure {
+		cfg.TLSClientConfig.Insecure = true
+		cfg.TLSClientConfig.CAFile = ""
+		cfg.TLSClientConfig.CAData = nil
 	}
 
 	cs, err := kubernetes.NewForConfig(cfg)
