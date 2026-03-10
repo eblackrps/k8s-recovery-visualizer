@@ -220,47 +220,47 @@ $env:GOOS="windows"; $env:GOARCH="amd64"; go build -o dist\scan.exe .\cmd\scan
 **Linux / macOS**
 ```bash
 # Basic scan (VM recovery target)
-./dist/scan-linux-amd64 --out ./out
+./scan-linux-amd64 --out ./out
 
 # Scoped to specific namespaces
-./dist/scan-linux-amd64 --namespace=prod,staging --out ./out
+./scan-linux-amd64 --namespace=prod,staging --out ./out
 
 # Bare metal recovery target with CSV export
-./dist/scan-linux-amd64 --target=baremetal --csv --out ./out
+./scan-linux-amd64 --target=baremetal --csv --out ./out
 
 # Diff against a previous scan
-./dist/scan-linux-amd64 --compare=./previous/recovery-scan.json --out ./out
+./scan-linux-amd64 --compare=./previous/recovery-scan.json --out ./out
 
 # CI mode (exit code 2 if score below threshold)
-./dist/scan-linux-amd64 --ci --min-score=75 --out ./out
+./scan-linux-amd64 --ci --min-score=75 --out ./out
 
 # Enterprise profile — elevated weight on restore testing and immutability
-./dist/scan-linux-amd64 --profile=enterprise --out ./out
+./scan-linux-amd64 --profile=enterprise --out ./out
 
 # Airgap profile — elevated weight on image registry isolation and immutability
-./dist/scan-linux-amd64 --profile=airgap --out ./out
+./scan-linux-amd64 --profile=airgap --out ./out
 
 # Self-signed / RKE2 / k3s clusters — skip TLS certificate verification
-./dist/scan-linux-amd64 --insecure --out ./out
+./scan-linux-amd64 --insecure --out ./out
 
 # Write a customer-facing DR runbook (print-ready HTML)
-./dist/scan-linux-amd64 --runbook --out ./out
+./scan-linux-amd64 --runbook --out ./out
 
 # Write a redacted JSON copy (no secret values)
-./dist/scan-linux-amd64 --redact --out ./out
+./scan-linux-amd64 --redact --out ./out
 
 # Dry run (no cluster required)
-./dist/scan-linux-amd64 --dry-run --out ./out
+./scan-linux-amd64 --dry-run --out ./out
 ```
 
 **Windows**
 ```powershell
-.\dist\scan.exe --out .\out
-.\dist\scan.exe --namespace=prod,staging --out .\out
-.\dist\scan.exe --insecure --out .\out
-.\dist\scan.exe --compare=.\previous\recovery-scan.json --out .\out
-.\dist\scan.exe --redact --out .\out
-.\dist\scan.exe --ci --min-score=75 --out .\out
+.\scan.exe --out .\out
+.\scan.exe --namespace=prod,staging --out .\out
+.\scan.exe --insecure --out .\out
+.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
+.\scan.exe --redact --out .\out
+.\scan.exe --ci --min-score=75 --out .\out
 ```
 
 ### Open Report
