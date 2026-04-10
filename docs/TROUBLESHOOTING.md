@@ -1,63 +1,76 @@
 # Troubleshooting
 
-## TLS Certificate Verification Errors
+## TLS verification errors
 
-If the scan fails with an error like:
+If the scan fails with:
 
-```
+```text
 x509: certificate signed by unknown authority
 ```
 
-This is common on RKE2, k3s, and bare-metal clusters that use self-signed CA certificates. Use the `--insecure` flag to skip TLS verification:
+use `--insecure` only for clusters you trust:
 
 ```bash
-# Linux
-./dist/scan-linux-amd64 --insecure --kubeconfig /etc/rancher/rke2/rke2.yaml --out ./out
-
-# Windows
-.\dist\scan.exe --insecure --kubeconfig C:\path\to\rke2.yaml --out .\out
+./dist/scan-linux-amd64 --insecure --kubeconfig /path/to/config --out ./out
 ```
 
-A warning is printed when `--insecure` is active:
-
-```
-WARNING: --insecure is set — TLS certificate verification is disabled.
+```powershell
+.\dist\scan-windows-amd64.exe --insecure --kubeconfig C:\path\to\config --out .\out
 ```
 
-This warning is suppressed in `--ci` mode.
+## Backup coverage shows `permission denied`
 
-> Only use `--insecure` on clusters you trust. It disables verification of the server's certificate chain.
+The scanner knows how to inspect the backup tool, but the current credentials cannot read the policy objects.
 
----
-
-## Cluster access check
-    kubectl config current-context
-    kubectl cluster-info
-    kubectl get nodes -o wide
-    kubectl get storageclass -o wide
-    kubectl auth can-i list storageclass
-
-## Report shows old data
-You likely re-ran the report pipeline without running the scan.
-Verify timestamps:
+Examples:
 
 ```bash
-# Linux / macOS
+kubectl auth can-i list schedules.velero.io --all-namespaces
+kubectl auth can-i list policies.config.kio.kasten.io --all-namespaces
+kubectl auth can-i list recurringjobs.longhorn.io -n longhorn-system
+```
+
+If these checks fail, the report will conservatively mark coverage as unknown.
+
+## Backup coverage shows `unsupported`
+
+The tool was detected, but native policy inspection has not been implemented for that product yet. The report is intentionally conservative in this case.
+
+What to do:
+
+1. Verify namespace scope and schedule coverage in the backup product directly.
+2. Treat the score as conservative until support is added.
+3. If you are extending the scanner, add native policy collection for that product and update the schema/docs together.
+
+## Schema validation
+
+Validate emitted JSON against the published contracts:
+
+```bash
+go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.1.0.schema.json -input ./out/recovery-scan.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
+```
+
+## Report looks stale
+
+Check artifact timestamps:
+
+```bash
 ls -lh out/recovery-scan.json out/recovery-enriched.json out/recovery-report.html
 ```
 
 ```powershell
-# Windows
 Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\recovery-report.html |
   Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
 ```
 
-If `recovery-report.html` is newer than `recovery-scan.json`, rerun the scan:
+If `recovery-report.html` is older than the latest scan, rerun the scan.
+
+## Quick cluster access sanity checks
 
 ```bash
-# Linux / macOS
-./dist/scan-linux-amd64 --out ./out
-
-# Windows
-.\dist\scan.exe --out .\out
+kubectl config current-context
+kubectl cluster-info
+kubectl get nodes -o wide
+kubectl get storageclass -o wide
 ```

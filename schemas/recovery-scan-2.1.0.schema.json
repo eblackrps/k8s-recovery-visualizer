@@ -1,0 +1,437 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eblackrps/k8s-recovery-visualizer/schemas/recovery-scan-2.1.0.schema.json",
+  "title": "k8s-recovery-visualizer recovery-scan.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "metadata",
+    "tool",
+    "scan",
+    "cluster",
+    "inventory",
+    "score"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "2.1.0"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "toolVersion",
+        "generatedAt"
+      ],
+      "properties": {
+        "toolVersion": {
+          "type": "string"
+        },
+        "generatedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "version",
+        "buildDate"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "buildDate": {
+          "type": "string"
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "scanId",
+        "startedAt",
+        "endedAt",
+        "durationSeconds",
+        "mode"
+      ],
+      "properties": {
+        "scanId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "string"
+        },
+        "durationSeconds": {
+          "type": "integer"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "namespaces",
+        "pvcs",
+        "pvs",
+        "pods",
+        "statefulSets",
+        "nodes",
+        "storageClasses",
+        "findings",
+        "backup"
+      ],
+      "properties": {
+        "namespaces": {
+          "type": "array"
+        },
+        "pvcs": {
+          "type": "array"
+        },
+        "pvs": {
+          "type": "array"
+        },
+        "pods": {
+          "type": "array"
+        },
+        "statefulSets": {
+          "type": "array"
+        },
+        "nodes": {
+          "type": "array"
+        },
+        "storageClasses": {
+          "type": "array"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "backup": {
+          "$ref": "#/$defs/backupInventory"
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "storage",
+        "workload",
+        "config",
+        "backup",
+        "overall",
+        "maturity"
+      ],
+      "properties": {
+        "storage": {
+          "$ref": "#/$defs/domainScore"
+        },
+        "workload": {
+          "$ref": "#/$defs/domainScore"
+        },
+        "config": {
+          "$ref": "#/$defs/domainScore"
+        },
+        "backup": {
+          "$ref": "#/$defs/domainScore"
+        },
+        "overall": {
+          "$ref": "#/$defs/domainScore"
+        },
+        "maturity": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "domainScore": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "max",
+        "final"
+      ],
+      "properties": {
+        "max": {
+          "type": "integer"
+        },
+        "final": {
+          "type": "integer"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "severity",
+        "resourceId",
+        "message",
+        "recommendation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "recommendation": {
+          "type": "string"
+        }
+      }
+    },
+    "backupDetectedTool": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "detected"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "detected": {
+          "type": "boolean"
+        },
+        "crdsFound": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policyInspectionStatus": {
+          "$ref": "#/$defs/coverageStatus"
+        },
+        "policyInspectionDetail": {
+          "type": "string"
+        }
+      }
+    },
+    "backupPolicy": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "tool",
+        "name",
+        "rpoHours",
+        "hasOffsite"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "policyNamespace": {
+          "type": "string"
+        },
+        "includedNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excludedNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "retentionTtl": {
+          "type": "string"
+        },
+        "rpoHours": {
+          "type": "integer"
+        },
+        "hasOffsite": {
+          "type": "boolean"
+        },
+        "storageLocation": {
+          "type": "string"
+        }
+      }
+    },
+    "restoreNamespace": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "namespace",
+        "coverageKnown",
+        "hasCoverage",
+        "rpoHours",
+        "pvcSizeGb"
+      ],
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "coverageKnown": {
+          "type": "boolean"
+        },
+        "hasCoverage": {
+          "type": "boolean"
+        },
+        "rpoHours": {
+          "type": "integer"
+        },
+        "pvcSizeGb": {
+          "type": "number"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "restoreSim": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "namespaces",
+        "totalPvcsGb",
+        "coveredPvcsGb"
+      ],
+      "properties": {
+        "namespaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/restoreNamespace"
+          }
+        },
+        "totalPvcsGb": {
+          "type": "number"
+        },
+        "coveredPvcsGb": {
+          "type": "number"
+        },
+        "uncoveredNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coverageStatus": {
+      "type": "string",
+      "enum": [
+        "not_detected",
+        "verified",
+        "unsupported",
+        "permission_denied",
+        "api_error",
+        "parse_error"
+      ]
+    },
+    "backupInventory": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "tools",
+        "primaryTool",
+        "coverageVerified",
+        "coverageStatus",
+        "hasOffsite"
+      ],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backupDetectedTool"
+          }
+        },
+        "primaryTool": {
+          "type": "string"
+        },
+        "coverageVerified": {
+          "type": "boolean"
+        },
+        "coverageStatus": {
+          "$ref": "#/$defs/coverageStatus"
+        },
+        "coverageReason": {
+          "type": "string"
+        },
+        "coverageSourceTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coveredNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uncoveredStatefulNamespaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backupPolicy"
+          }
+        },
+        "hasOffsite": {
+          "type": "boolean"
+        },
+        "restoreSim": {
+          "$ref": "#/$defs/restoreSim"
+        }
+      }
+    }
+  }
+}

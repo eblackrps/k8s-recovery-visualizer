@@ -1,6 +1,8 @@
 PKG      := ./cmd/scan
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS  := -s -w
+BUILD_DATE ?= $(shell git show -s --format=%cs HEAD 2>/dev/null || echo "unknown")
+MODEL_PKG := k8s-recovery-visualizer/internal/model
+LDFLAGS  := -s -w -X '$(MODEL_PKG).Version=$(VERSION)' -X '$(MODEL_PKG).BuildDate=$(BUILD_DATE)'
 
 # Auto-detect host OS so the default build target always uses explicit GOOS/GOARCH.
 # This prevents a GOOS=linux environment variable from silently producing a Linux

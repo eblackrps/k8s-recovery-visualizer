@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,6 +17,9 @@ func WriteArtifacts(outDir string, enriched *Enriched) error {
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("write artifacts: create outDir: %w", err)
+	}
+	if enriched == nil {
+		return fmt.Errorf("write artifacts: nil enriched payload")
 	}
 
 	now := time.Now().Format(time.RFC3339)
@@ -84,22 +86,10 @@ func WriteArtifacts(outDir string, enriched *Enriched) error {
 		return issues[i].Weight > issues[j].Weight
 	})
 
-	// Write recovery-enriched.json (embed scan so it isn't empty)
+	// Write typed recovery-enriched.json.
 	enrichedPath := filepath.Join(outDir, "recovery-enriched.json")
-	enrichedOut := map[string]any{
-		"schemaVersion": "v1",
-		"generatedUtc":  time.Now().UTC().Format(time.RFC3339),
-		"profile":       "standard",
-		"current": map[string]any{
-			"timestampUtc": time.Now().UTC().Format(time.RFC3339),
-			"overall":      score,
-			"maturity":     maturity,
-			"status":       status,
-		},
-		"scan":           scanAny,
-		"enrichedObject": enriched,
-	}
-	j, err := json.MarshalIndent(enrichedOut, "", "  ")
+	enriched.SchemaVersion = SchemaVersion
+	j, err := json.MarshalIndent(enriched, "", "  ")
 	if err != nil {
 		return fmt.Errorf("write artifacts: marshal enriched json: %w", err)
 	}
@@ -148,61 +138,6 @@ func WriteArtifacts(outDir string, enriched *Enriched) error {
 
 	if err := os.WriteFile(mdPath, md.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write artifacts: write %s: %w", mdPath, err)
-	}
-
-	// HTML report
-	htmlPath := filepath.Join(outDir, "recovery-report.html")
-	var h bytes.Buffer
-	h.WriteString("<!doctype html><html><head><meta charset=\"utf-8\" />")
-	h.WriteString("<title>Kubernetes DR Recovery Report</title>")
-	h.WriteString("<style>body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:980px;margin:24px;} code{background:#f4f4f4;padding:2px 4px;border-radius:4px;} .fail{color:#b00020;} .pass{color:#0b6;} .warn{color:#b36b00;} li{margin:10px 0;}</style>")
-	h.WriteString("</head><body>")
-	h.WriteString("<h1>Kubernetes DR Recovery Report</h1><ul>")
-	h.WriteString("<li>Generated: <code>" + html.EscapeString(now) + "</code></li>")
-	if score != 0 {
-		h.WriteString(fmt.Sprintf("<li>Final Score: <code>%d</code></li>", score))
-	}
-	if maturity != "" {
-		h.WriteString("<li>DR Maturity: <code>" + html.EscapeString(maturity) + "</code></li>")
-	}
-	h.WriteString("<li>DR Status: <code>" + html.EscapeString(status) + "</code></li>")
-	h.WriteString("</ul><h2>Top issues</h2>")
-
-	if len(issues) == 0 {
-		h.WriteString("<p>No structured issues detected in <code>recovery-scan.json</code>.</p>")
-	} else {
-		h.WriteString("<ol>")
-		limit := 12
-		if len(issues) < limit {
-			limit = len(issues)
-		}
-		for i := 0; i < limit; i++ {
-			it := issues[i]
-			cls := "warn"
-			if it.Status == "FAIL" {
-				cls = "fail"
-			} else if it.Status == "PASS" {
-				cls = "pass"
-			}
-			h.WriteString("<li class=\"" + cls + "\"><b>" + html.EscapeString(it.Status) + "</b>: " + html.EscapeString(it.Title))
-			if it.Detail != "" {
-				h.WriteString("<br/><small>" + html.EscapeString(it.Detail) + "</small>")
-			}
-			if it.Remediation != "" {
-				h.WriteString("<br/><small><i>Fix:</i> " + html.EscapeString(it.Remediation) + "</small>")
-			}
-			h.WriteString("</li>")
-		}
-		h.WriteString("</ol>")
-	}
-
-	h.WriteString("<h2>Artifacts</h2><ul>")
-	h.WriteString("<li><code>recovery-scan.json</code></li>")
-	h.WriteString("<li><code>recovery-enriched.json</code></li>")
-	h.WriteString("</ul></body></html>")
-
-	if err := os.WriteFile(htmlPath, h.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write artifacts: write %s: %w", htmlPath, err)
 	}
 
 	return nil

@@ -31,6 +31,11 @@ jobs:
       - name: go test ./...
         run: go test ./...
 
+      - name: Regression tests -- backup coverage trust behavior
+        run: >
+          go test ./internal/backup ./internal/restore ./internal/analyze ./internal/output
+          -run "TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified"
+
       # ── 4. Cross-compile release binaries with explicit GOOS/GOARCH ─────
       #     This is the key regression guard: a bare 'go build' with GOOS set
       #     in the environment can produce a Linux ELF named scan.exe.
@@ -41,7 +46,7 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-linux-amd64 ./cmd/scan
 
       - name: Build Windows binary (GOOS=windows GOARCH=amd64)
-        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan.exe ./cmd/scan
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-windows-amd64.exe ./cmd/scan
 
       # ── 5. Verify binary formats ─────────────────────────────────────────
       - name: Verify scan-linux-amd64 is ELF
@@ -49,10 +54,10 @@ jobs:
           file dist/scan-linux-amd64 | grep -q "ELF 64-bit" || \
             { echo "ERROR: scan-linux-amd64 is not a Linux ELF binary"; exit 1; }
 
-      - name: Verify scan.exe is PE32+
+      - name: Verify scan-windows-amd64.exe is PE32+
         run: |
-          file dist/scan.exe | grep -q "PE32+" || \
-            { echo "ERROR: scan.exe is not a Windows PE32+ binary"; exit 1; }
+          file dist/scan-windows-amd64.exe | grep -q "PE32+" || \
+            { echo "ERROR: scan-windows-amd64.exe is not a Windows PE32+ binary"; exit 1; }
 
       # ── 6. Dry-run smoke test ────────────────────────────────────────────
       - name: Smoke test -- dry-run
@@ -73,7 +78,16 @@ jobs:
           # findings array must be present (can be empty)
           grep -q '"findings"' "$JSON" || \
             { echo "ERROR: missing findings array in output JSON"; exit 1; }
+          # backup coverage status is part of the published contract
+          grep -q '"coverageStatus"' "$JSON" || \
+            { echo "ERROR: missing coverageStatus in output JSON"; exit 1; }
           echo "JSON smoke test passed"
+
+      - name: Smoke test -- validate recovery-scan schema
+        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.1.0.schema.json -input /tmp/smoke/recovery-scan.json
+
+      - name: Smoke test -- validate recovery-enriched schema
+        run: go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
 
       - name: Smoke test -- verify HTML report was generated
         run: |

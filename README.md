@@ -1,388 +1,212 @@
 # k8s-recovery-visualizer
 
-Full Kubernetes cluster inventory and Disaster Recovery assessment tool.
+`k8s-recovery-visualizer` scans a Kubernetes cluster, inventories recovery-relevant resources, scores disaster recovery readiness across weighted domains, and produces offline-friendly reports.
 
-Scan a live cluster to get a complete RVTools-style inventory, a weighted DR readiness score across four domains, backup tool detection, backup policy analysis, restore simulation, and a prioritized remediation plan — all in a single self-contained HTML report.
+The tool is intentionally conservative. It will not claim backup coverage unless it can actually inspect backup policies for the detected product. Detection-only tools are reported as `unsupported` coverage, not silently treated as protected.
 
----
+## What it does
 
-## Why This Exists
+- Inventories cluster, workload, storage, network, config, image, Helm, certificate, and backup-related resources.
+- Scores DR readiness across `storage`, `workload`, `config`, and `backup / recovery`.
+- Detects backup products and inspects policies for supported tools.
+- Simulates restore feasibility per namespace using policy coverage, PVC volume, and restore blockers.
+- Generates `JSON`, `Markdown`, `HTML`, optional CSV exports, an executive summary, and a customer-facing runbook.
+- Maintains scan history for trend reporting.
 
-Building DR clusters without structured discovery leads to:
-- Missing stateful workloads with no backup coverage
-- Storage classes that don't exist in the target environment
-- Orphaned PVs with Delete reclaim policies that vanish on PVC deletion
-- Public registry images that aren't reachable in air-gapped DR sites
-- Backup tools installed but no policies or schedules configured
-- No offsite target — a site-level failure takes the backups with it
+## Backup trust model
 
-k8s-recovery-visualizer performs deterministic environment analysis and produces a full picture of DR readiness before a rebuild or recovery event.
+Backup coverage is reported with an explicit status:
 
----
+| Status | Meaning |
+| --- | --- |
+| `verified` | The scanner successfully inspected policies or schedules and can reason about namespace coverage. |
+| `unsupported` | The product was detected, but the scanner does not yet inspect that tool's policies. |
+| `permission_denied` | The scanner knows how to inspect the tool, but the current credentials could not read the policy objects. |
+| `api_error` | Policy inspection failed because the backup product API call failed. |
+| `parse_error` | Policy inspection reached the API but could not parse the returned objects. |
+| `not_detected` | No backup tool was detected. |
 
-## What It Collects
+When coverage is not `verified`, the score treats backup scope as unknown and avoids pretending that restore coverage is known.
 
-| Category | Resources |
-|----------|-----------|
-| **Cluster** | Nodes (with zone), namespaces (with PSA labels), platform/provider, K8s version |
-| **Workloads** | Deployments, DaemonSets, StatefulSets, Jobs, CronJobs |
-| **Storage** | PVCs, PVs, StorageClasses, VolumeSnapshotClasses, VolumeSnapshots |
-| **Networking** | Services, Ingresses, NetworkPolicies |
-| **Config** | ConfigMaps, Secrets (metadata only), ClusterRoles, ClusterRoleBindings, CRDs, ResourceQuotas, LimitRanges, HPAs, PodDisruptionBudgets |
-| **Security** | ServiceAccounts (with automount token flag), RBAC escalation audit |
-| **Images** | All container images grouped by registry; public vs. private flag |
-| **Helm** | All Helm v3 releases detected via K8s secrets (no Helm CLI required) |
-| **Certificates** | cert-manager Certificate resources with expiry and days-to-renewal |
-| **Backup** | Auto-detects 7 tools; collects Velero Schedules, Kasten K10 Policies, Longhorn RecurringJobs; etcd backup evidence |
+## Supported backup inspection
 
----
+| Tool | Detection | Policy inspection |
+| --- | --- | --- |
+| Kasten K10 | Yes | Yes |
+| Velero | Yes | Yes |
+| Longhorn | Yes | Yes |
+| Rubrik | Yes | Detection only |
+| Trilio | Yes | Detection only |
+| Stash | Yes | Detection only |
+| CloudCasa | Yes | Detection only |
 
-## DR Scoring Model
+## Output files
 
-Scoring covers four weighted domains:
+Running `scan` writes:
 
-| Domain | Weight | What It Measures |
-|--------|--------|-----------------|
-| **Storage** | 35% | PVC binding, storageClass presence, hostPath usage, reclaim policies |
-| **Workload** | 20% | StatefulSet persistence, deployment coverage |
-| **Config** | 15% | CRD backup readiness, certificate expiry, image registry risk, RBAC privilege audit |
-| **Backup/Recovery** | 30% | Tool presence, policy coverage, offsite config, RPO, restore simulation |
-
-**Maturity levels:** PLATINUM (≥90) · GOLD (≥75) · SILVER (≥50) · BRONZE (<50)
-
-### Scoring Profiles
-
-Use `--profile` to shift penalty emphasis without changing the base domain weights. Each profile multiplies specific penalty constants to reflect what matters most for that environment:
-
-| Profile | Use Case | Elevated | Relaxed |
-|---------|----------|----------|---------|
-| `standard` | General-purpose assessment | — (baseline) | — |
-| `enterprise` | Production SLA / regulated workloads | Restore testing (1.5×), Immutability (1.3×), Replication (1.2×), Security (1.2×) | — |
-| `dev` | Development / staging clusters | — | Restore testing (0.9×), Immutability (0.9×) |
-| `airgap` | Air-gapped or disconnected DR sites | Immutability (1.6×), Airgap restrictions (1.6×), Security (1.3×), Restore testing (1.2×) | — |
-
-Profile multipliers apply to the following scoring rules:
-
-| Profile Key | Scaling Applied To |
-|-------------|-------------------|
-| `restoreTesting` | `RESTORE_SIM_UNCOVERED`, `BACKUP_NO_POLICIES` |
-| `immutability` | `PV_HOSTPATH`, `PV_DELETE_POLICY` |
-| `replication` | `BACKUP_NO_OFFSITE` |
-| `security` | `CERT_EXPIRING_SOON`, `RBAC_WILDCARD_VERB`, `RBAC_ESCALATE_PRIV`, `RBAC_SECRET_ACCESS` |
-| `airgap` | `IMAGE_EXTERNAL_REGISTRY` |
-
-The active profile and its multipliers are shown in the **DR Score** tab of the HTML report.
-
-### Storage Domain Scoring Rules
-
-| Finding ID | Severity | Penalty | Condition |
-|---|---|---|---|
-| `PVC_UNBOUND` | HIGH | −15 | PVC stuck in Pending state |
-| `PV_HOST_PATH` | HIGH | −20 | PersistentVolume uses hostPath (not portable across nodes) |
-| `PV_DELETE_POLICY` | HIGH | −15 | PersistentVolume has ReclaimPolicy=Delete |
-| `PV_ORPHAN` | MEDIUM | −10 | PersistentVolume is released but not reclaimed |
-| `STS_NO_PVC` | MEDIUM | −10 | StatefulSet has no PersistentVolumeClaim templates |
-| `SNAPSHOT_NO_CLASS` | MEDIUM | −10 | No VolumeSnapshotClass present in cluster |
-| `SNAPSHOT_PVC_UNCOVERED` | MEDIUM | −8 | PVCs with no corresponding VolumeSnapshot |
-| `SC_RECLAIM_DELETE` | MEDIUM | −10 | StorageClass has ReclaimPolicy=Delete |
-| `SC_HOSTPATH_PROVISIONER` | HIGH | −20 | StorageClass uses a hostPath provisioner |
-| `SC_ZONE_UNAWARE` | MEDIUM | −8 | Multi-zone cluster has StorageClass not using WaitForFirstConsumer |
-
-`PV_HOST_PATH` and `PV_DELETE_POLICY` are scaled by the `immutability` profile multiplier.
-
-### Workload Domain Scoring Rules
-
-| Finding ID | Severity | Penalty | Condition |
-|---|---|---|---|
-| `POD_PRIVILEGED` | HIGH | −15 | Pod runs with `privileged: true` security context |
-| `POD_HOST_NAMESPACE` | MEDIUM | −10 | Pod uses hostPID, hostIPC, or hostNetwork |
-| `NODE_NOT_READY` | HIGH | −20 | One or more nodes in NotReady state |
-| `SINGLE_AZ_CLUSTER` | MEDIUM | −15 | Multi-node cluster with all nodes in a single availability zone |
-
-### Config Domain Scoring Rules
-
-| Finding ID | Severity | Penalty | Condition |
-|---|---|---|---|
-| `RBAC_WILDCARD_VERB` | CRITICAL | −20 | Custom ClusterRole grants wildcard verb permissions |
-| `RBAC_ESCALATE_PRIV` | HIGH | −10 | Custom ClusterRole grants escalate, bind, or impersonate verbs |
-| `RBAC_SECRET_ACCESS` | HIGH | −10 | Custom ClusterRole grants broad read access to Secrets |
-| `CERT_EXPIRING_SOON` | HIGH | −15 | cert-manager Certificate expires within 30 days |
-| `IMAGE_EXTERNAL_REGISTRY` | MEDIUM | −10 | Container images pulled from public registries |
-| `HELM_UNTRACKED_RESOURCES` | LOW | −5 | Helm releases with resources not tracked in the release secret |
-| `LR_MISSING_NAMESPACE` | MEDIUM | −8 | Namespace with workloads has no LimitRange defined |
-| `PSA_MISSING_ENFORCE_LABEL` | MEDIUM | −10 | Namespace missing `pod-security.kubernetes.io/enforce` label |
-| `ETCD_BACKUP_MISSING` | HIGH | −20 | No evidence of etcd backup (self-managed clusters only) |
-| `NETPOL_MISSING_NAMESPACE` | MEDIUM | −12 | Namespace with running pods has no NetworkPolicy |
-| `SA_DEFAULT_OVERPRIV` | HIGH | −15 | Default ServiceAccount has ClusterRoleBinding granting broad access |
-| `SA_AUTOMOUNT_TOKEN` | MEDIUM | −10 | Pod has automountServiceAccountToken=true without a service account need |
-
-RBAC rules are scaled by the `security` profile multiplier. `IMAGE_EXTERNAL_REGISTRY` is scaled by the `airgap` multiplier.
-
-### Backup/Recovery Scoring Rules
-
-| Finding ID | Severity | Penalty | Condition |
-|---|---|---|---|
-| `BACKUP_NONE` | CRITICAL | −60 | No backup tool detected |
-| `BACKUP_NO_POLICIES` | HIGH | −30 | Tool detected but no schedules/policies found |
-| `BACKUP_PARTIAL` | HIGH | −20 | StatefulSets in namespaces not covered by any policy |
-| `BACKUP_NO_OFFSITE` | HIGH | −15 | No offsite or export location configured |
-| `RESTORE_SIM_UNCOVERED` | HIGH | −20 | Stateful namespaces have no matching backup policy |
-| `CRD_BACKUP_MISSING` | MEDIUM | −10 | Custom CRDs present but no backup tool to capture them |
-
-`RESTORE_SIM_UNCOVERED` and `BACKUP_NO_POLICIES` are scaled by the `restoreTesting` multiplier. `BACKUP_NO_OFFSITE` is scaled by the `replication` multiplier.
-
-### Example Scoring Breakdown
-
-| Domain | Score | Weight | Weighted |
-|--------|-------|--------|---------|
-| Storage | 85/100 | 35% | 29.75 |
-| Workload | 100/100 | 20% | 20.00 |
-| Config | 90/100 | 15% | 13.50 |
-| Backup/Recovery | 40/100 | 30% | 12.00 |
-| **Overall** | **75/100** | — | **GOLD** |
-
----
-
-## What It Generates
-
-```
+```text
 out/
-├── recovery-scan.json          # Full cluster inventory + scores + findings
-├── recovery-enriched.json      # Enriched DR analysis with trend + risk
-├── recovery-report.md          # Markdown summary
-├── recovery-runbook.html       # (--runbook) Customer-facing DR runbook, print-ready
-├── recovery-report.html        # Self-contained dark-mode tabbed HTML report
-├── history/
-│   └── index.json              # Trend history across scans
-└── csv/                        # (--csv flag) one file per inventory tab
-    ├── nodes.csv
-    ├── workloads.csv
-    ├── storage.csv
-    ├── networking.csv
-    ├── config.csv
-    ├── images.csv
-    ├── helm.csv
-    ├── certificates.csv
-    ├── dr-score.csv
-    └── remediation.csv
+├── recovery-scan.json
+├── recovery-enriched.json
+├── recovery-report.html
+├── recovery-report.md
+├── recovery-summary.html          # only with --summary
+├── recovery-runbook.html          # only with --runbook
+├── recovery-scan-redacted.json    # only with --redact
+├── recovery-report-redacted.html  # only with --redact
+├── csv/                           # only with --csv
+└── history/
+    └── index.json
 ```
 
-The HTML report is fully self-contained (no CDN, no external dependencies) — safe to open offline in customer environments.
+Published JSON contracts:
 
----
+- Scan bundle schema: [`schemas/recovery-scan-2.1.0.schema.json`](schemas/recovery-scan-2.1.0.schema.json)
+- Enriched bundle schema: [`schemas/recovery-enriched-1.1.0.schema.json`](schemas/recovery-enriched-1.1.0.schema.json)
 
-## Report Tabs
+Compatibility policy:
 
-| Tab | Content |
-|-----|---------|
-| **Summary** | Score card, maturity badge, platform, backup tool status, findings severity chart |
-| **Nodes** | Node name, roles, OS image, kernel, container runtime, ready status, zone, taints |
-| **Workloads** | All workload types (Deployments, StatefulSets, DaemonSets, Jobs, CronJobs) |
-| **Storage** | PVCs + PVs + StorageClasses with binding status, backend, reclaim policy |
-| **Networking** | Services, Ingresses with TLS status, NetworkPolicies |
-| **Config** | ConfigMaps, Secrets, CRDs, ClusterRoles, Helm releases, Certificates |
-| **Images** | Container images grouped by registry; public vs. private |
-| **Backup** | Detected tools, backup policies with RPO + offsite flag, restore simulation per namespace |
-| **DR Score** | 4-domain scoring breakdown with weighted domain scores and profile multipliers |
-| **Findings** | All findings filterable by severity, with deep-links to remediation steps |
-| **Remediation** | Prioritized, tool-specific remediation steps with commands |
-| **Compare** | Scan-to-scan diff (only shown when `--compare` is used) |
+- Additive fields bump the schema minor version.
+- Breaking JSON changes require a new major schema version.
+- CI validates the generated artifacts against the published schemas.
 
----
-
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
-- Go 1.25+ **or** a pre-built binary from [Releases](../../releases)
-- A valid `kubeconfig` with read access to the cluster
+- Go `1.25+`, or a release binary from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases)
+- A kubeconfig with read access to the target cluster
 
 ### Build
 
-**Linux / macOS**
+Build for your current host:
+
 ```bash
 make build
-# binary: dist/scan-linux-amd64  (or dist/scan-darwin-arm64 on Apple Silicon)
 ```
 
-**One-liner without make**
+Build release binaries for all supported targets:
+
+```bash
+make release
+```
+
+Manual examples:
+
 ```bash
 GOOS=linux GOARCH=amd64 go build -o dist/scan-linux-amd64 ./cmd/scan
-```
-
-**Windows**
-```powershell
-$env:GOOS="windows"; $env:GOARCH="amd64"; go build -o dist\scan.exe .\cmd\scan
+GOOS=darwin GOARCH=arm64 go build -o dist/scan-darwin-arm64 ./cmd/scan
+GOOS=windows GOARCH=amd64 go build -o dist/scan-windows-amd64.exe ./cmd/scan
 ```
 
 ### Run
 
-**Linux / macOS**
+Linux:
+
 ```bash
-# Basic scan (VM recovery target)
-./scan-linux-amd64 --out ./out
-
-# Scoped to specific namespaces
-./scan-linux-amd64 --namespace=prod,staging --out ./out
-
-# Bare metal recovery target with CSV export
-./scan-linux-amd64 --target=baremetal --csv --out ./out
-
-# Diff against a previous scan
-./scan-linux-amd64 --compare=./previous/recovery-scan.json --out ./out
-
-# CI mode (exit code 2 if score below threshold)
-./scan-linux-amd64 --ci --min-score=75 --out ./out
-
-# Enterprise profile — elevated weight on restore testing and immutability
-./scan-linux-amd64 --profile=enterprise --out ./out
-
-# Airgap profile — elevated weight on image registry isolation and immutability
-./scan-linux-amd64 --profile=airgap --out ./out
-
-# Self-signed / RKE2 / k3s clusters — skip TLS certificate verification
-./scan-linux-amd64 --insecure --out ./out
-
-# Write a customer-facing DR runbook (print-ready HTML)
-./scan-linux-amd64 --runbook --out ./out
-
-# Write a redacted JSON copy (no secret values)
-./scan-linux-amd64 --redact --out ./out
-
-# Dry run (no cluster required)
-./scan-linux-amd64 --dry-run --out ./out
+./dist/scan-linux-amd64 --out ./out
+./dist/scan-linux-amd64 --namespace=prod,staging --out ./out
+./dist/scan-linux-amd64 --target=baremetal --csv --out ./out
+./dist/scan-linux-amd64 --profile=enterprise --out ./out
+./dist/scan-linux-amd64 --compare=./previous/recovery-scan.json --out ./out
+./dist/scan-linux-amd64 --summary --runbook --redact --out ./out
+./dist/scan-linux-amd64 --dry-run --out ./out
 ```
 
-**Windows**
+Windows:
+
 ```powershell
-.\scan.exe --out .\out
-.\scan.exe --namespace=prod,staging --out .\out
-.\scan.exe --insecure --out .\out
-.\scan.exe --compare=.\previous\recovery-scan.json --out .\out
-.\scan.exe --redact --out .\out
-.\scan.exe --ci --min-score=75 --out .\out
+.\dist\scan-windows-amd64.exe --out .\out
+.\dist\scan-windows-amd64.exe --namespace=prod,staging --out .\out
+.\dist\scan-windows-amd64.exe --insecure --out .\out
+.\dist\scan-windows-amd64.exe --ci --min-score=75 --out .\out
 ```
 
-### Open Report
+### Open the report
 
 ```bash
-# Linux
 xdg-open ./out/recovery-report.html
-
-# macOS
 open ./out/recovery-report.html
-
-# Windows
 start .\out\recovery-report.html
 ```
 
----
-
-## CLI Flags
+## CLI flags
 
 | Flag | Default | Description |
-|------|---------|-------------|
-| `--kubeconfig` | `""` | Path to kubeconfig (uses in-cluster config if empty) |
-| `--insecure` | `false` | Skip TLS certificate verification (use for self-signed certs, e.g. RKE2/k3s) |
-| `--out` | `./out` | Output directory |
-| `--target` | `vm` | Recovery target: `baremetal` or `vm` |
-| `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, or `airgap` |
-| `--runbook` | `false` | Write a customer-facing DR runbook HTML (`recovery-runbook.html`) |
-| `--namespace` | `""` | Comma-separated namespaces to scan (empty = all namespaces) |
-| `--compare` | `""` | Path to a previous `recovery-scan.json` to diff against |
-| `--csv` | `false` | Write CSV exports to `out/csv/` |
-| `--summary` | `false` | Print a one-line summary to stdout on completion |
-| `--redact` | `false` | Write a redacted JSON copy with secret values removed |
-| `--dry-run` | `false` | Run without a cluster (for testing) |
-| `--ci` | `false` | CI mode: emit JSON summary + exit code 2 on failure |
-| `--min-score` | `90` | Minimum acceptable overall score for CI pass |
-| `--timeout` | `60` | Kubernetes API timeout in seconds |
-| `--customer` | `""` | Customer identifier embedded in report metadata |
-| `--site` | `""` | Site/region name embedded in report metadata |
-| `--cluster` | `""` | Cluster name embedded in report metadata |
-| `--env` | `""` | Environment tag (prod/dev/test) embedded in report metadata |
+| --- | --- | --- |
+| `--kubeconfig` | `""` | Path to kubeconfig. Uses in-cluster config if empty. |
+| `--insecure` | `false` | Skip TLS verification for self-signed clusters. |
+| `--out` | `./out` | Output directory. |
+| `--target` | `vm` | Recovery target: `vm` or `baremetal`. |
+| `--profile` | `standard` | Scoring profile: `standard`, `enterprise`, `dev`, `airgap`. |
+| `--namespace` | `""` | Comma-separated namespace scope. Empty means all namespaces. |
+| `--compare` | `""` | Compare against a previous `recovery-scan.json`. |
+| `--csv` | `false` | Write CSV exports. |
+| `--summary` | `false` | Write `recovery-summary.html`. |
+| `--runbook` | `false` | Write `recovery-runbook.html`. |
+| `--redact` | `false` | Write redacted JSON and HTML artifacts. |
+| `--dry-run` | `false` | Run without hitting a live cluster. |
+| `--ci` | `false` | Emit a machine-readable summary and exit `2` if score is below threshold. |
+| `--min-score` | `90` | Minimum acceptable score in CI mode. |
+| `--timeout` | `60` | Kubernetes API timeout in seconds. |
+| `--customer` | `""` | Customer identifier stored in metadata. |
+| `--site` | `""` | Site or region stored in metadata. |
+| `--cluster` | `""` | Cluster name stored in metadata. |
+| `--env` | `""` | Environment tag stored in metadata. |
 
----
+## Scoring
 
-## Backup Tool Detection & Policy Analysis
+Weighted domains:
 
-The tool automatically detects these backup solutions and — for supported tools — collects detailed policy data:
+| Domain | Weight |
+| --- | --- |
+| Storage | 35% |
+| Workload | 20% |
+| Config | 15% |
+| Backup / Recovery | 30% |
 
-| Tool | Detection | Policy Collection |
-|------|-----------|-------------------|
-| **Kasten K10** | `kasten-io` namespace, `kio.kasten.io` CRDs | Policies: frequency, namespace selector, export actions |
-| **Velero** | `velero` namespace, `velero.io` CRDs | Schedules: namespace coverage, cron, TTL, storage location |
-| **Longhorn** | `longhorn-system` namespace, `longhorn.io` CRDs | RecurringJobs (backup tasks), BackupTarget setting |
-| **Rubrik** | `rubrik`/`rbs` namespace, `rubrik.com` CRDs | Detection only |
-| **Trilio** | `trilio-system` namespace, `triliovault.trilio.io` CRDs | Detection only |
-| **Stash** | `stash` namespace, `stash.appscode.com` CRDs | Detection only |
-| **CloudCasa** | `cloudcasa-io` namespace, `cloudcasa.io` CRDs | Detection only |
+Profiles adjust penalty emphasis without changing the base domain weights:
 
-RPO is estimated from cron expressions and frequency labels (`@daily`, `@weekly`, `*/6 * * * *`, etc.).
+| Profile | Multipliers |
+| --- | --- |
+| `standard` | baseline |
+| `enterprise` | restore testing `1.5x`, immutability `1.3x`, replication `1.2x`, security `1.2x` |
+| `dev` | restore testing `1.1x`, immutability `0.9x`, replication `0.9x` |
+| `airgap` | immutability `1.6x`, airgap `1.6x`, security `1.3x`, restore testing `1.2x` |
 
-An offsite/export location is detected from Velero storage locations (non-default), Kasten export actions, and Longhorn BackupTarget settings.
+The full scoring output is emitted in `recovery-scan.json` and rendered in the `DR Score` tab.
 
----
+## CI and validation
 
-## Restore Simulation
+Run the core checks locally:
 
-After backup detection, the tool runs a per-namespace restore feasibility assessment for every namespace containing StatefulSets or PVCs:
+```bash
+go test ./...
+go build ./...
+go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.1.0.schema.json -input ./out/recovery-scan.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
+```
 
-| Field | Description |
-|-------|-------------|
-| **Coverage** | Whether at least one backup policy covers the namespace |
-| **RPO (h)** | Best-case RPO in hours from applicable policies |
-| **PVC Data (GB)** | Total persistent storage that would need to be restored |
-| **Blockers** | hostPath volumes, unbound PVCs — prevent clean restore |
-| **Warnings** | StorageClasses referenced in PVCs but not present in cluster |
+`cmd/check` can enforce enriched risk posture and score regression thresholds:
 
-Results are visible in the **Backup** tab and drive the `BACKUP_NO_OFFSITE`, `BACKUP_RPO_HIGH`, and `RESTORE_SIM_UNCOVERED` scoring rules.
+```bash
+go run ./cmd/check --in ./out/recovery-enriched.json --max-risk MODERATE --max-drop 5
+```
 
----
+## Release process
 
-## Platform Detection
+- Tags matching `v*` trigger [`.github/workflows/release.yml`](.github/workflows/release.yml).
+- Release builds inject version and build date metadata.
+- Published assets include Linux, macOS, Windows binaries, and SHA-256 checksums.
 
-Provider is detected automatically from node labels:
+## Documentation
 
-| Provider | Detection |
-|----------|-----------|
-| **EKS** | `eks.amazonaws.com/*` node labels |
-| **AKS** | `kubernetes.azure.com/*` node labels |
-| **GKE** | `cloud.google.com/*` node labels |
-| **Rancher / RKE2** | `rancher.io/*` StorageClass provisioners |
-| **k3s** | `k3s.io/*` node labels |
-| **Vanilla** | Fallback |
+- Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- Troubleshooting: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
+- Schemas: [`docs/SCHEMAS.md`](docs/SCHEMAS.md)
 
-> **Note:** RKE2 and k3s clusters use self-signed CA certificates by default. Use `--insecure` to skip TLS verification if you see `x509: certificate signed by unknown authority` errors.
+## Limitations
 
----
-
-## Use Cases
-
-- Pre-migration DR assessment before cluster rebuild
-- Customer environment intake validation for DRaaS onboarding
-- Identifying backup gaps and offsite coverage before a DR event
-- Repeatable DR maturity measurement over time
-- Scan-to-scan comparison to track posture changes across sprints
-- CSV/Excel inventory export for documentation or handoff
-
----
-
-## Example Report
-
-### Summary Tab
-![Summary Tab](images/report-summary.png)
-
-### DR Score Tab
-![DR Score Tab](images/report-dr-score.png)
-
----
-
-## Design Principles
-
-- No external dependencies at runtime (reads only from the K8s API)
-- No Helm CLI required (reads Helm release secrets directly)
-- No cert-manager SDK required (reads CRs via raw REST)
-- Self-contained HTML output — safe for air-gapped environments
-- Deterministic scoring — same cluster always produces the same score
-- Historical trend tracking across repeated scans
+- Backup coverage is only verified for the supported policy-inspection tools listed above.
+- Detection-only tools remain useful inventory signals, but they do not prove protection scope.
+- Redaction removes secret values and masks identifiers in redacted artifacts, but you should still review shared outputs for customer-specific context.

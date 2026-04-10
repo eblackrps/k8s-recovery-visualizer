@@ -28,21 +28,21 @@ import (
 
 func main() {
 	var (
-		kubeconfig = flag.String("kubeconfig", "", "Path to kubeconfig")
-		outDir     = flag.String("out", "./out", "Output directory")
-		dryRun     = flag.Bool("dry-run", false, "Run without Kubernetes")
-		ci         = flag.Bool("ci", false, "CI mode (machine-readable output)")
-		minScore   = flag.Int("min-score", 90, "Minimum acceptable DR score")
-		timeoutSec = flag.Int("timeout", 60, "Timeout in seconds for Kubernetes API calls")
-		customerID = flag.String("customer", "", "Customer identifier (optional)")
-		site       = flag.String("site", "", "Site/region name (optional)")
-		cluster    = flag.String("cluster", "", "Cluster name (optional)")
-		env        = flag.String("env", "", "Environment (prod/dev/test) (optional)")
-		target     = flag.String("target", "vm", "Recovery target type: baremetal or vm")
-		csvExport  = flag.Bool("csv", false, "Also write CSV exports alongside HTML report")
-		namespace  = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
-		compareTo  = flag.String("compare", "", "Path to a previous recovery-scan.json to diff against")
-		summary    = flag.Bool("summary", false, "Also write a print-optimised executive summary HTML")
+		kubeconfig  = flag.String("kubeconfig", "", "Path to kubeconfig")
+		outDir      = flag.String("out", "./out", "Output directory")
+		dryRun      = flag.Bool("dry-run", false, "Run without Kubernetes")
+		ci          = flag.Bool("ci", false, "CI mode (machine-readable output)")
+		minScore    = flag.Int("min-score", 90, "Minimum acceptable DR score")
+		timeoutSec  = flag.Int("timeout", 60, "Timeout in seconds for Kubernetes API calls")
+		customerID  = flag.String("customer", "", "Customer identifier (optional)")
+		site        = flag.String("site", "", "Site/region name (optional)")
+		cluster     = flag.String("cluster", "", "Cluster name (optional)")
+		env         = flag.String("env", "", "Environment (prod/dev/test) (optional)")
+		target      = flag.String("target", "vm", "Recovery target type: baremetal or vm")
+		csvExport   = flag.Bool("csv", false, "Also write CSV exports alongside HTML report")
+		namespace   = flag.String("namespace", "", "Comma-separated namespaces to scan (empty = all namespaces)")
+		compareTo   = flag.String("compare", "", "Path to a previous recovery-scan.json to diff against")
+		summary     = flag.Bool("summary", false, "Also write a print-optimised executive summary HTML")
 		redactOut   = flag.Bool("redact", false, "Also write redacted JSON and HTML with masked identifiers")
 		profileName = flag.String("profile", "standard", "Scoring profile: standard|enterprise|dev|airgap")
 		runbook     = flag.Bool("runbook", false, "Also write a customer-facing DR runbook HTML")
@@ -254,9 +254,12 @@ func write(bundle *model.Bundle, outDir string, quiet bool, minScore int, csvExp
 	// Attach recent trend history for sparkline rendering in the HTML report.
 	bundle.TrendHistory = history.LoadRecent(outDir, 20)
 
-	// New tabbed HTML report (overwrites the simple one produced by enrich)
+	// Render the full tabbed HTML report and snapshot it into history.
 	if err := output.WriteReport(htmlPath, bundle); err != nil {
 		log.Fatalf("write html report: %v", err)
+	}
+	if err := history.SnapshotLatestHTML(outDir); err != nil && !quiet {
+		fmt.Println("History HTML snapshot: (skipped)", err)
 	}
 
 	// Optional CSV export
