@@ -8,6 +8,7 @@
 recovery-*.json
 recovery-*.html
 recovery-*.md
+!schemas/*.json
 
 # Archives and binaries
 *.zip
