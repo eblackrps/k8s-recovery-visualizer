@@ -1,0 +1,14 @@
+{
+  "inventory": {
+    "pvs": [
+      {
+        "name": "pv-db-data",
+        "storageClass": "csi-fast",
+        "capacity": "10Gi",
+        "reclaimPolicy": "Delete",
+        "backend": "csi",
+        "claimRef": "prod/db-data"
+      }
+    ]
+  }
+}

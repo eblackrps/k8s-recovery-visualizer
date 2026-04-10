@@ -143,10 +143,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		label, weight string
 		score         int
 	}{
-		{"Storage", "35%", b.Score.Storage.Final},
-		{"Workload", "20%", b.Score.Workload.Final},
-		{"Config", "15%", b.Score.Config.Final},
-		{"Backup / Recovery", "30%", b.Score.Backup.Final},
+		{"Storage", domainWeightLabel("storage"), b.Score.Storage.Final},
+		{"Workload", domainWeightLabel("workload"), b.Score.Workload.Final},
+		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
+		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
 		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#58a6ff">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
@@ -1151,7 +1151,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
 			len(backupInv.Policies), offsiteCount, e(strings.Join(backupInv.CoverageSourceTools, ", ")))
 		w(`<table id="t-policies"><thead><tr>`)
-		for _, h := range []string{"Tool", "Name", "Namespaces", "Schedule", "RPO (h)", "Offsite", "Retention"} {
+		for _, h := range []string{"Tool", "Name", "Namespaces", "Schedule", "RPO (h)", "Last Success", "Evidence", "Offsite", "Retention"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody>`)
@@ -1164,16 +1164,64 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			if p.RPOHours >= 0 {
 				rpoCell = fmt.Sprintf("%d", p.RPOHours)
 			}
+			lastSuccessCell := "unknown"
+			if p.LastSuccessAt != "" {
+				lastSuccessCell = p.LastSuccessAt
+				if p.LastSuccessAgeHours > 0 {
+					lastSuccessCell = fmt.Sprintf("%s (%dh ago)", p.LastSuccessAt, p.LastSuccessAgeHours)
+				}
+			}
+			evidenceCell := string(p.Confidence)
+			if evidenceCell == "" {
+				evidenceCell = string(model.EvidenceConfidenceUnknown)
+			}
 			offsiteCell := `<span class="chip n">no</span>`
 			if p.HasOffsite {
 				offsiteCell = `<span class="chip p">yes</span>`
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(p.Tool), e(p.Name), e(nsCell), e(p.Schedule), rpoCell, offsiteCell, e(p.RetentionTTL))
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(p.Tool), e(p.Name), e(nsCell), e(p.Schedule), rpoCell, e(lastSuccessCell), e(evidenceCell), offsiteCell, e(p.RetentionTTL))
 		}
 		w(`</tbody></table>`)
 	}
 	w(`</div>`) // policies card
+
+	// Backup assurance card
+	w(`<div class="card"><h2>Backup Assurance</h2>`)
+	if backupInv.Assurance == nil {
+		w(`<div class="empty">Backup assurance was not calculated.</div>`)
+	} else {
+		color := backupAssuranceColor(backupInv.Assurance)
+		wf(`<p style="margin-bottom:8px"><strong style="color:%s">%s</strong> &nbsp; <span style="color:#8b949e">confidence: %s</span></p>`,
+			color, e(backupAssuranceConclusionText(backupInv.Assurance)), e(string(backupInv.Assurance.Confidence)))
+		wf(`<p style="color:#8b949e;font-size:.85em;margin-bottom:10px">%s</p>`, e(backupInv.Assurance.Summary))
+		if len(backupInv.Assurance.Signals) > 0 {
+			w(`<table id="t-assurance"><thead><tr>`)
+			for _, h := range []string{"Signal", "Status", "Confidence", "Summary", "Detail"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, signal := range backupInv.Assurance.Signals {
+				statusColor := "#8b949e"
+				switch signal.Status {
+				case "confirmed":
+					statusColor = "#7ee787"
+				case "warning", "unverified":
+					statusColor = "#f2cc60"
+				case "missing":
+					statusColor = "#f85149"
+				}
+				detail := "—"
+				if signal.Detail != "" {
+					detail = signal.Detail
+				}
+				wf(`<tr><td>%s</td><td style="color:%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(signal.ID), statusColor, e(signal.Status), e(string(signal.Confidence)), e(signal.Summary), e(detail))
+			}
+			w(`</tbody></table>`)
+		}
+	}
+	w(`</div>`) // assurance card
 
 	// Restore simulation card
 	w(`<div class="card"><h2>Restore Simulation</h2>`)
@@ -1291,10 +1339,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		s int
 		w string
 	}{
-		{"Storage", b.Score.Storage.Final, "35%"},
-		{"Workload", b.Score.Workload.Final, "20%"},
-		{"Config", b.Score.Config.Final, "15%"},
-		{"Backup / Recovery", b.Score.Backup.Final, "30%"},
+		{"Storage", b.Score.Storage.Final, domainWeightLabel("storage")},
+		{"Workload", b.Score.Workload.Final, domainWeightLabel("workload")},
+		{"Config", b.Score.Config.Final, domainWeightLabel("config")},
+		{"Backup / Recovery", b.Score.Backup.Final, domainWeightLabel("backup")},
 		{"Overall", b.Score.Overall.Final, "100%"},
 	} {
 		c := "#7ee787"
@@ -1483,15 +1531,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				wf(`<h3 class="%s">%s</h3>`, priClass[step.Priority], e(priLabel[step.Priority]))
 			}
 			wf(`<div class="step"><div class="step-h" onclick="tog(%d)"><span class="chip %s">%s</span><span>%s</span></div>
-<div class="step-b" id="sb%d"><p>%s</p>`,
+<div class="step-b" id="sb%d">`,
 				i, chipClass[step.Priority], e(step.Category), e(step.Title),
-				i, e(step.Detail))
-			if step.TargetNotes != "" {
-				wf(`<div class="note">%s</div>`, e(step.TargetNotes))
-			}
-			if len(step.Commands) > 0 {
-				wf(`<pre>%s</pre>`, e(strings.Join(step.Commands, "\n")))
-			}
+				i)
+			w(remediationBodyHTML(step))
 			w(`</div></div>`)
 		}
 	}

@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": ["POD_HOSTPATH", "PV_HOSTPATH", "RESTORE_DEPENDENCY_BLOCKER"],
+  "domainScores": { "storage": 70, "workload": 100, "config": 100, "backup": 85 },
+  "domainDeltas": { "storage": 30, "workload": 0, "config": 0, "backup": 15 },
+  "overall": 85,
+  "maturity": "GOLD"
+}

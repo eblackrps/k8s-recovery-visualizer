@@ -3,12 +3,12 @@ package model
 import "time"
 
 const (
-	ScanSchemaVersion     = "2.1.0"
+	ScanSchemaVersion     = "2.2.0"
 	EnrichedSchemaVersion = "1.1.0"
 )
 
 var (
-	Version   = "1.1.0-dev"
+	Version   = "1.2.0-dev"
 	BuildDate = "unknown"
 )
 

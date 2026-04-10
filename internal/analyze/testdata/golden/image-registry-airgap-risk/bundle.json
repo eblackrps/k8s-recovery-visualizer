@@ -1,0 +1,12 @@
+{
+  "profile": "airgap",
+  "inventory": {
+    "images": [
+      {
+        "image": "docker.io/library/nginx:1.27",
+        "registry": "docker.io",
+        "isPublic": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": ["BACKUP_PARTIAL_COVERAGE", "RESTORE_SIM_UNCOVERED"],
+  "domainScores": { "storage": 100, "workload": 100, "config": 100, "backup": 60 },
+  "domainDeltas": { "storage": 0, "workload": 0, "config": 0, "backup": 40 },
+  "overall": 88,
+  "maturity": "GOLD"
+}

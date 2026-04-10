@@ -5,73 +5,56 @@ import (
 
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/profile"
+	"k8s-recovery-visualizer/internal/scoring"
 )
 
-const (
-	storageWeight  = 35
-	workloadWeight = 20
-	configWeight   = 15
-	backupWeight   = 30
-)
+var scoreRegistry = scoring.Default()
 
-// Penalty constants — named for readability and auditing.
-const (
-	penPVCUnbound            = 25
-	penPVCNoStorageClass     = 10
-	penPVHostPath            = 30
-	penPVDeletePolicy        = 15
-	penPVOrphan              = 5
-	penSTSNoPVC              = 15
-	penBackupNone            = 60
-	penBackupCoverageUnknown = 20
-	penBackupNoPolicies      = 30
-	penBackupPartial         = 20
-	penBackupNoOffsite       = 15
-	penBackupRPOHigh         = 10 // worst-case RPO > 24 h
-	penRestoreSimUncovered   = 20 // namespaces with stateful workloads not covered by any policy
-	penCRDNoBackup           = 10
-	penCertExpiring          = 10
-	penImageExternal         = 5
-	penHelmUntracked         = 5
-	penRBACWildcard          = 20 // custom ClusterRole with wildcard verb
-	penRBACEscalate          = 10 // custom ClusterRole with escalate/bind/impersonate
-	penRBACSecrets           = 10 // custom ClusterRole with broad secrets read
+var (
+	storageWeight  = scoreRegistry.DomainWeight("storage")
+	workloadWeight = scoreRegistry.DomainWeight("workload")
+	configWeight   = scoreRegistry.DomainWeight("config")
+	backupWeight   = scoreRegistry.DomainWeight("backup")
 
-	// Round 11 — resource governance (Workload domain)
-	penNoRequests = 15 // pods without CPU+memory requests
-	penNoLimits   = 8  // pods without CPU+memory limits
-
-	// Round 12 — pod security (Config domain)
-	penPrivileged     = 20 // any pod runs a privileged container
-	penHostNetworkPID = 10 // any pod uses hostNetwork or hostPID
-
-	// Round 13 — VolumeSnapshot coverage (Storage domain)
-	penNoSnapshot = 10 // PVCs with no matching VolumeSnapshot
-
-	// Round 14 — LimitRange enforcement (Config domain)
-	penLRMissing = 10 // namespaces with workloads but no LimitRange
-
-	// Round 14 — PSA label coverage (Config domain)
-	penPSAMissing = 12 // non-system namespaces with pods but no pod-security.kubernetes.io/enforce label
-
-	// Round 14 — etcd backup (Backup domain)
-	penEtcdNoBackup = 25 // no etcd backup evidence found on self-managed cluster
-
-	// Round 15 — NetworkPolicy coverage (Config domain)
-	penNPMissing = 12 // namespaces with pods but no NetworkPolicy
-
-	// Round 16 — Node health + zone topology (Workload domain)
-	penNodeNotReady = 20 // one or more nodes are NotReady
-	penSingleAZ     = 15 // all nodes share the same availability zone (single-AZ risk)
-
-	// Round 17 — StorageClass DR suitability (Storage domain)
-	penSCDeletePolicy = 10 // StorageClass(es) use ReclaimPolicy=Delete — data loss on PVC deletion
-	penSCHostPath     = 20 // hostPath provisioner detected — node-local storage, not portable
-	penSCZoneUnaware  = 8  // StorageClass provisioner may not be zone-aware
-
-	// Round 18 — ServiceAccount token audit (Config domain)
-	penDefaultSAOverPriv = 15 // default ServiceAccount has explicit ClusterRoleBinding
-	penAutoMountSA       = 10 // pods automount service account token without need
+	penPVCUnbound            = scoreRegistry.MustRule("PVC_UNBOUND").BasePenalty
+	penPVCNoStorageClass     = scoreRegistry.MustRule("PVC_NO_STORAGECLASS").BasePenalty
+	penPVHostPath            = scoreRegistry.MustRule("PV_HOSTPATH").BasePenalty
+	penPVDeletePolicy        = scoreRegistry.MustRule("PV_DELETE_POLICY").BasePenalty
+	penPVOrphan              = scoreRegistry.MustRule("PV_ORPHAN").BasePenalty
+	penSTSNoPVC              = scoreRegistry.MustRule("STS_NO_PVC").BasePenalty
+	penBackupNone            = scoreRegistry.MustRule("BACKUP_NONE").BasePenalty
+	penBackupCoverageUnknown = scoreRegistry.MustRule("BACKUP_COVERAGE_UNVERIFIED").BasePenalty
+	penBackupNoPolicies      = scoreRegistry.MustRule("BACKUP_NO_POLICIES").BasePenalty
+	penBackupPartial         = scoreRegistry.MustRule("BACKUP_PARTIAL_COVERAGE").BasePenalty
+	penBackupNoOffsite       = scoreRegistry.MustRule("BACKUP_NO_OFFSITE").BasePenalty
+	penBackupRecentMissing   = scoreRegistry.MustRule("BACKUP_RECENT_SUCCESS_MISSING").BasePenalty
+	penBackupScheduleStale   = scoreRegistry.MustRule("BACKUP_SCHEDULE_STALE").BasePenalty
+	penBackupRPOHigh         = scoreRegistry.MustRule("BACKUP_RPO_HIGH").BasePenalty
+	penRestoreSimUncovered   = scoreRegistry.MustRule("RESTORE_SIM_UNCOVERED").BasePenalty
+	penRestoreDependency     = scoreRegistry.MustRule("RESTORE_DEPENDENCY_BLOCKER").BasePenalty
+	penCRDNoBackup           = scoreRegistry.MustRule("CRD_NO_BACKUP").BasePenalty
+	penCertExpiring          = scoreRegistry.MustRule("CERT_EXPIRING_SOON").BasePenalty
+	penImageExternal         = scoreRegistry.MustRule("IMAGE_EXTERNAL_REGISTRY").BasePenalty
+	penHelmUntracked         = scoreRegistry.MustRule("HELM_UNTRACKED").BasePenalty
+	penRBACWildcard          = scoreRegistry.MustRule("RBAC_WILDCARD_VERB").BasePenalty
+	penRBACEscalate          = scoreRegistry.MustRule("RBAC_ESCALATE_PRIV").BasePenalty
+	penRBACSecrets           = scoreRegistry.MustRule("RBAC_SECRET_ACCESS").BasePenalty
+	penNoRequests            = scoreRegistry.MustRule("POD_NO_REQUESTS").BasePenalty
+	penNoLimits              = scoreRegistry.MustRule("POD_NO_LIMITS").BasePenalty
+	penPrivileged            = scoreRegistry.MustRule("POD_PRIVILEGED").BasePenalty
+	penHostNetworkPID        = scoreRegistry.MustRule("POD_HOST_NAMESPACE").BasePenalty
+	penNoSnapshot            = scoreRegistry.MustRule("SNAPSHOT_NO_CLASS").BasePenalty
+	penLRMissing             = scoreRegistry.MustRule("LR_MISSING_NAMESPACE").BasePenalty
+	penPSAMissing            = scoreRegistry.MustRule("PSA_MISSING_ENFORCE_LABEL").BasePenalty
+	penEtcdNoBackup          = scoreRegistry.MustRule("ETCD_BACKUP_MISSING").BasePenalty
+	penNPMissing             = scoreRegistry.MustRule("NETPOL_MISSING_NAMESPACE").BasePenalty
+	penNodeNotReady          = scoreRegistry.MustRule("NODE_NOT_READY").BasePenalty
+	penSingleAZ              = scoreRegistry.MustRule("SINGLE_AZ_CLUSTER").BasePenalty
+	penSCDeletePolicy        = scoreRegistry.MustRule("SC_RECLAIM_DELETE").BasePenalty
+	penSCHostPath            = scoreRegistry.MustRule("SC_HOSTPATH_PROVISIONER").BasePenalty
+	penSCZoneUnaware         = scoreRegistry.MustRule("SC_ZONE_UNAWARE").BasePenalty
+	penDefaultSAOverPriv     = scoreRegistry.MustRule("SA_DEFAULT_OVERPRIV").BasePenalty
+	penAutoMountSA           = scoreRegistry.MustRule("SA_AUTOMOUNT_TOKEN").BasePenalty
 )
 
 // profileGet returns the weight multiplier for key from a profile weight map.
@@ -257,6 +240,20 @@ func Evaluate(b *model.Bundle) {
 				"Increase backup frequency to reduce potential data loss window")
 		}
 
+		if missingRecentSuccessEvidence(inv) {
+			backup -= penScale(penBackupRecentMissing, wRestore)
+			addFindingWithConfidence(b, "BACKUP_RECENT_SUCCESS_MISSING", "HIGH", inv.PrimaryTool,
+				"The inspected backup schedules do not show any recent successful backup evidence",
+				"Verify that backup jobs are completing successfully and that recent run history is retained for auditability",
+				model.EvidenceConfidenceConfirmed)
+		} else if hasStaleSuccessfulBackup(inv) {
+			backup -= penScale(penBackupScheduleStale, wRestore)
+			addFindingWithConfidence(b, "BACKUP_SCHEDULE_STALE", "MEDIUM", inv.PrimaryTool,
+				"Recent successful backup evidence is older than the configured schedule should allow",
+				"Investigate failed or delayed backup runs before treating the environment as recoverable",
+				model.EvidenceConfidenceConfirmed)
+		}
+
 		// Restore simulation — penalise when stateful namespaces have no coverage.
 		if sim := b.Inventory.Backup.RestoreSim; sim != nil && len(sim.UncoveredNS) > 0 {
 			backup -= penScale(penRestoreSimUncovered, wRestore)
@@ -264,6 +261,14 @@ func Evaluate(b *model.Bundle) {
 				"namespaces:"+joinFirst(sim.UncoveredNS, 3),
 				"Restore simulation: stateful namespaces have no backup policy coverage",
 				"Add backup policies covering all namespaces with PVCs or StatefulSets")
+		}
+		if sim := b.Inventory.Backup.RestoreSim; sim != nil && hasRestoreDependencyBlocker(sim) {
+			backup -= penScale(penRestoreDependency, wRestore)
+			addFindingWithConfidence(b, "RESTORE_DEPENDENCY_BLOCKER", "HIGH",
+				"namespaces:"+joinFirst(namespacesWithRestoreBlockers(sim), 3),
+				"Restore simulation found blockers such as unbound PVCs or hostPath volumes that prevent clean recovery",
+				"Resolve restore blockers before treating namespace recovery as credible",
+				model.EvidenceConfidenceConfirmed)
 		}
 	}
 
@@ -634,12 +639,32 @@ func weightedOverall(storage, workload, config, backup int) int {
 }
 
 func addFinding(b *model.Bundle, id, severity, resource, message, recommendation string) {
+	addFindingWithConfidence(b, id, severity, resource, message, recommendation, model.EvidenceConfidenceConfirmed)
+}
+
+func addFindingWithConfidence(b *model.Bundle, id, severity, resource, message, recommendation string, confidence model.EvidenceConfidence) {
+	rule, ok := scoreRegistry.Rule(id)
+	domain := ""
+	penalty := 0
+	if ok {
+		domain = rule.Domain
+		penalty = rule.BasePenalty
+		if severity == "" {
+			severity = rule.Severity
+		}
+	}
+	if confidence == "" {
+		confidence = model.EvidenceConfidenceConfirmed
+	}
 	b.Inventory.Findings = append(b.Inventory.Findings, model.Finding{
 		ID:             id,
+		Domain:         domain,
 		Severity:       severity,
 		ResourceID:     resource,
 		Message:        message,
 		Recommendation: recommendation,
+		Penalty:        penalty,
+		Confidence:     confidence,
 	})
 }
 
@@ -706,4 +731,48 @@ func backupCoverageUnverifiedRecommendation(inv model.BackupInventory) string {
 	default:
 		return base + " " + inv.CoverageReason
 	}
+}
+
+func missingRecentSuccessEvidence(inv model.BackupInventory) bool {
+	if len(inv.Policies) == 0 {
+		return false
+	}
+	hasVelero := false
+	for _, policy := range inv.Policies {
+		if policy.Tool == "velero" {
+			hasVelero = true
+		}
+		if policy.LastSuccessAt != "" {
+			return false
+		}
+	}
+	return hasVelero
+}
+
+func hasStaleSuccessfulBackup(inv model.BackupInventory) bool {
+	for _, policy := range inv.Policies {
+		if policy.LastSuccessAt != "" && !policy.FreshSchedule {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRestoreDependencyBlocker(sim *model.RestoreSimResult) bool {
+	for _, ns := range sim.Namespaces {
+		if len(ns.Blockers) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func namespacesWithRestoreBlockers(sim *model.RestoreSimResult) []string {
+	out := []string{}
+	for _, ns := range sim.Namespaces {
+		if len(ns.Blockers) > 0 {
+			out = append(out, ns.Namespace)
+		}
+	}
+	return out
 }

@@ -11,20 +11,22 @@ import (
 
 // ServiceAccounts collects all ServiceAccounts across namespaces.
 func ServiceAccounts(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error {
-	list, err := cs.CoreV1().ServiceAccounts("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, sa := range list.Items {
-		if !InScope(sa.Namespace, b) {
-			continue
+	for _, ns := range ScopeNamespaces(b) {
+		list, err := cs.CoreV1().ServiceAccounts(ns).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
 		}
-		m := model.ServiceAccount{
-			Namespace:                    sa.Namespace,
-			Name:                         sa.Name,
-			AutomountServiceAccountToken: sa.AutomountServiceAccountToken,
+		for _, sa := range list.Items {
+			if !InScope(sa.Namespace, b) {
+				continue
+			}
+			m := model.ServiceAccount{
+				Namespace:                    sa.Namespace,
+				Name:                         sa.Name,
+				AutomountServiceAccountToken: sa.AutomountServiceAccountToken,
+			}
+			b.Inventory.ServiceAccounts = append(b.Inventory.ServiceAccounts, m)
 		}
-		b.Inventory.ServiceAccounts = append(b.Inventory.ServiceAccounts, m)
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s-recovery-visualizer/internal/model"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -200,6 +201,9 @@ func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) inspectionRe
 					StorageLocation    string   `json:"storageLocation"`
 				} `json:"template"`
 			} `json:"spec"`
+			Status struct {
+				LastBackup string `json:"lastBackup"`
+			} `json:"status"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &list); err != nil {
@@ -218,6 +222,10 @@ func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) inspectionRe
 			RetentionTTL:    item.Spec.Template.TTL,
 			RPOHours:        estimateRPOHours(item.Spec.Schedule),
 			StorageLocation: item.Spec.Template.StorageLocation,
+		}
+		p.LastSuccessAt, p.LastSuccessAgeHours, p.FreshSchedule, p.Confidence = parseBackupSuccess(item.Status.LastBackup, p.RPOHours)
+		if p.Confidence == "" {
+			p.Confidence = model.EvidenceConfidenceInferred
 		}
 		// Non-default storage location is a strong offsite signal.
 		loc := strings.ToLower(item.Spec.Template.StorageLocation)
@@ -280,6 +288,7 @@ func kastenPolicies(ctx context.Context, cs *kubernetes.Clientset) inspectionRes
 			RetentionTTL:    retention,
 			RPOHours:        estimateRPOHours(item.Spec.Frequency),
 			HasOffsite:      hasExport,
+			Confidence:      model.EvidenceConfidenceInferred,
 		}
 		policies = append(policies, p)
 	}
@@ -340,6 +349,7 @@ func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) inspec
 			RetentionTTL: retention,
 			RPOHours:     estimateRPOHours(item.Spec.Cron),
 			HasOffsite:   hasOffsiteTarget,
+			Confidence:   model.EvidenceConfidenceInferred,
 		}
 		policies = append(policies, p)
 	}
@@ -629,4 +639,21 @@ func pluralize(word string, count int) string {
 		return strings.TrimSuffix(word, "y") + "ies"
 	}
 	return word + "s"
+}
+
+func parseBackupSuccess(lastBackup string, rpoHours int) (string, int, bool, model.EvidenceConfidence) {
+	lastBackup = strings.TrimSpace(lastBackup)
+	if lastBackup == "" {
+		return "", 0, false, model.EvidenceConfidenceUnknown
+	}
+	ts, err := time.Parse(time.RFC3339, lastBackup)
+	if err != nil {
+		return lastBackup, 0, false, model.EvidenceConfidenceUnknown
+	}
+	ageHours := int(time.Since(ts).Hours())
+	freshThreshold := 48
+	if rpoHours > 0 && rpoHours*2 > freshThreshold {
+		freshThreshold = rpoHours * 2
+	}
+	return ts.UTC().Format(time.RFC3339), ageHours, ageHours <= freshThreshold, model.EvidenceConfidenceConfirmed
 }

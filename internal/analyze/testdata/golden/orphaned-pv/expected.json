@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": ["PV_ORPHAN"],
+  "domainScores": { "storage": 95, "workload": 100, "config": 100, "backup": 100 },
+  "domainDeltas": { "storage": 5, "workload": 0, "config": 0, "backup": 0 },
+  "overall": 98,
+  "maturity": "PLATINUM"
+}

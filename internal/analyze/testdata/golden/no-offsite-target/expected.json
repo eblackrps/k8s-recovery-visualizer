@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": ["BACKUP_NO_OFFSITE"],
+  "domainScores": { "storage": 100, "workload": 100, "config": 100, "backup": 85 },
+  "domainDeltas": { "storage": 0, "workload": 0, "config": 0, "backup": 15 },
+  "overall": 96,
+  "maturity": "PLATINUM"
+}

@@ -47,9 +47,20 @@ What to do:
 Validate emitted JSON against the published contracts:
 
 ```bash
-go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.1.0.schema.json -input ./out/recovery-scan.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./out/recovery-scan.json
 go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
 ```
+
+## Namespace-scoped scan skips collectors
+
+This is expected when the service account only has namespace-local permissions.
+
+Check:
+
+- `collectorSkips` in `recovery-scan.json`
+- the "Scan Coverage" card in `recovery-report.html`
+
+If you want node, PV, or StorageClass context in namespace mode, use the shared `ClusterRole` from [`RBAC.md`](RBAC.md).
 
 ## Report looks stale
 

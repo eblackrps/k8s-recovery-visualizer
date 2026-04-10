@@ -107,6 +107,31 @@ const (
 	BackupCoverageStatusParseError       BackupCoverageStatus = "parse_error"
 )
 
+type BackupAssuranceConclusion string
+
+const (
+	BackupAssuranceAtRisk               BackupAssuranceConclusion = "at_risk"
+	BackupAssuranceUnverified           BackupAssuranceConclusion = "unverified"
+	BackupAssuranceCoverageGap          BackupAssuranceConclusion = "coverage_gap"
+	BackupAssuranceInferredRecoverable  BackupAssuranceConclusion = "inferred_recoverable"
+	BackupAssuranceConfirmedRecoverable BackupAssuranceConclusion = "confirmed_recoverable"
+)
+
+type BackupEvidenceSignal struct {
+	ID         string             `json:"id"`
+	Status     string             `json:"status"`
+	Confidence EvidenceConfidence `json:"confidence,omitempty"`
+	Summary    string             `json:"summary"`
+	Detail     string             `json:"detail,omitempty"`
+}
+
+type BackupAssurance struct {
+	Conclusion BackupAssuranceConclusion `json:"conclusion"`
+	Confidence EvidenceConfidence        `json:"confidence,omitempty"`
+	Summary    string                    `json:"summary"`
+	Signals    []BackupEvidenceSignal    `json:"signals,omitempty"`
+}
+
 // BackupDetectedTool is one detected backup solution.
 type BackupDetectedTool struct {
 	Name                   string               `json:"name"`
@@ -120,27 +145,32 @@ type BackupDetectedTool struct {
 
 // BackupPolicy represents a detected backup schedule or policy object.
 type BackupPolicy struct {
-	Tool            string   `json:"tool"`
-	Name            string   `json:"name"`
-	PolicyNamespace string   `json:"policyNamespace,omitempty"`    // namespace the policy object lives in
-	IncludedNS      []string `json:"includedNamespaces,omitempty"` // empty = all namespaces
-	ExcludedNS      []string `json:"excludedNamespaces,omitempty"`
-	Schedule        string   `json:"schedule,omitempty"`     // cron expression or label e.g. "@daily"
-	RetentionTTL    string   `json:"retentionTtl,omitempty"` // e.g. "720h0m0s"
-	RPOHours        int      `json:"rpoHours"`               // estimated RPO in hours; -1 = unknown
-	HasOffsite      bool     `json:"hasOffsite"`
-	StorageLocation string   `json:"storageLocation,omitempty"`
+	Tool                string             `json:"tool"`
+	Name                string             `json:"name"`
+	PolicyNamespace     string             `json:"policyNamespace,omitempty"`    // namespace the policy object lives in
+	IncludedNS          []string           `json:"includedNamespaces,omitempty"` // empty = all namespaces
+	ExcludedNS          []string           `json:"excludedNamespaces,omitempty"`
+	Schedule            string             `json:"schedule,omitempty"`     // cron expression or label e.g. "@daily"
+	RetentionTTL        string             `json:"retentionTtl,omitempty"` // e.g. "720h0m0s"
+	RPOHours            int                `json:"rpoHours"`               // estimated RPO in hours; -1 = unknown
+	HasOffsite          bool               `json:"hasOffsite"`
+	StorageLocation     string             `json:"storageLocation,omitempty"`
+	LastSuccessAt       string             `json:"lastSuccessAt,omitempty"`
+	LastSuccessAgeHours int                `json:"lastSuccessAgeHours,omitempty"`
+	FreshSchedule       bool               `json:"freshSchedule,omitempty"`
+	Confidence          EvidenceConfidence `json:"confidence,omitempty"`
 }
 
 // RestoreSimNamespace holds the restore feasibility assessment for one namespace.
 type RestoreSimNamespace struct {
-	Namespace     string   `json:"namespace"`
-	CoverageKnown bool     `json:"coverageKnown"`
-	HasCoverage   bool     `json:"hasCoverage"`
-	RPOHours      int      `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
-	PVCSizeGB     float64  `json:"pvcSizeGb"`
-	Blockers      []string `json:"blockers,omitempty"`
-	Warnings      []string `json:"warnings,omitempty"`
+	Namespace     string             `json:"namespace"`
+	CoverageKnown bool               `json:"coverageKnown"`
+	HasCoverage   bool               `json:"hasCoverage"`
+	RPOHours      int                `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
+	PVCSizeGB     float64            `json:"pvcSizeGb"`
+	Blockers      []string           `json:"blockers,omitempty"`
+	Warnings      []string           `json:"warnings,omitempty"`
+	Confidence    EvidenceConfidence `json:"confidence,omitempty"`
 }
 
 // RestoreSimResult holds the full restore simulation output.
@@ -164,17 +194,23 @@ type BackupInventory struct {
 	Policies            []BackupPolicy       `json:"policies,omitempty"`
 	HasOffsite          bool                 `json:"hasOffsite"`
 	RestoreSim          *RestoreSimResult    `json:"restoreSim,omitempty"`
+	Assurance           *BackupAssurance     `json:"assurance,omitempty"`
 }
 
 // RemediationStep is one prioritized DR remediation action.
 type RemediationStep struct {
-	Priority    int      `json:"priority"` // 1=critical, 2=recommended, 3=optional
-	Category    string   `json:"category"` // Storage, Backup, Workload, Network, Config
-	Title       string   `json:"title"`
-	Detail      string   `json:"detail"`
-	Commands    []string `json:"commands,omitempty"`
-	TargetNotes string   `json:"targetNotes,omitempty"`
-	FindingID   string   `json:"findingId,omitempty"`
+	Priority     int      `json:"priority"` // 1=critical, 2=recommended, 3=optional
+	Category     string   `json:"category"` // Storage, Backup, Workload, Network, Config
+	Title        string   `json:"title"`
+	Detail       string   `json:"detail"`
+	WhyItMatters string   `json:"whyItMatters,omitempty"`
+	DRImpact     string   `json:"drImpact,omitempty"`
+	Validation   []string `json:"validation,omitempty"`
+	FixSteps     []string `json:"fixSteps,omitempty"`
+	Commands     []string `json:"commands,omitempty"`
+	Caveats      []string `json:"caveats,omitempty"`
+	TargetNotes  string   `json:"targetNotes,omitempty"`
+	FindingID    string   `json:"findingId,omitempty"`
 }
 
 type Inventory struct {

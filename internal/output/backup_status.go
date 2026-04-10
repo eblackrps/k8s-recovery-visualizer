@@ -59,3 +59,41 @@ func backupInspectionStatusText(status model.BackupCoverageStatus) string {
 		return "not inspected"
 	}
 }
+
+func backupAssuranceConclusionText(assurance *model.BackupAssurance) string {
+	if assurance == nil {
+		return "not assessed"
+	}
+	switch assurance.Conclusion {
+	case model.BackupAssuranceConfirmedRecoverable:
+		return "confirmed recoverable"
+	case model.BackupAssuranceInferredRecoverable:
+		return "inferred recoverable"
+	case model.BackupAssuranceCoverageGap:
+		return "coverage gap"
+	case model.BackupAssuranceUnverified:
+		return "unverified"
+	case model.BackupAssuranceAtRisk:
+		return "at risk"
+	default:
+		return string(assurance.Conclusion)
+	}
+}
+
+func backupAssuranceColor(assurance *model.BackupAssurance) string {
+	if assurance == nil {
+		return "#8b949e"
+	}
+	switch assurance.Conclusion {
+	case model.BackupAssuranceConfirmedRecoverable:
+		return "#7ee787"
+	case model.BackupAssuranceInferredRecoverable:
+		return "#f2cc60"
+	case model.BackupAssuranceCoverageGap, model.BackupAssuranceUnverified:
+		return "#ffa657"
+	case model.BackupAssuranceAtRisk:
+		return "#f85149"
+	default:
+		return "#8b949e"
+	}
+}

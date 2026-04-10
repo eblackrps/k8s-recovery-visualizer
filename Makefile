@@ -64,6 +64,15 @@ release: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-win
 test:
 	go test ./...
 
+.PHONY: schema-validate
+schema-validate:
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./out/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
+
+.PHONY: docker-build
+docker-build:
+	docker build -t k8vis .
+
 .PHONY: vet
 vet:
 	go vet ./...
@@ -83,5 +92,7 @@ help:
 	@echo "  build-windows       windows/amd64              -> dist/scan-windows-amd64.exe"
 	@echo "  release             All platforms"
 	@echo "  test                go test ./..."
+	@echo "  schema-validate     Validate out/ artifacts against published schemas"
+	@echo "  docker-build        Build the container image locally"
 	@echo "  vet                 go vet ./..."
 	@echo "  clean               Remove build artifacts"

@@ -1,0 +1,34 @@
+{
+  "inventory": {
+    "backup": {
+      "primaryTool": "velero",
+      "coverageVerified": true,
+      "coverageStatus": "verified",
+      "coverageReason": "Policy coverage verified from velero.",
+      "coveredNamespaces": ["staging"],
+      "uncoveredStatefulNamespaces": ["prod"],
+      "hasOffsite": true,
+      "tools": [
+        {
+          "name": "velero",
+          "detected": true,
+          "namespace": "velero",
+          "policyInspectionStatus": "verified",
+          "policyInspectionDetail": "Parsed 1 velero schedule."
+        }
+      ],
+      "policies": [
+        {
+          "tool": "velero",
+          "name": "staging-half-daily",
+          "policyNamespace": "velero",
+          "includedNamespaces": ["staging"],
+          "schedule": "0 */12 * * *",
+          "rpoHours": 12,
+          "hasOffsite": true,
+          "storageLocation": "dr-object-store"
+        }
+      ]
+    }
+  }
+}

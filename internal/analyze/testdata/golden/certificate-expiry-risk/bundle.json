@@ -1,0 +1,16 @@
+{
+  "profile": "enterprise",
+  "inventory": {
+    "certificates": [
+      {
+        "namespace": "prod",
+        "name": "api-cert",
+        "secretName": "api-cert-tls",
+        "issuer": "letsencrypt",
+        "ready": true,
+        "notAfter": "2026-04-17T00:00:00Z",
+        "daysToExpiry": 7
+      }
+    ]
+  }
+}

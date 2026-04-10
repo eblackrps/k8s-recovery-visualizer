@@ -10,28 +10,30 @@ import (
 )
 
 func PVCs(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error {
-	list, err := cs.CoreV1().PersistentVolumeClaims("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, pvc := range list.Items {
-		if !InScope(pvc.Namespace, b) {
-			continue
-		}
-		size := ""
-		if qty, ok := pvc.Spec.Resources.Requests["storage"]; ok {
-			size = qty.String()
+	for _, ns := range ScopeNamespaces(b) {
+		list, err := cs.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
 		}
 
-		b.Inventory.PVCs = append(b.Inventory.PVCs, model.PersistentVolumeClaim{
-			ID:            "pvc:" + pvc.Namespace + ":" + pvc.Name,
-			Name:          pvc.Name,
-			Namespace:     pvc.Namespace,
-			StorageClass:  deref(pvc.Spec.StorageClassName),
-			AccessModes:   accessModesToStrings(pvc.Spec.AccessModes),
-			RequestedSize: size,
-		})
+		for _, pvc := range list.Items {
+			if !InScope(pvc.Namespace, b) {
+				continue
+			}
+			size := ""
+			if qty, ok := pvc.Spec.Resources.Requests["storage"]; ok {
+				size = qty.String()
+			}
+
+			b.Inventory.PVCs = append(b.Inventory.PVCs, model.PersistentVolumeClaim{
+				ID:            "pvc:" + pvc.Namespace + ":" + pvc.Name,
+				Name:          pvc.Name,
+				Namespace:     pvc.Namespace,
+				StorageClass:  deref(pvc.Spec.StorageClassName),
+				AccessModes:   accessModesToStrings(pvc.Spec.AccessModes),
+				RequestedSize: size,
+			})
+		}
 	}
 
 	return nil

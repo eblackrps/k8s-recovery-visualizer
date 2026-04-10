@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": [],
+  "domainScores": { "storage": 100, "workload": 100, "config": 100, "backup": 100 },
+  "domainDeltas": { "storage": 0, "workload": 0, "config": 0, "backup": 0 },
+  "overall": 100,
+  "maturity": "PLATINUM"
+}

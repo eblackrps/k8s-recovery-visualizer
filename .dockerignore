@@ -1,0 +1,6 @@
+.git
+.github
+dist
+out
+tmp*
+schemas/examples

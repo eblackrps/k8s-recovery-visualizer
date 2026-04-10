@@ -22,6 +22,7 @@ func Generate(b *model.Bundle, target string) []model.RemediationStep {
 
 	for _, f := range b.Inventory.Findings {
 		if s := stepForFinding(f, tool, target, b.Cluster.Platform.Provider); s != nil {
+			applyKnowledge(s, f.ID)
 			steps = append(steps, *s)
 		}
 	}
@@ -87,6 +88,46 @@ func stepForFinding(f model.Finding, tool, target, platform string) *model.Remed
 			Title:     "Resolve unverified backup coverage",
 			Detail:    f.Recommendation,
 			Commands:  backupCoverageVerificationCmds(tool),
+			FindingID: f.ID,
+		}
+
+	case "BACKUP_NO_OFFSITE":
+		return &model.RemediationStep{
+			Priority:  1,
+			Category:  "Backup",
+			Title:     "Configure offsite backup replication or export",
+			Detail:    "A backup target exists, but the scanner did not find evidence of an offsite or secondary copy.",
+			Commands:  backupOffsiteCmds(tool),
+			FindingID: f.ID,
+		}
+
+	case "BACKUP_RECENT_SUCCESS_MISSING":
+		return &model.RemediationStep{
+			Priority:  1,
+			Category:  "Backup",
+			Title:     "Restore recent successful backup evidence",
+			Detail:    "Backup schedules were found, but recent successful execution evidence is missing from the inspected policies.",
+			Commands:  backupRecentEvidenceCmds(tool),
+			FindingID: f.ID,
+		}
+
+	case "BACKUP_SCHEDULE_STALE":
+		return &model.RemediationStep{
+			Priority:  1,
+			Category:  "Backup",
+			Title:     "Investigate stale backup schedules",
+			Detail:    "The observed last successful backup is older than the schedule should allow.",
+			Commands:  backupRecentEvidenceCmds(tool),
+			FindingID: f.ID,
+		}
+
+	case "RESTORE_DEPENDENCY_BLOCKER":
+		return &model.RemediationStep{
+			Priority:  1,
+			Category:  "Backup",
+			Title:     "Remove restore blockers from protected namespaces",
+			Detail:    "The restore simulation found dependencies that prevent a clean recovery even if backups exist.",
+			Commands:  restoreDependencyCmds(),
 			FindingID: f.ID,
 		}
 
@@ -272,6 +313,65 @@ func backupCoverageVerificationCmds(tool string) []string {
 			"# Verify backup schedules and namespace scope directly in the detected backup product.",
 			"# If this tool is unsupported by the scanner, treat the score as conservative until manual verification is complete.",
 		}
+	}
+}
+
+func backupOffsiteCmds(tool string) []string {
+	switch tool {
+	case "velero":
+		return []string{
+			"velero backup-location get",
+			"velero schedule describe <schedule-name>",
+			"# Ensure the schedule writes to an object store outside the primary cluster or site.",
+		}
+	case "kasten":
+		return []string{
+			"kubectl get profiles.config.kio.kasten.io -A -o yaml",
+			"# In Kasten K10, configure an export action to an external object store and attach it to production policies.",
+		}
+	case "longhorn":
+		return []string{
+			"kubectl get settings.longhorn.io backup-target -n longhorn-system -o yaml",
+			"kubectl get recurringjobs.longhorn.io -n longhorn-system -o yaml",
+		}
+	default:
+		return []string{
+			"# Configure the backup product to export or replicate recovery points to a secondary location.",
+		}
+	}
+}
+
+func backupRecentEvidenceCmds(tool string) []string {
+	switch tool {
+	case "velero":
+		return []string{
+			"velero schedule get",
+			"velero backup get",
+			"kubectl get schedules.velero.io -A -o yaml",
+		}
+	case "kasten":
+		return []string{
+			"# In the Kasten K10 UI, inspect policy run history and failed actions.",
+			"kubectl get policies.config.kio.kasten.io -A -o yaml",
+		}
+	case "longhorn":
+		return []string{
+			"kubectl get backups.longhorn.io -n longhorn-system",
+			"kubectl get recurringjobs.longhorn.io -n longhorn-system -o yaml",
+		}
+	default:
+		return []string{
+			"# Review the backup product run history and alerting for recent failures.",
+		}
+	}
+}
+
+func restoreDependencyCmds() []string {
+	return []string{
+		"kubectl get pvc -A",
+		"kubectl get pv",
+		"kubectl get storageclass",
+		"# Review restore simulation blockers in the report and remove hostPath or unbound-PVC dependencies before the next drill.",
 	}
 }
 

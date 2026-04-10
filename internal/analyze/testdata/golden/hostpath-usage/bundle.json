@@ -1,0 +1,24 @@
+{
+  "inventory": {
+    "pods": [
+      {
+        "namespace": "prod",
+        "name": "api-0",
+        "usesHostPath": true,
+        "containerCount": 1,
+        "hasRequests": true,
+        "hasLimits": true
+      }
+    ],
+    "pvs": [
+      {
+        "name": "pv-db-data",
+        "storageClass": "csi-fast",
+        "capacity": "10Gi",
+        "reclaimPolicy": "Retain",
+        "backend": "hostPath",
+        "claimRef": "prod/db-data"
+      }
+    ]
+  }
+}

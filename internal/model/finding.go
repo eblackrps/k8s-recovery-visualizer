@@ -1,11 +1,22 @@
 package model
 
+type EvidenceConfidence string
+
+const (
+	EvidenceConfidenceConfirmed EvidenceConfidence = "confirmed"
+	EvidenceConfidenceInferred  EvidenceConfidence = "inferred"
+	EvidenceConfidenceUnknown   EvidenceConfidence = "unknown"
+)
+
 type Finding struct {
-	ID             string `json:"id"`
-	Severity       string `json:"severity"`
-	ResourceID     string `json:"resourceId"`
-	Message        string `json:"message"`
-	Recommendation string `json:"recommendation"`
+	ID             string             `json:"id"`
+	Domain         string             `json:"domain,omitempty"`
+	Severity       string             `json:"severity"`
+	ResourceID     string             `json:"resourceId"`
+	Message        string             `json:"message"`
+	Recommendation string             `json:"recommendation"`
+	Penalty        int                `json:"penalty,omitempty"`
+	Confidence     EvidenceConfidence `json:"confidence,omitempty"`
 }
 
 type DomainScore struct {

@@ -1,0 +1,34 @@
+{
+  "inventory": {
+    "backup": {
+      "primaryTool": "velero",
+      "coverageVerified": true,
+      "coverageStatus": "verified",
+      "coverageReason": "Policy coverage verified from velero.",
+      "coveredNamespaces": ["prod"],
+      "uncoveredStatefulNamespaces": [],
+      "hasOffsite": false,
+      "tools": [
+        {
+          "name": "velero",
+          "detected": true,
+          "namespace": "velero",
+          "policyInspectionStatus": "verified",
+          "policyInspectionDetail": "Parsed 1 velero schedule."
+        }
+      ],
+      "policies": [
+        {
+          "tool": "velero",
+          "name": "prod-half-daily",
+          "policyNamespace": "velero",
+          "includedNamespaces": ["prod"],
+          "schedule": "0 */12 * * *",
+          "rpoHours": 12,
+          "hasOffsite": false,
+          "storageLocation": "default"
+        }
+      ]
+    }
+  }
+}

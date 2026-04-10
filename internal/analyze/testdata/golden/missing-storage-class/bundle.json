@@ -1,0 +1,13 @@
+{
+  "inventory": {
+    "pvcs": [
+      {
+        "id": "pvc:prod/db-data",
+        "name": "db-data",
+        "namespace": "prod",
+        "storageClass": "",
+        "requestedSize": "10Gi"
+      }
+    ]
+  }
+}

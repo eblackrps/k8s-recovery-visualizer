@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "findings": ["STS_NO_PVC"],
+  "domainScores": { "storage": 100, "workload": 85, "config": 100, "backup": 100 },
+  "domainDeltas": { "storage": 0, "workload": 15, "config": 0, "backup": 0 },
+  "overall": 97,
+  "maturity": "PLATINUM"
+}

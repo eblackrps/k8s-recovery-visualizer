@@ -9,30 +9,31 @@ import (
 )
 
 func StatefulSets(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error {
-
-	list, err := cs.AppsV1().StatefulSets("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, sts := range list.Items {
-		if !InScope(sts.Namespace, b) {
-			continue
+	for _, ns := range ScopeNamespaces(b) {
+		list, err := cs.AppsV1().StatefulSets(ns).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
 		}
 
-		hasPVC := len(sts.Spec.VolumeClaimTemplates) > 0
+		for _, sts := range list.Items {
+			if !InScope(sts.Namespace, b) {
+				continue
+			}
 
-		replicas := int32(0)
-		if sts.Spec.Replicas != nil {
-			replicas = *sts.Spec.Replicas
+			hasPVC := len(sts.Spec.VolumeClaimTemplates) > 0
+
+			replicas := int32(0)
+			if sts.Spec.Replicas != nil {
+				replicas = *sts.Spec.Replicas
+			}
+
+			b.Inventory.StatefulSets = append(b.Inventory.StatefulSets, model.StatefulSet{
+				Namespace:      sts.Namespace,
+				Name:           sts.Name,
+				Replicas:       replicas,
+				HasVolumeClaim: hasPVC,
+			})
 		}
-
-		b.Inventory.StatefulSets = append(b.Inventory.StatefulSets, model.StatefulSet{
-			Namespace:      sts.Namespace,
-			Name:           sts.Name,
-			Replicas:       replicas,
-			HasVolumeClaim: hasPVC,
-		})
 	}
 
 	return nil

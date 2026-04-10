@@ -1,0 +1,15 @@
+{
+  "inventory": {
+    "pvcs": [],
+    "pvs": [],
+    "statefulSets": [
+      {
+        "namespace": "prod",
+        "name": "db",
+        "replicas": 1,
+        "hasVolumeClaim": false
+      }
+    ],
+    "volumeSnapshots": []
+  }
+}

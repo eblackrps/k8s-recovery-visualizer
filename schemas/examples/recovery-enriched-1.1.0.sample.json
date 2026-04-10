@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.1.0",
+  "generatedUtc": "2026-04-10T18:59:55Z",
+  "profile": "standard",
+  "current": {
+    "timestampUtc": "2026-04-10T18:59:55Z",
+    "overall": 82,
+    "maturity": "GOLD"
+  },
+  "risk": {
+    "score": 82,
+    "maturity": "GOLD",
+    "posture": "MODERATE"
+  },
+  "lastN": [
+    82
+  ]
+}

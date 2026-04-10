@@ -1,0 +1,507 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eblackrps/k8s-recovery-visualizer/schemas/recovery-scan-2.2.0.schema.json",
+  "title": "k8s-recovery-visualizer recovery-scan.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "metadata",
+    "tool",
+    "scan",
+    "cluster",
+    "inventory",
+    "score"
+  ],
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "schemaVersion": {
+      "const": "2.2.0"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "tool": {
+      "$ref": "#/$defs/tool"
+    },
+    "scan": {
+      "$ref": "#/$defs/scan"
+    },
+    "cluster": {
+      "$ref": "#/$defs/cluster"
+    },
+    "inventory": {
+      "$ref": "#/$defs/inventory"
+    },
+    "score": {
+      "$ref": "#/$defs/score"
+    },
+    "target": {
+      "type": "string",
+      "enum": ["vm", "baremetal"]
+    },
+    "profile": {
+      "type": "string"
+    },
+    "collectorSkips": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/collectorSkip"
+      }
+    },
+    "scanNamespaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comparison": {
+      "$ref": "#/$defs/comparison"
+    },
+    "trendHistory": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/trendPoint"
+      }
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toolVersion", "generatedAt"],
+      "properties": {
+        "customerId": { "type": "string" },
+        "site": { "type": "string" },
+        "clusterName": { "type": "string" },
+        "environment": { "type": "string" },
+        "toolVersion": { "type": "string" },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "buildDate"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "buildDate": { "type": "string" }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scanId", "startedAt", "endedAt", "durationSeconds", "mode"],
+      "properties": {
+        "scanId": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "durationSeconds": { "type": "integer", "minimum": 0 },
+        "mode": { "type": "string" }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apiServer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": { "type": "string" }
+          }
+        },
+        "platform": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespaces",
+        "pvcs",
+        "pvs",
+        "pods",
+        "statefulSets",
+        "nodes",
+        "storageClasses",
+        "backup",
+        "findings"
+      ],
+      "properties": {
+        "namespaces": { "$ref": "#/$defs/objectArray" },
+        "pvcs": { "$ref": "#/$defs/objectArray" },
+        "pvs": { "$ref": "#/$defs/objectArray" },
+        "pods": { "$ref": "#/$defs/objectArray" },
+        "statefulSets": { "$ref": "#/$defs/objectArray" },
+        "nodes": { "$ref": "#/$defs/objectArray" },
+        "storageClasses": { "$ref": "#/$defs/objectArray" },
+        "deployments": { "$ref": "#/$defs/objectArray" },
+        "daemonSets": { "$ref": "#/$defs/objectArray" },
+        "jobs": { "$ref": "#/$defs/objectArray" },
+        "cronJobs": { "$ref": "#/$defs/objectArray" },
+        "services": { "$ref": "#/$defs/objectArray" },
+        "ingresses": { "$ref": "#/$defs/objectArray" },
+        "networkPolicies": { "$ref": "#/$defs/objectArray" },
+        "configMaps": { "$ref": "#/$defs/objectArray" },
+        "secrets": { "$ref": "#/$defs/objectArray" },
+        "clusterRoles": { "$ref": "#/$defs/objectArray" },
+        "clusterRoleBindings": { "$ref": "#/$defs/objectArray" },
+        "resourceQuotas": { "$ref": "#/$defs/objectArray" },
+        "hpas": { "$ref": "#/$defs/objectArray" },
+        "podDisruptionBudgets": { "$ref": "#/$defs/objectArray" },
+        "crds": { "$ref": "#/$defs/objectArray" },
+        "helmReleases": { "$ref": "#/$defs/objectArray" },
+        "images": { "$ref": "#/$defs/objectArray" },
+        "certificates": { "$ref": "#/$defs/objectArray" },
+        "volumeSnapshotClasses": { "$ref": "#/$defs/objectArray" },
+        "volumeSnapshots": { "$ref": "#/$defs/objectArray" },
+        "limitRanges": { "$ref": "#/$defs/objectArray" },
+        "etcdBackup": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "serviceAccounts": { "$ref": "#/$defs/objectArray" },
+        "backup": { "$ref": "#/$defs/backupInventory" },
+        "remediationSteps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/remediationStep" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "workload", "config", "backup", "overall", "maturity"],
+      "properties": {
+        "storage": { "$ref": "#/$defs/domainScore" },
+        "workload": { "$ref": "#/$defs/domainScore" },
+        "config": { "$ref": "#/$defs/domainScore" },
+        "backup": { "$ref": "#/$defs/domainScore" },
+        "overall": { "$ref": "#/$defs/domainScore" },
+        "maturity": { "type": "string" }
+      }
+    },
+    "domainScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max", "final"],
+      "properties": {
+        "max": { "type": "integer" },
+        "final": { "type": "integer" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "resourceId", "message", "recommendation"],
+      "properties": {
+        "id": { "type": "string" },
+        "domain": { "type": "string" },
+        "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "resourceId": { "type": "string" },
+        "message": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "penalty": { "type": "integer" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "score": { "type": "integer" },
+        "note": { "type": "string" },
+        "status": { "type": "string", "enum": ["PASS", "WARN", "FAIL"] },
+        "weight": { "type": "integer" },
+        "message": { "type": "string" },
+        "remediation": { "type": "string" }
+      }
+    },
+    "collectorSkip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "reason", "rbac"],
+      "properties": {
+        "name": { "type": "string" },
+        "reason": { "type": "string" },
+        "rbac": { "type": "boolean" }
+      }
+    },
+    "backupInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tools", "primaryTool", "coverageVerified", "coverageStatus", "hasOffsite"],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupTool" }
+        },
+        "primaryTool": { "type": "string" },
+        "coverageVerified": { "type": "boolean" },
+        "coverageStatus": { "$ref": "#/$defs/coverageStatus" },
+        "coverageReason": { "type": "string" },
+        "coverageSourceTools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coveredNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "uncoveredStatefulNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "policies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupPolicy" }
+        },
+        "hasOffsite": { "type": "boolean" },
+        "restoreSim": { "$ref": "#/$defs/restoreSim" },
+        "assurance": { "$ref": "#/$defs/backupAssurance" }
+      }
+    },
+    "backupTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "detected"],
+      "properties": {
+        "name": { "type": "string" },
+        "namespace": { "type": "string" },
+        "version": { "type": "string" },
+        "detected": { "type": "boolean" },
+        "crdsFound": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "policyInspectionStatus": { "$ref": "#/$defs/coverageStatus" },
+        "policyInspectionDetail": { "type": "string" }
+      }
+    },
+    "backupPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "name", "rpoHours", "hasOffsite"],
+      "properties": {
+        "tool": { "type": "string" },
+        "name": { "type": "string" },
+        "policyNamespace": { "type": "string" },
+        "includedNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "excludedNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schedule": { "type": "string" },
+        "retentionTtl": { "type": "string" },
+        "rpoHours": { "type": "integer" },
+        "hasOffsite": { "type": "boolean" },
+        "storageLocation": { "type": "string" },
+        "lastSuccessAt": { "type": "string" },
+        "lastSuccessAgeHours": { "type": "integer" },
+        "freshSchedule": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "restoreNamespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "coverageKnown", "hasCoverage", "rpoHours", "pvcSizeGb"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "coverageKnown": { "type": "boolean" },
+        "hasCoverage": { "type": "boolean" },
+        "rpoHours": { "type": "integer" },
+        "pvcSizeGb": { "type": "number" },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "restoreSim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespaces", "totalPvcsGb", "coveredPvcsGb"],
+      "properties": {
+        "namespaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/restoreNamespace" }
+        },
+        "totalPvcsGb": { "type": "number" },
+        "coveredPvcsGb": { "type": "number" },
+        "uncoveredNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "backupAssurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conclusion", "summary"],
+      "properties": {
+        "conclusion": {
+          "type": "string",
+          "enum": [
+            "at_risk",
+            "unverified",
+            "coverage_gap",
+            "inferred_recoverable",
+            "confirmed_recoverable"
+          ]
+        },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" },
+        "summary": { "type": "string" },
+        "signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupEvidenceSignal" }
+        }
+      }
+    },
+    "backupEvidenceSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" },
+        "summary": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "remediationStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priority", "category", "title", "detail"],
+      "properties": {
+        "priority": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "detail": { "type": "string" },
+        "whyItMatters": { "type": "string" },
+        "drImpact": { "type": "string" },
+        "validation": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fixSteps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "caveats": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "targetNotes": { "type": "string" },
+        "findingId": { "type": "string" }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "previousScanId",
+        "previousScannedAt",
+        "previousScore",
+        "previousMaturity",
+        "scoreDelta",
+        "backupToolPrevious",
+        "backupToolCurrent",
+        "backupToolChanged"
+      ],
+      "properties": {
+        "previousScanId": { "type": "string" },
+        "previousScannedAt": { "type": "string" },
+        "previousScore": { "type": "integer" },
+        "previousMaturity": { "type": "string" },
+        "scoreDelta": { "type": "integer" },
+        "namespacesAdded": { "$ref": "#/$defs/stringArray" },
+        "namespacesRemoved": { "$ref": "#/$defs/stringArray" },
+        "workloadsAdded": { "$ref": "#/$defs/stringArray" },
+        "workloadsRemoved": { "$ref": "#/$defs/stringArray" },
+        "pvcsAdded": { "$ref": "#/$defs/stringArray" },
+        "pvcsRemoved": { "$ref": "#/$defs/stringArray" },
+        "imagesAdded": { "$ref": "#/$defs/stringArray" },
+        "imagesRemoved": { "$ref": "#/$defs/stringArray" },
+        "backupToolPrevious": { "type": "string" },
+        "backupToolCurrent": { "type": "string" },
+        "backupToolChanged": { "type": "boolean" },
+        "findingsNew": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "findingsResolved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      }
+    },
+    "trendPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "score", "maturity"],
+      "properties": {
+        "ts": { "type": "string" },
+        "score": { "type": "integer" },
+        "maturity": { "type": "string" }
+      }
+    },
+    "coverageStatus": {
+      "type": "string",
+      "enum": [
+        "not_detected",
+        "verified",
+        "unsupported",
+        "permission_denied",
+        "api_error",
+        "parse_error"
+      ]
+    },
+    "evidenceConfidence": {
+      "type": "string",
+      "enum": ["confirmed", "inferred", "unknown"]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "objectArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  }
+}

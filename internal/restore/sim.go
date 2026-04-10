@@ -76,6 +76,12 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 			CoverageKnown: coverageKnown,
 			HasCoverage:   hasCoverage,
 			RPOHours:      rpoHours,
+			Confidence:    model.EvidenceConfidenceConfirmed,
+		}
+		if !coverageKnown {
+			sim.Confidence = model.EvidenceConfidenceUnknown
+		} else if !hasCoverage {
+			sim.Confidence = model.EvidenceConfidenceConfirmed
 		}
 
 		// Sum PVC sizes and collect blockers/warnings.
@@ -99,6 +105,9 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 
 		if sim.CoverageKnown && !sim.HasCoverage {
 			uncoveredNS = append(uncoveredNS, ns)
+		}
+		if len(sim.Warnings) > 0 && len(sim.Blockers) == 0 && sim.Confidence == model.EvidenceConfidenceConfirmed {
+			sim.Confidence = model.EvidenceConfidenceInferred
 		}
 
 		result.Namespaces = append(result.Namespaces, sim)

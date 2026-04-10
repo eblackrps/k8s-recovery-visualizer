@@ -144,10 +144,10 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		label, weight string
 		score         int
 	}{
-		{"Storage", "35%", b.Score.Storage.Final},
-		{"Workload", "20%", b.Score.Workload.Final},
-		{"Config", "15%", b.Score.Config.Final},
-		{"Backup / Recovery", "30%", b.Score.Backup.Final},
+		{"Storage", domainWeightLabel("storage"), b.Score.Storage.Final},
+		{"Workload", domainWeightLabel("workload"), b.Score.Workload.Final},
+		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
+		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
 		wf(`<div class="dom"><div class="v">%d</div><div class="l">%s <span style="color:#888">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
@@ -235,6 +235,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 <tr><th>Policy Coverage Verified</th><td>%s</td></tr>
 <tr><th>Coverage Status</th><td>%s</td></tr>
 <tr><th>Coverage Detail</th><td>%s</td></tr>
+<tr><th>Backup Assurance</th><td>%s</td></tr>
+<tr><th>Assurance Summary</th><td>%s</td></tr>
 <tr><th>Offsite / Export Configured</th><td>%s</td></tr>
 <tr><th>Policies / Schedules Found</th><td>%d</td></tr>
 <tr><th>Covered Namespaces</th><td>%s</td></tr>
@@ -252,6 +254,13 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}(),
 		e(backupCoverageStatusText(inv)),
 		e(backupCoverageReasonText(inv)),
+		e(backupAssuranceConclusionText(inv.Assurance)),
+		e(func() string {
+			if inv.Assurance == nil {
+				return "Backup assurance was not assessed."
+			}
+			return inv.Assurance.Summary
+		}()),
 		offsiteStr,
 		len(inv.Policies),
 		func() string {
@@ -286,7 +295,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		wf(`<p style="color:#555;margin-top:8px">This backup product was detected, but policy coverage could not be verified (%s). %s</p>`,
 			e(backupCoverageStatusText(inv)), e(backupCoverageReasonText(inv)))
 	} else if len(inv.Policies) > 0 {
-		w(`<h3>Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
+		w(`<h3>Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Last Success</th><th>Evidence</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
 		for _, p := range inv.Policies {
 			nsCell := "all"
 			if len(p.IncludedNS) > 0 {
@@ -296,12 +305,35 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 			if p.RPOHours >= 0 {
 				rpoCell = fmt.Sprintf("%d", p.RPOHours)
 			}
+			lastSuccessCell := "unknown"
+			if p.LastSuccessAt != "" {
+				lastSuccessCell = p.LastSuccessAt
+				if p.LastSuccessAgeHours > 0 {
+					lastSuccessCell = fmt.Sprintf("%s (%dh ago)", p.LastSuccessAt, p.LastSuccessAgeHours)
+				}
+			}
+			evidenceCell := string(p.Confidence)
+			if evidenceCell == "" {
+				evidenceCell = string(model.EvidenceConfidenceUnknown)
+			}
 			offsiteCell := "no"
 			if p.HasOffsite {
 				offsiteCell = "yes"
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(p.Tool), e(p.Name), e(nsCell), e(p.Schedule), rpoCell, offsiteCell, e(p.RetentionTTL))
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(p.Tool), e(p.Name), e(nsCell), e(p.Schedule), rpoCell, e(lastSuccessCell), e(evidenceCell), offsiteCell, e(p.RetentionTTL))
+		}
+		w(`</tbody></table>`)
+	}
+	if inv.Assurance != nil && len(inv.Assurance.Signals) > 0 {
+		w(`<h3>Assurance Signals</h3><table><thead><tr><th>Signal</th><th>Status</th><th>Confidence</th><th>Summary</th><th>Detail</th></tr></thead><tbody>`)
+		for _, signal := range inv.Assurance.Signals {
+			detail := "—"
+			if signal.Detail != "" {
+				detail = signal.Detail
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(signal.ID), e(signal.Status), e(string(signal.Confidence)), e(signal.Summary), e(detail))
 		}
 		w(`</tbody></table>`)
 	}
@@ -426,13 +458,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 			}
 			wf(`<div class="step"><div class="step-hdr"><span class="chip" style="border-color:%s;color:%s">%s</span> %s</div>`,
 				chipBorder[step.Priority], chipBorder[step.Priority], e(step.Category), e(step.Title))
-			wf(`<div class="step-body"><p>%s</p>`, e(step.Detail))
-			if step.TargetNotes != "" {
-				wf(`<div class="note">%s</div>`, e(step.TargetNotes))
-			}
-			if len(step.Commands) > 0 {
-				wf(`<pre>%s</pre>`, e(strings.Join(step.Commands, "\n")))
-			}
+			w(`<div class="step-body">`)
+			w(remediationBodyPrintHTML(step))
 			w(`</div></div>`)
 		}
 	}

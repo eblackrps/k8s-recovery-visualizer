@@ -10,6 +10,7 @@ recovery-*.html
 recovery-*.md
 workload-report.json
 !schemas/*.json
+!schemas/examples/*.json
 
 # Archives and binaries
 *.zip

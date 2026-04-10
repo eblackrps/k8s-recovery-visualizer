@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s-recovery-visualizer/internal/analyze"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/profile"
 	"k8s-recovery-visualizer/internal/risk"
@@ -62,16 +63,6 @@ type Options struct {
 	OutDir     string
 	LastNCount int
 	Profile    string
-}
-
-type scanLike struct {
-	Categories []CategoryScore `json:"categories"`
-	Score      struct {
-		Overall struct {
-			Final int `json:"final"`
-		} `json:"overall"`
-		Maturity string `json:"maturity"`
-	} `json:"score"`
 }
 
 func Run(opts Options) (*Enriched, error) {
@@ -154,15 +145,18 @@ func Run(opts Options) (*Enriched, error) {
 	// best-effort categories from recovery-scan.json
 	scanPath := filepath.Join(opts.OutDir, "recovery-scan.json")
 	if sb, err := os.ReadFile(scanPath); err == nil {
-		var sl scanLike
-		if json.Unmarshal(sb, &sl) == nil && len(sl.Categories) > 0 {
-			en.Categories = sl.Categories
+		var bundle model.Bundle
+		if json.Unmarshal(sb, &bundle) == nil {
+			categories := toEnrichedCategories(analyze.BuildCategories(&bundle))
+			if len(categories) > 0 {
+				en.Categories = categories
 
-			if po, pr := computeProfileOverall(sl.Categories, profile.Weights(pn)); po != nil {
-				en.ProfileOverall = po
-				en.ProfileRiskPosture = pr
+				if po, pr := computeProfileOverall(categories, profile.Weights(pn)); po != nil {
+					en.ProfileOverall = po
+					en.ProfileRiskPosture = pr
+				}
+				en.CategoryDeltas = computeCategoryDeltas(opts.OutDir, categories)
 			}
-			en.CategoryDeltas = computeCategoryDeltas(opts.OutDir, sl.Categories)
 		}
 	}
 
@@ -175,14 +169,14 @@ func loadCurrentFromScan(outDir string) HistoryEntry {
 	if err != nil {
 		return HistoryEntry{}
 	}
-	var sl scanLike
-	if err := json.Unmarshal(raw, &sl); err != nil {
+	var bundle model.Bundle
+	if err := json.Unmarshal(raw, &bundle); err != nil {
 		return HistoryEntry{}
 	}
 	return HistoryEntry{
 		TimestampUtc: time.Now().UTC().Format(time.RFC3339),
-		Overall:      float64(sl.Score.Overall.Final),
-		Maturity:     sl.Score.Maturity,
+		Overall:      float64(bundle.Score.Overall.Final),
+		Maturity:     bundle.Score.Maturity,
 	}
 }
 
@@ -225,6 +219,30 @@ type enrichEntry struct {
 	Categories    []CategoryScore `json:"categories"`
 	SchemaVersion string          `json:"schemaVersion"`
 	Profile       string          `json:"profile"`
+}
+
+type scanLike struct {
+	Score struct {
+		Overall struct {
+			Final int `json:"final"`
+		} `json:"overall"`
+		Maturity string `json:"maturity"`
+	} `json:"score"`
+}
+
+func toEnrichedCategories(categories []model.CategoryScore) []CategoryScore {
+	out := make([]CategoryScore, 0, len(categories))
+	for _, category := range categories {
+		out = append(out, CategoryScore{
+			Name:     category.Name,
+			Raw:      category.Raw,
+			Weight:   category.Weight,
+			Weighted: category.Weighted,
+			Max:      category.Max,
+			Grade:    category.Grade,
+		})
+	}
+	return out
 }
 
 func computeCategoryDeltas(outDir string, current []CategoryScore) []CategoryDelta {

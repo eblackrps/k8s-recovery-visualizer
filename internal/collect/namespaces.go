@@ -9,6 +9,24 @@ import (
 )
 
 func Namespaces(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error {
+	if len(b.ScanNamespaces) > 0 {
+		for _, nsName := range ScopeNamespaces(b) {
+			ns, err := cs.CoreV1().Namespaces().Get(ctx, nsName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			labels := ns.Labels
+			b.Inventory.Namespaces = append(b.Inventory.Namespaces, model.Namespace{
+				ID:         "ns:" + ns.Name,
+				Name:       ns.Name,
+				PSAEnforce: labels["pod-security.kubernetes.io/enforce"],
+				PSAWarn:    labels["pod-security.kubernetes.io/warn"],
+				PSAAudit:   labels["pod-security.kubernetes.io/audit"],
+			})
+		}
+		return nil
+	}
+
 	list, err := cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err

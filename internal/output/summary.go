@@ -123,10 +123,10 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 		label, weight string
 		score         int
 	}{
-		{"Storage", "35%", b.Score.Storage.Final},
-		{"Workload", "20%", b.Score.Workload.Final},
-		{"Config", "15%", b.Score.Config.Final},
-		{"Backup / Recovery", "30%", b.Score.Backup.Final},
+		{"Storage", domainWeightLabel("storage"), b.Score.Storage.Final},
+		{"Workload", domainWeightLabel("workload"), b.Score.Workload.Final},
+		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
+		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
 		wf(`<div class="dom"><div class="v">%d</div><div class="l">%s <span style="color:#888">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
@@ -140,6 +140,7 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 <tr><td>Nodes</td><td>%d</td><td>Namespaces</td><td>%d</td></tr>
 <tr><td>Backup Tool</td><td class="%s">%s</td><td>Recovery Target</td><td>%s</td></tr>
 <tr><td>Backup Coverage</td><td>%s</td><td>Coverage Detail</td><td>%s</td></tr>
+<tr><td>Backup Assurance</td><td>%s</td><td>Assurance Summary</td><td>%s</td></tr>
 <tr><td>Helm Releases</td><td>%d</td><td>Certificates</td><td>%d</td></tr>
 </tbody></table>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion),
@@ -151,6 +152,12 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 			return "ok"
 		}(), e(backupTool), e(b.Target),
 		e(backupCoverageStatusText(b.Inventory.Backup)), e(backupCoverageReasonText(b.Inventory.Backup)),
+		e(backupAssuranceConclusionText(b.Inventory.Backup.Assurance)), e(func() string {
+			if b.Inventory.Backup.Assurance == nil {
+				return "Backup assurance was not assessed."
+			}
+			return b.Inventory.Backup.Assurance.Summary
+		}()),
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates))
 
 	// Top findings — CRITICAL + HIGH only, max 10

@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -84,10 +84,18 @@ jobs:
           echo "JSON smoke test passed"
 
       - name: Smoke test -- validate recovery-scan schema
-        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.1.0.schema.json -input /tmp/smoke/recovery-scan.json
+        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input /tmp/smoke/recovery-scan.json
 
       - name: Smoke test -- validate recovery-enriched schema
         run: go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
+
+      - name: Validate committed schema samples
+        run: |
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./schemas/examples/recovery-scan-2.2.0.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./schemas/examples/recovery-enriched-1.1.0.sample.json
+
+      - name: Smoke test -- evaluate CI gate engine
+        run: go run ./cmd/check --current /tmp/smoke/recovery-scan.json --min-score 0 --format json
 
       - name: Smoke test -- verify HTML report was generated
         run: |
@@ -96,6 +104,9 @@ jobs:
           # All expected tab names must appear in the report
           for tab in Summary Nodes Workloads Storage Networking Config Images Backup "DR Score" Findings Remediation; do
             grep -q "$tab" "$HTML" || \
-              { echo "ERROR: tab '$tab' missing from HTML report"; exit 1; }
+            { echo "ERROR: tab '$tab' missing from HTML report"; exit 1; }
           done
           echo "HTML smoke test passed"
+
+      - name: Smoke test -- container build
+        run: docker build -t k8vis-smoke .

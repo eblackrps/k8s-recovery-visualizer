@@ -1,0 +1,27 @@
+{
+  "inventory": {
+    "pvcs": [],
+    "pvs": [],
+    "statefulSets": [],
+    "backup": {
+      "primaryTool": "velero",
+      "coverageVerified": true,
+      "coverageStatus": "verified",
+      "coverageReason": "Velero policy inspection succeeded, but no schedules were found.",
+      "coveredNamespaces": [],
+      "uncoveredStatefulNamespaces": [],
+      "hasOffsite": true,
+      "tools": [
+        {
+          "name": "velero",
+          "detected": true,
+          "namespace": "velero",
+          "policyInspectionStatus": "verified",
+          "policyInspectionDetail": "No schedules found."
+        }
+      ],
+      "policies": []
+    },
+    "volumeSnapshots": []
+  }
+}
