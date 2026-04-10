@@ -8,6 +8,7 @@
 recovery-*.json
 recovery-*.html
 recovery-*.md
+workload-report.json
 !schemas/*.json
 
 # Archives and binaries

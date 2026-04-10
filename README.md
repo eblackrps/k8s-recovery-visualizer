@@ -205,6 +205,11 @@ go run ./cmd/check --in ./out/recovery-enriched.json --max-risk MODERATE --max-d
 - Troubleshooting: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
 - Schemas: [`docs/SCHEMAS.md`](docs/SCHEMAS.md)
 
+## Repository notes
+
+- The supported implementation is the Go CLI in [`cmd/scan`](cmd/scan).
+- The original PowerShell-based workflow has been archived under [`legacy/powershell`](legacy/powershell) for historical reference and is not part of the current CI, release, or support path.
+
 ## Limitations
 
 - Backup coverage is only verified for the supported policy-inspection tools listed above.
