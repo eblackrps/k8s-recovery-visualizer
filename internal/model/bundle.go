@@ -96,13 +96,26 @@ type Cluster struct {
 	Platform Platform `json:"platform,omitempty"`
 }
 
+type BackupCoverageStatus string
+
+const (
+	BackupCoverageStatusNotDetected      BackupCoverageStatus = "not_detected"
+	BackupCoverageStatusVerified         BackupCoverageStatus = "verified"
+	BackupCoverageStatusUnsupported      BackupCoverageStatus = "unsupported"
+	BackupCoverageStatusPermissionDenied BackupCoverageStatus = "permission_denied"
+	BackupCoverageStatusAPIError         BackupCoverageStatus = "api_error"
+	BackupCoverageStatusParseError       BackupCoverageStatus = "parse_error"
+)
+
 // BackupDetectedTool is one detected backup solution.
 type BackupDetectedTool struct {
-	Name      string   `json:"name"`
-	Namespace string   `json:"namespace,omitempty"`
-	Version   string   `json:"version,omitempty"`
-	Detected  bool     `json:"detected"`
-	CRDsFound []string `json:"crdsFound,omitempty"`
+	Name                   string               `json:"name"`
+	Namespace              string               `json:"namespace,omitempty"`
+	Version                string               `json:"version,omitempty"`
+	Detected               bool                 `json:"detected"`
+	CRDsFound              []string             `json:"crdsFound,omitempty"`
+	PolicyInspectionStatus BackupCoverageStatus `json:"policyInspectionStatus,omitempty"`
+	PolicyInspectionDetail string               `json:"policyInspectionDetail,omitempty"`
 }
 
 // BackupPolicy represents a detected backup schedule or policy object.
@@ -143,6 +156,9 @@ type BackupInventory struct {
 	Tools               []BackupDetectedTool `json:"tools"`
 	PrimaryTool         string               `json:"primaryTool"` // "none" if nothing found
 	CoverageVerified    bool                 `json:"coverageVerified"`
+	CoverageStatus      BackupCoverageStatus `json:"coverageStatus"`
+	CoverageReason      string               `json:"coverageReason,omitempty"`
+	CoverageSourceTools []string             `json:"coverageSourceTools,omitempty"`
 	CoveredNamespaces   []string             `json:"coveredNamespaces,omitempty"`
 	UncoveredStatefulNS []string             `json:"uncoveredStatefulNamespaces,omitempty"`
 	Policies            []BackupPolicy       `json:"policies,omitempty"`
@@ -227,16 +243,17 @@ type Namespace struct {
 }
 
 func NewBundle(scanID string, started time.Time) Bundle {
+	buildDate := EffectiveBuildDate(time.Now().UTC())
 	return Bundle{
-		SchemaVersion: "2.0.0",
+		SchemaVersion: ScanSchemaVersion,
 		Metadata: Metadata{
-			ToolVersion: "1.0.1",
+			ToolVersion: Version,
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 		Tool: Tool{
 			Name:      "k8s-recovery-visualizer",
-			Version:   "1.0.1",
-			BuildDate: time.Now().UTC().Format("2006-01-02"),
+			Version:   Version,
+			BuildDate: buildDate,
 		},
 		Scan: Scan{
 			ScanID:    scanID,
@@ -253,8 +270,9 @@ func NewBundle(scanID string, started time.Time) Bundle {
 			StorageClasses: []StorageClass{},
 			Findings:       []Finding{},
 			Backup: BackupInventory{
-				PrimaryTool: "none",
-				Tools:       []BackupDetectedTool{},
+				PrimaryTool:    "none",
+				Tools:          []BackupDetectedTool{},
+				CoverageStatus: BackupCoverageStatusNotDetected,
 			},
 		},
 		Score: Score{

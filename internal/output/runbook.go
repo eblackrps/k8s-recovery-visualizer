@@ -175,6 +175,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 <tr><th>Deployments</th><td>%d</td><th>StatefulSets</th><td>%d</td></tr>
 <tr><th>Helm Releases</th><td>%d</td><th>Certificates</th><td>%d</td></tr>
 <tr><th>CRDs</th><td>%d</td><th>Recovery Target</th><td>%s</td></tr>
+<tr><th>Backup Coverage Status</th><td colspan="3">%s</td></tr>
 </tbody></table>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion),
 		e(b.Cluster.Platform.ClusterUID), e(platform),
@@ -182,7 +183,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		len(b.Inventory.PVCs), len(b.Inventory.PVs),
 		len(b.Inventory.Deployments), len(b.Inventory.StatefulSets),
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates),
-		len(b.Inventory.CRDs), e(b.Target))
+		len(b.Inventory.CRDs), e(b.Target), e(backupCoverageStatusText(b.Inventory.Backup)))
 
 	// Node list (condensed)
 	if len(b.Inventory.Nodes) > 0 {
@@ -232,6 +233,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 	wf(`<table><tbody>
 <tr><th style="width:200px">Primary Backup Tool</th><td class="%s">%s</td></tr>
 <tr><th>Policy Coverage Verified</th><td>%s</td></tr>
+<tr><th>Coverage Status</th><td>%s</td></tr>
+<tr><th>Coverage Detail</th><td>%s</td></tr>
 <tr><th>Offsite / Export Configured</th><td>%s</td></tr>
 <tr><th>Policies / Schedules Found</th><td>%d</td></tr>
 <tr><th>Covered Namespaces</th><td>%s</td></tr>
@@ -247,6 +250,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 			}
 			return `<span style="color:#b8860b">No</span>`
 		}(),
+		e(backupCoverageStatusText(inv)),
+		e(backupCoverageReasonText(inv)),
 		offsiteStr,
 		len(inv.Policies),
 		func() string {
@@ -278,7 +283,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}())
 
 	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.CoverageVerified {
-		w(`<p style="color:#555;margin-top:8px">This backup product was detected, but the scanner could not verify schedule and namespace coverage. Treat protection scope as unknown until the tool is inspected directly.</p>`)
+		wf(`<p style="color:#555;margin-top:8px">This backup product was detected, but policy coverage could not be verified (%s). %s</p>`,
+			e(backupCoverageStatusText(inv)), e(backupCoverageReasonText(inv)))
 	} else if len(inv.Policies) > 0 {
 		w(`<h3>Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
 		for _, p := range inv.Policies {

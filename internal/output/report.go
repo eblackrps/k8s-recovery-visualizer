@@ -162,6 +162,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <tr><td>K8s Version</td><td>%s</td></tr>
 <tr><td>Cluster UID</td><td>%s</td></tr>
 <tr><td>Backup Tool</td><td class="%s">%s</td></tr>
+<tr><td>Backup Coverage</td><td>%s</td></tr>
 <tr><td>Nodes</td><td>%d</td></tr>
 <tr><td>Namespaces</td><td>%d</td></tr>
 <tr><td>Helm Releases</td><td>%d</td></tr>
@@ -170,7 +171,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <tr><td>Namespace Scope</td><td>%s</td></tr>
 </tbody></table></div>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion), e(b.Cluster.Platform.ClusterUID),
-		btClass, e(backupTool),
+		btClass, e(backupTool), e(backupCoverageStatusText(b.Inventory.Backup)),
 		len(b.Inventory.Nodes), len(b.Inventory.Namespaces),
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates),
 		e(b.Target), e(scopeLabel))
@@ -1096,7 +1097,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`<div class="empty">No backup tools scanned.</div>`)
 	} else {
 		w(`<table id="t-bktools"><thead><tr>`)
-		for _, h := range []string{"Tool", "Detected", "Namespace", "Version", "CRDs Found"} {
+		for _, h := range []string{"Tool", "Detected", "Namespace", "Version", "Policy Inspection", "Detail", "CRDs Found"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody>`)
@@ -1105,8 +1106,25 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			if t.Detected {
 				detectedCell = `<span class="chip p">yes</span>`
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(t.Name), detectedCell, e(t.Namespace), e(t.Version),
+			inspectionStatus := `<span class="chip n">not inspected</span>`
+			inspectionDetail := `<span style="color:#8b949e">—</span>`
+			if t.Detected {
+				switch t.PolicyInspectionStatus {
+				case model.BackupCoverageStatusVerified:
+					inspectionStatus = `<span class="chip p">verified</span>`
+				case model.BackupCoverageStatusUnsupported:
+					inspectionStatus = `<span class="chip w">unsupported</span>`
+				case model.BackupCoverageStatusPermissionDenied:
+					inspectionStatus = `<span class="chip w">permission denied</span>`
+				case model.BackupCoverageStatusParseError, model.BackupCoverageStatusAPIError:
+					inspectionStatus = `<span class="chip f">inspection failed</span>`
+				}
+				if t.PolicyInspectionDetail != "" {
+					inspectionDetail = e(t.PolicyInspectionDetail)
+				}
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(t.Name), detectedCell, e(t.Namespace), e(t.Version), inspectionStatus, inspectionDetail,
 				e(strings.Join(t.CRDsFound, ", ")))
 		}
 		w(`</tbody></table>`)
@@ -1118,8 +1136,8 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	if backupInv.PrimaryTool == "none" || backupInv.PrimaryTool == "" {
 		w(`<div class="empty">No backup tool detected — no policies to display.</div>`)
 	} else if !backupInv.CoverageVerified {
-		wf(`<div class="empty" style="color:#f2cc60">%s detected, but policy coverage could not be verified by this scanner. Treat backup scope as unknown until you inspect schedules and namespace coverage directly in the backup tool.</div>`,
-			e(backupInv.PrimaryTool))
+		wf(`<div class="empty" style="color:#f2cc60">%s detected, but policy coverage could not be verified (%s). %s</div>`,
+			e(backupInv.PrimaryTool), e(backupCoverageStatusText(backupInv)), e(backupCoverageReasonText(backupInv)))
 	} else if len(backupInv.Policies) == 0 {
 		wf(`<div class="empty" style="color:#ffa657">%s detected but no policies or schedules found. Create backup schedules to establish coverage.</div>`,
 			e(backupInv.PrimaryTool))
@@ -1130,8 +1148,8 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				offsiteCount++
 			}
 		}
-		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export</p>`,
-			len(backupInv.Policies), offsiteCount)
+		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
+			len(backupInv.Policies), offsiteCount, e(strings.Join(backupInv.CoverageSourceTools, ", ")))
 		w(`<table id="t-policies"><thead><tr>`)
 		for _, h := range []string{"Tool", "Name", "Namespaces", "Schedule", "RPO (h)", "Offsite", "Retention"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))

@@ -58,7 +58,9 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 		relevantNS[ns] = struct{}{}
 	}
 
-	var result model.RestoreSimResult
+	result := model.RestoreSimResult{
+		Namespaces: []model.RestoreSimNamespace{},
+	}
 	var uncoveredNS []string
 
 	for ns := range relevantNS {

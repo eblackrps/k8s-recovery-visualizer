@@ -138,6 +138,32 @@ func LoadRecent(outDir string, n int) []model.TrendPoint {
 	return pts
 }
 
+// SnapshotLatestHTML updates the most recent history HTML artifact with the
+// final rendered report from outDir after report generation completes.
+func SnapshotLatestHTML(outDir string) error {
+	indexPath := filepath.Join(outDir, "history", "index.json")
+	raw, err := os.ReadFile(indexPath)
+	if err != nil || len(raw) == 0 {
+		return nil
+	}
+	var idx Index
+	if err := json.Unmarshal(raw, &idx); err != nil {
+		return nil
+	}
+	if len(idx.Entries) == 0 {
+		return nil
+	}
+
+	dst := filepath.Join(outDir, filepath.FromSlash(idx.Entries[len(idx.Entries)-1].HTMLFile))
+	if dst == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return copyIfExists(filepath.Join(outDir, "recovery-report.html"), dst)
+}
+
 func writeJSON(path string, b *model.Bundle) error {
 	f, err := os.Create(path)
 	if err != nil {

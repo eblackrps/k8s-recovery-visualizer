@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    name: Build and publish release assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build release binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          BUILD_DATE="$(date -u +%F)"
+          LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE%%T*}'"
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-linux-amd64 ./cmd/scan
+          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/scan-linux-arm64 ./cmd/scan
+          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-darwin-amd64 ./cmd/scan
+          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/scan-darwin-arm64 ./cmd/scan
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-windows-amd64.exe ./cmd/scan
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum scan-* > checksums.txt
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/scan-linux-amd64 dist/scan-linux-arm64 dist/scan-darwin-amd64 dist/scan-darwin-arm64 dist/scan-windows-amd64.exe dist/checksums.txt --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/scan-linux-amd64 dist/scan-linux-arm64 dist/scan-darwin-amd64 dist/scan-darwin-arm64 dist/scan-windows-amd64.exe dist/checksums.txt \
+              --verify-tag \
+              --generate-notes \
+              --title "${GITHUB_REF_NAME}"
+          fi

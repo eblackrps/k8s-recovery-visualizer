@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/profile"
 	"k8s-recovery-visualizer/internal/risk"
 	"k8s-recovery-visualizer/internal/trend"
 )
 
-const SchemaVersion = "v1"
+const SchemaVersion = model.EnrichedSchemaVersion
 
 type CategoryScore struct {
 	Name     string  `json:"name"`
@@ -65,6 +66,12 @@ type Options struct {
 
 type scanLike struct {
 	Categories []CategoryScore `json:"categories"`
+	Score      struct {
+		Overall struct {
+			Final int `json:"final"`
+		} `json:"overall"`
+		Maturity string `json:"maturity"`
+	} `json:"score"`
 }
 
 func Run(opts Options) (*Enriched, error) {
@@ -80,6 +87,7 @@ func Run(opts Options) (*Enriched, error) {
 		p = os.Getenv("DR_PROFILE")
 	}
 	pn := profile.Normalize(p)
+	currentFromScan := loadCurrentFromScan(opts.OutDir)
 
 	// overall history
 	historyPath := filepath.Join(opts.OutDir, "history", "index.json")
@@ -89,8 +97,9 @@ func Run(opts Options) (*Enriched, error) {
 			SchemaVersion: SchemaVersion,
 			GeneratedUtc:  time.Now().UTC().Format(time.RFC3339),
 			Profile:       string(pn),
-			Risk:          risk.FromScore(0, ""),
-			LastN:         []float64{},
+			Current:       currentFromScan,
+			Risk:          risk.FromScore(currentFromScan.Overall, currentFromScan.Maturity),
+			LastN:         lastNFromCurrent(currentFromScan),
 		}, nil
 	}
 
@@ -103,8 +112,9 @@ func Run(opts Options) (*Enriched, error) {
 			SchemaVersion: SchemaVersion,
 			GeneratedUtc:  time.Now().UTC().Format(time.RFC3339),
 			Profile:       string(pn),
-			Risk:          risk.FromScore(0, ""),
-			LastN:         []float64{},
+			Current:       currentFromScan,
+			Risk:          risk.FromScore(currentFromScan.Overall, currentFromScan.Maturity),
+			LastN:         lastNFromCurrent(currentFromScan),
 		}, nil
 	}
 
@@ -157,6 +167,30 @@ func Run(opts Options) (*Enriched, error) {
 	}
 
 	return en, nil
+}
+
+func loadCurrentFromScan(outDir string) HistoryEntry {
+	scanPath := filepath.Join(outDir, "recovery-scan.json")
+	raw, err := os.ReadFile(scanPath)
+	if err != nil {
+		return HistoryEntry{}
+	}
+	var sl scanLike
+	if err := json.Unmarshal(raw, &sl); err != nil {
+		return HistoryEntry{}
+	}
+	return HistoryEntry{
+		TimestampUtc: time.Now().UTC().Format(time.RFC3339),
+		Overall:      float64(sl.Score.Overall.Final),
+		Maturity:     sl.Score.Maturity,
+	}
+}
+
+func lastNFromCurrent(current HistoryEntry) []float64 {
+	if current.Overall == 0 {
+		return []float64{}
+	}
+	return []float64{current.Overall}
 }
 
 func computeProfileOverall(cats []CategoryScore, w map[string]float64) (*float64, *string) {

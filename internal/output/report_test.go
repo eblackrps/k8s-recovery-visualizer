@@ -13,6 +13,16 @@ func TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified(t *testing.T) {
 	b := model.NewBundle("scan-test", time.Now().UTC())
 	b.Inventory.Backup.PrimaryTool = "rubrik"
 	b.Inventory.Backup.CoverageVerified = false
+	b.Inventory.Backup.CoverageStatus = model.BackupCoverageStatusUnsupported
+	b.Inventory.Backup.CoverageReason = "rubrik was detected, but this scanner does not yet inspect its policies or schedules."
+	b.Inventory.Backup.Tools = []model.BackupDetectedTool{
+		{
+			Name:                   "rubrik",
+			Detected:               true,
+			PolicyInspectionStatus: model.BackupCoverageStatusUnsupported,
+			PolicyInspectionDetail: "rubrik was detected, but this scanner does not yet inspect its policies or schedules.",
+		},
+	}
 	b.Inventory.Backup.RestoreSim = &model.RestoreSimResult{
 		Namespaces: []model.RestoreSimNamespace{
 			{
@@ -33,5 +43,8 @@ func TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified(t *testing.T) {
 	}
 	if !strings.Contains(html, "unverified") {
 		t.Fatal("buildReport() did not render unverified restore coverage state")
+	}
+	if !strings.Contains(html, "unsupported") {
+		t.Fatal("buildReport() did not surface the inspection status")
 	}
 }

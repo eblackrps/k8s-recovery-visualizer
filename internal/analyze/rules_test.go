@@ -95,6 +95,8 @@ func TestEvaluateBackupCoverageUnverified(t *testing.T) {
 	b := model.NewBundle("scan-test", time.Now().UTC())
 	b.Inventory.Backup.PrimaryTool = "rubrik"
 	b.Inventory.Backup.CoverageVerified = false
+	b.Inventory.Backup.CoverageStatus = model.BackupCoverageStatusUnsupported
+	b.Inventory.Backup.CoverageReason = "rubrik was detected, but this scanner does not yet inspect its policies or schedules."
 	b.Inventory.Backup.RestoreSim = &model.RestoreSimResult{
 		UncoveredNS: []string{"prod"},
 	}

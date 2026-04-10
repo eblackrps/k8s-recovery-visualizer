@@ -11,6 +11,7 @@ func TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified(t *testing.T) {
 	b := model.NewBundle("scan-test", time.Now().UTC())
 	b.Inventory.Backup.PrimaryTool = "rubrik"
 	b.Inventory.Backup.CoverageVerified = false
+	b.Inventory.Backup.CoverageStatus = model.BackupCoverageStatusUnsupported
 	b.Inventory.StatefulSets = []model.StatefulSet{
 		{Namespace: "prod", Name: "db"},
 	}

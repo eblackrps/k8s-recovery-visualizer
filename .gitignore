@@ -1,97 +1,35 @@
-﻿########################################################
-# k8s-recovery-visualizer - Professional .gitignore
-########################################################
-
-##############################
-# Runtime Output
-##############################
-
+# Generated outputs
 /out/
 /dist/
-history/
+/history/
+/scan-linux-amd64
+/scan.exe
+/scan
+recovery-*.json
+recovery-*.html
+recovery-*.md
+
+# Archives and binaries
 *.zip
 *.exe
+*.pdb
+/build/
+/release/
 
-##############################
-# Generated Reports
-##############################
-
-*.html
+# Logs and temp files
 *.log
-*.txt
-
-*report*.json
-*-readiness.json
-*-score.json
-*-report.json
-*-trend.json
-
-##############################
-# PowerShell Transient
-##############################
-
-*.ps1xml
-*.psd1xml
-*.psm1xml
-
-##############################
-# VS Code
-##############################
-
-.vscode/
-.history/
-
-##############################
-# OS Junk
-##############################
-
-Thumbs.db
-desktop.ini
-.DS_Store
-
-##############################
-# Temp Files
-##############################
-
 *.tmp
 *.bak
 *.old
 
-##############################
-# Go (legacy from earlier version)
-##############################
+# PowerShell transient files
+*.ps1xml
+*.psd1xml
+*.psm1xml
 
-/bin/
-/scan
-/scan.exe
-go.sum
-go.mod
-
-##############################
-# Logs Anywhere
-##############################
-
-**/*.log
-
-##############################
-# Archives Anywhere
-##############################
-
-**/*.zip
-
-##############################
-# EXE Build Artifacts
-##############################
-
-/build/
-/release/
-*.pdb
-
-########################################################
-# Keep source scripts
-########################################################
-
-!*.ps1
-!*.psm1
-!*.psd1
-out/
+# Editor / OS files
+.vscode/
+.history/
+Thumbs.db
+desktop.ini
+.DS_Store

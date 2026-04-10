@@ -80,6 +80,16 @@ func stepForFinding(f model.Finding, tool, target, platform string) *model.Remed
 			FindingID: f.ID,
 		}
 
+	case "BACKUP_COVERAGE_UNVERIFIED":
+		return &model.RemediationStep{
+			Priority:  1,
+			Category:  "Backup",
+			Title:     "Resolve unverified backup coverage",
+			Detail:    f.Recommendation,
+			Commands:  backupCoverageVerificationCmds(tool),
+			FindingID: f.ID,
+		}
+
 	case "PVC_UNBOUND":
 		return &model.RemediationStep{
 			Priority:  1,
@@ -234,6 +244,34 @@ func backupPolicyCmds(tool, namespaces string) []string {
 		}
 	default:
 		return []string{fmt.Sprintf("# Extend backup policies to cover namespaces: %s", namespaces)}
+	}
+}
+
+func backupCoverageVerificationCmds(tool string) []string {
+	switch tool {
+	case "velero":
+		return []string{
+			"kubectl auth can-i list schedules.velero.io --all-namespaces",
+			"kubectl get schedules.velero.io -A -o yaml",
+			"velero schedule get",
+		}
+	case "kasten":
+		return []string{
+			"kubectl auth can-i list policies.config.kio.kasten.io --all-namespaces",
+			"kubectl get policies.config.kio.kasten.io -A -o yaml",
+			"# In the Kasten K10 UI, confirm namespace selectors and export actions for each policy.",
+		}
+	case "longhorn":
+		return []string{
+			"kubectl auth can-i list recurringjobs.longhorn.io -n longhorn-system",
+			"kubectl get recurringjobs.longhorn.io -n longhorn-system -o yaml",
+			"kubectl get settings.longhorn.io backup-target -n longhorn-system -o yaml",
+		}
+	default:
+		return []string{
+			"# Verify backup schedules and namespace scope directly in the detected backup product.",
+			"# If this tool is unsupported by the scanner, treat the score as conservative until manual verification is complete.",
+		}
 	}
 }
 

@@ -218,8 +218,8 @@ func Evaluate(b *model.Bundle) {
 	} else if !inv.CoverageVerified {
 		backup -= penBackupCoverageUnknown
 		addFinding(b, "BACKUP_COVERAGE_UNVERIFIED", "HIGH", inv.PrimaryTool,
-			"Backup tool detected, but policy coverage could not be verified by this scanner",
-			"Treat backup coverage as unknown until schedules and namespace scope are verified manually, or add native policy inspection support for this backup product")
+			backupCoverageUnverifiedMessage(inv),
+			backupCoverageUnverifiedRecommendation(inv))
 	} else {
 		// Tool present — check for coverage gaps
 		if len(inv.UncoveredStatefulNS) > 0 {
@@ -672,4 +672,38 @@ func joinFirst(ss []string, max int) string {
 		result += ss[i]
 	}
 	return result + "..."
+}
+
+func backupCoverageUnverifiedMessage(inv model.BackupInventory) string {
+	switch inv.CoverageStatus {
+	case model.BackupCoverageStatusUnsupported:
+		return "Backup tool detected, but this scanner does not yet inspect its policy coverage"
+	case model.BackupCoverageStatusPermissionDenied:
+		return "Backup tool detected, but policy inspection failed due to insufficient permissions"
+	case model.BackupCoverageStatusParseError:
+		return "Backup tool detected, but policy inspection failed because the tool response could not be parsed"
+	case model.BackupCoverageStatusAPIError:
+		return "Backup tool detected, but policy inspection failed with an API error"
+	default:
+		return "Backup tool detected, but policy coverage could not be verified by this scanner"
+	}
+}
+
+func backupCoverageUnverifiedRecommendation(inv model.BackupInventory) string {
+	base := "Treat backup coverage as unknown until schedules and namespace scope are verified manually."
+	if inv.CoverageReason == "" {
+		return base
+	}
+	switch inv.CoverageStatus {
+	case model.BackupCoverageStatusUnsupported:
+		return base + " " + inv.CoverageReason
+	case model.BackupCoverageStatusPermissionDenied:
+		return "Grant read access to the backup policy resources, then rerun the scan. " + inv.CoverageReason
+	case model.BackupCoverageStatusParseError:
+		return "Inspect the backup product API objects and parser support before trusting the score. " + inv.CoverageReason
+	case model.BackupCoverageStatusAPIError:
+		return "Resolve the backup product API access error, then rerun the scan. " + inv.CoverageReason
+	default:
+		return base + " " + inv.CoverageReason
+	}
 }
