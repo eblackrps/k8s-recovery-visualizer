@@ -1,6 +1,11 @@
 package analyze
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"k8s-recovery-visualizer/internal/model"
+)
 
 func TestWeightedOverall(t *testing.T) {
 	// All domains at 100 → overall 100
@@ -83,5 +88,38 @@ func TestJoinFirst(t *testing.T) {
 	// More than max → truncated with ellipsis
 	if got := joinFirst([]string{"a", "b", "c", "d"}, 3); got != "a,b,c..." {
 		t.Errorf("joinFirst([a,b,c,d], 3) = %q, want %q", got, "a,b,c...")
+	}
+}
+
+func TestEvaluateBackupCoverageUnverified(t *testing.T) {
+	b := model.NewBundle("scan-test", time.Now().UTC())
+	b.Inventory.Backup.PrimaryTool = "rubrik"
+	b.Inventory.Backup.CoverageVerified = false
+	b.Inventory.Backup.RestoreSim = &model.RestoreSimResult{
+		UncoveredNS: []string{"prod"},
+	}
+
+	Evaluate(&b)
+
+	if b.Score.Backup.Final != 80 {
+		t.Fatalf("backup score = %d, want 80", b.Score.Backup.Final)
+	}
+
+	seen := map[string]bool{}
+	for _, f := range b.Inventory.Findings {
+		seen[f.ID] = true
+	}
+
+	if !seen["BACKUP_COVERAGE_UNVERIFIED"] {
+		t.Fatal("missing BACKUP_COVERAGE_UNVERIFIED finding")
+	}
+	if seen["BACKUP_NO_POLICIES"] {
+		t.Fatal("unexpected BACKUP_NO_POLICIES finding when coverage is unverified")
+	}
+	if seen["BACKUP_NO_OFFSITE"] {
+		t.Fatal("unexpected BACKUP_NO_OFFSITE finding when coverage is unverified")
+	}
+	if seen["RESTORE_SIM_UNCOVERED"] {
+		t.Fatal("unexpected RESTORE_SIM_UNCOVERED finding when coverage is unverified")
 	}
 }

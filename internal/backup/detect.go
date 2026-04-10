@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s-recovery-visualizer/internal/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s-recovery-visualizer/internal/model"
 )
 
 type toolSpec struct {
@@ -141,15 +141,17 @@ func Detect(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) {
 
 	// Determine which namespaces with StatefulSets are not covered.
 	if inv.PrimaryTool != "none" {
-		inv.CoveredNamespaces = coveredNamespaces(ctx, cs, inv.PrimaryTool, b)
-		inv.UncoveredStatefulNS = uncoveredStatefulNamespaces(b, inv.CoveredNamespaces)
-
-		// Collect detailed backup policies (Velero, Kasten, Longhorn).
-		inv.Policies = collectPolicies(ctx, cs, inv.PrimaryTool)
-		for _, p := range inv.Policies {
-			if p.HasOffsite {
-				inv.HasOffsite = true
-				break
+		// Only tools with parsed policy support can claim verified coverage.
+		// Detection-only tools must remain "unknown" rather than optimistic.
+		inv.Policies, inv.CoverageVerified = collectPolicies(ctx, cs, inv.PrimaryTool)
+		if inv.CoverageVerified {
+			inv.CoveredNamespaces = coveredNamespacesFromPolicies(b, inv.Policies)
+			inv.UncoveredStatefulNS = uncoveredStatefulNamespacesFromPolicies(b, inv.Policies)
+			for _, p := range inv.Policies {
+				if p.HasOffsite {
+					inv.HasOffsite = true
+					break
+				}
 			}
 		}
 	}
@@ -160,7 +162,8 @@ func Detect(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) {
 // ── Policy collection ──────────────────────────────────────────────────────
 
 // collectPolicies fetches backup policies/schedules for supported tools.
-func collectPolicies(ctx context.Context, cs *kubernetes.Clientset, tool string) []model.BackupPolicy {
+// The returned bool indicates whether coverage was actually verified.
+func collectPolicies(ctx context.Context, cs *kubernetes.Clientset, tool string) ([]model.BackupPolicy, bool) {
 	switch tool {
 	case "velero":
 		return veleroSchedules(ctx, cs)
@@ -169,18 +172,18 @@ func collectPolicies(ctx context.Context, cs *kubernetes.Clientset, tool string)
 	case "longhorn":
 		return longhornRecurringJobs(ctx, cs)
 	default:
-		return nil
+		return nil, false
 	}
 }
 
 // veleroSchedules reads velero.io/v1 Schedule objects.
-func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) []model.BackupPolicy {
+func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) ([]model.BackupPolicy, bool) {
 	raw, err := cs.RESTClient().
 		Get().
 		AbsPath("/apis/velero.io/v1/schedules").
 		DoRaw(ctx)
 	if err != nil {
-		return nil
+		return nil, false
 	}
 
 	var list struct {
@@ -201,7 +204,7 @@ func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) []model.Back
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return nil
+		return nil, false
 	}
 
 	var policies []model.BackupPolicy
@@ -222,17 +225,17 @@ func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) []model.Back
 		p.HasOffsite = loc != "" && loc != "default"
 		policies = append(policies, p)
 	}
-	return policies
+	return policies, true
 }
 
 // kastenPolicies reads config.kio.kasten.io/v1alpha1 Policy objects.
-func kastenPolicies(ctx context.Context, cs *kubernetes.Clientset) []model.BackupPolicy {
+func kastenPolicies(ctx context.Context, cs *kubernetes.Clientset) ([]model.BackupPolicy, bool) {
 	raw, err := cs.RESTClient().
 		Get().
 		AbsPath("/apis/config.kio.kasten.io/v1alpha1/policies").
 		DoRaw(ctx)
 	if err != nil {
-		return nil
+		return nil, false
 	}
 
 	var list struct {
@@ -254,7 +257,7 @@ func kastenPolicies(ctx context.Context, cs *kubernetes.Clientset) []model.Backu
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return nil
+		return nil, false
 	}
 
 	var policies []model.BackupPolicy
@@ -281,12 +284,12 @@ func kastenPolicies(ctx context.Context, cs *kubernetes.Clientset) []model.Backu
 		}
 		policies = append(policies, p)
 	}
-	return policies
+	return policies, true
 }
 
 // longhornRecurringJobs reads longhorn.io/v1beta2 RecurringJob objects.
 // It also checks whether a BackupTarget is configured (offsite signal).
-func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) []model.BackupPolicy {
+func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) ([]model.BackupPolicy, bool) {
 	// Check BackupTarget setting — non-empty = offsite configured.
 	hasOffsiteTarget := longhornBackupTargetSet(ctx, cs)
 
@@ -301,7 +304,7 @@ func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) []mode
 			AbsPath("/apis/longhorn.io/v1beta1/namespaces/longhorn-system/recurringjobs").
 			DoRaw(ctx)
 		if err != nil {
-			return nil
+			return nil, false
 		}
 	}
 
@@ -311,15 +314,15 @@ func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) []mode
 				Name string `json:"name"`
 			} `json:"metadata"`
 			Spec struct {
-				Task   string `json:"task"`   // "backup" or "snapshot"
-				Cron   string `json:"cron"`
-				Retain int    `json:"retain"`
+				Task   string   `json:"task"` // "backup" or "snapshot"
+				Cron   string   `json:"cron"`
+				Retain int      `json:"retain"`
 				Groups []string `json:"groups"`
 			} `json:"spec"`
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return nil
+		return nil, false
 	}
 
 	var policies []model.BackupPolicy
@@ -341,7 +344,7 @@ func longhornRecurringJobs(ctx context.Context, cs *kubernetes.Clientset) []mode
 		}
 		policies = append(policies, p)
 	}
-	return policies
+	return policies, true
 }
 
 // longhornBackupTargetSet checks if Longhorn has a non-empty BackupTarget setting.
@@ -427,53 +430,59 @@ func estimateRPOHours(schedule string) int {
 	return -1
 }
 
-// ── Legacy helpers (kept for CoveredNamespaces population) ────────────────
+// ── Coverage helpers ───────────────────────────────────────────────────────
 
-func coveredNamespaces(ctx context.Context, cs *kubernetes.Clientset, tool string, b *model.Bundle) []string {
-	switch tool {
-	case "velero":
-		return veleroScheduledNamespaces(ctx, cs)
-	default:
-		var ns []string
-		for _, n := range b.Inventory.Namespaces {
-			ns = append(ns, n.Name)
+func coveredNamespacesFromPolicies(b *model.Bundle, policies []model.BackupPolicy) []string {
+	if len(policies) == 0 {
+		return nil
+	}
+	var covered []string
+	for _, ns := range b.Inventory.Namespaces {
+		if policyListCoversNamespace(policies, ns.Name) {
+			covered = append(covered, ns.Name)
 		}
-		return ns
 	}
+	return covered
 }
 
-func veleroScheduledNamespaces(ctx context.Context, cs *kubernetes.Clientset) []string {
-	raw, err := cs.RESTClient().
-		Get().
-		AbsPath("/apis/velero.io/v1/schedules").
-		DoRaw(ctx)
-	if err != nil {
-		return nil
-	}
-	content := string(raw)
-	if strings.Contains(content, `"includedNamespaces"`) {
-		return []string{"*"}
-	}
-	return nil
-}
-
-func uncoveredStatefulNamespaces(b *model.Bundle, covered []string) []string {
-	if len(covered) == 1 && covered[0] == "*" {
-		return nil
-	}
-	coveredSet := map[string]struct{}{}
-	for _, ns := range covered {
-		coveredSet[ns] = struct{}{}
-	}
+func uncoveredStatefulNamespacesFromPolicies(b *model.Bundle, policies []model.BackupPolicy) []string {
 	seen := map[string]struct{}{}
 	var uncovered []string
 	for _, sts := range b.Inventory.StatefulSets {
-		if _, ok := coveredSet[sts.Namespace]; !ok {
-			if _, already := seen[sts.Namespace]; !already {
-				uncovered = append(uncovered, sts.Namespace)
-				seen[sts.Namespace] = struct{}{}
-			}
+		if policyListCoversNamespace(policies, sts.Namespace) {
+			continue
 		}
+		if _, already := seen[sts.Namespace]; already {
+			continue
+		}
+		uncovered = append(uncovered, sts.Namespace)
+		seen[sts.Namespace] = struct{}{}
 	}
 	return uncovered
+}
+
+func policyListCoversNamespace(policies []model.BackupPolicy, ns string) bool {
+	for _, p := range policies {
+		if policyCoversNamespace(p, ns) {
+			return true
+		}
+	}
+	return false
+}
+
+func policyCoversNamespace(p model.BackupPolicy, ns string) bool {
+	for _, ex := range p.ExcludedNS {
+		if ex == ns {
+			return false
+		}
+	}
+	if len(p.IncludedNS) == 0 {
+		return true
+	}
+	for _, incl := range p.IncludedNS {
+		if incl == ns || incl == "*" {
+			return true
+		}
+	}
+	return false
 }

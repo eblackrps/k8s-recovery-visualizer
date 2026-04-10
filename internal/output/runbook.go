@@ -224,39 +224,62 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		backupClass = "ok"
 	}
 	offsiteStr := `<span class="bad">No</span>`
-	if inv.HasOffsite {
+	if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
+		offsiteStr = `<span style="color:#b8860b">Unknown</span>`
+	} else if inv.HasOffsite {
 		offsiteStr = `<span class="ok">Yes</span>`
 	}
 	wf(`<table><tbody>
 <tr><th style="width:200px">Primary Backup Tool</th><td class="%s">%s</td></tr>
+<tr><th>Policy Coverage Verified</th><td>%s</td></tr>
 <tr><th>Offsite / Export Configured</th><td>%s</td></tr>
 <tr><th>Policies / Schedules Found</th><td>%d</td></tr>
 <tr><th>Covered Namespaces</th><td>%s</td></tr>
 <tr><th>Uncovered Stateful Namespaces</th><td class="%s">%s</td></tr>
 </tbody></table>`,
 		backupClass, e(backupTool),
+		func() string {
+			if inv.PrimaryTool == "none" || inv.PrimaryTool == "" {
+				return "n/a"
+			}
+			if inv.CoverageVerified {
+				return `<span class="ok">Yes</span>`
+			}
+			return `<span style="color:#b8860b">No</span>`
+		}(),
 		offsiteStr,
 		len(inv.Policies),
 		func() string {
+			if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
+				return "unknown"
+			}
 			if len(inv.CoveredNamespaces) == 0 {
 				return "none"
 			}
 			return strings.Join(inv.CoveredNamespaces, ", ")
 		}(),
 		func() string {
+			if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
+				return ""
+			}
 			if len(inv.UncoveredStatefulNS) > 0 {
 				return "bad"
 			}
 			return "ok"
 		}(),
 		func() string {
+			if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
+				return "unknown"
+			}
 			if len(inv.UncoveredStatefulNS) == 0 {
 				return "none"
 			}
 			return strings.Join(inv.UncoveredStatefulNS, ", ")
 		}())
 
-	if len(inv.Policies) > 0 {
+	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.CoverageVerified {
+		w(`<p style="color:#555;margin-top:8px">This backup product was detected, but the scanner could not verify schedule and namespace coverage. Treat protection scope as unknown until the tool is inspected directly.</p>`)
+	} else if len(inv.Policies) > 0 {
 		w(`<h3>Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
 		for _, p := range inv.Policies {
 			nsCell := "all"
@@ -282,22 +305,37 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 	if sim := inv.RestoreSim; sim == nil || len(sim.Namespaces) == 0 {
 		w(`<p style="color:#555">No stateful namespaces found — nothing to simulate.</p>`)
 	} else {
+		unknownCount := 0
+		for _, ns := range sim.Namespaces {
+			if !ns.CoverageKnown {
+				unknownCount++
+			}
+		}
 		covPct := 0.0
 		if sim.TotalPVCsGB > 0 {
 			covPct = sim.CoveredPVCsGB / sim.TotalPVCsGB * 100
 		}
-		wf(`<p style="margin-bottom:8px">Total PVC data: <strong>%.1f GB</strong> &nbsp; Coverage by volume: <strong>%.0f%%</strong> &nbsp; Uncovered namespaces: <strong class="%s">%d</strong></p>`,
-			sim.TotalPVCsGB, covPct,
-			func() string {
-				if len(sim.UncoveredNS) > 0 {
-					return "bad"
-				}
-				return "ok"
-			}(), len(sim.UncoveredNS))
+		coverageVolumeText := fmt.Sprintf("%.0f%%", covPct)
+		coverageCountLabel := "Uncovered namespaces"
+		coverageCount := len(sim.UncoveredNS)
+		coverageCountClass := "ok"
+		if coverageCount > 0 {
+			coverageCountClass = "bad"
+		}
+		if unknownCount > 0 {
+			coverageVolumeText = "unknown"
+			coverageCountLabel = "Unverified namespaces"
+			coverageCount = unknownCount
+			coverageCountClass = ""
+		}
+		wf(`<p style="margin-bottom:8px">Total PVC data: <strong>%.1f GB</strong> &nbsp; Coverage by volume: <strong>%s</strong> &nbsp; %s: <strong class="%s">%d</strong></p>`,
+			sim.TotalPVCsGB, coverageVolumeText, coverageCountLabel, coverageCountClass, coverageCount)
 		w(`<table><thead><tr><th>Namespace</th><th>Coverage</th><th>RPO (h)</th><th>PVC Data (GB)</th><th>Blockers</th><th>Warnings</th></tr></thead><tbody>`)
 		for _, ns := range sim.Namespaces {
 			covCell := `<span class="bad">none</span>`
-			if ns.HasCoverage {
+			if !ns.CoverageKnown {
+				covCell = `<span style="color:#b8860b">unverified</span>`
+			} else if ns.HasCoverage {
 				covCell = `<span class="ok">covered</span>`
 			}
 			rpoCell := "unknown"

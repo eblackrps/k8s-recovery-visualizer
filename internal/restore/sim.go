@@ -62,10 +62,18 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 	var uncoveredNS []string
 
 	for ns := range relevantNS {
+		coverageKnown := inv.PrimaryTool == "none" || inv.PrimaryTool == "" || inv.CoverageVerified
+		hasCoverage := false
+		rpoHours := -1
+		if coverageKnown {
+			hasCoverage = policyCoversNamespace(inv, ns)
+			rpoHours = bestRPOForNamespace(inv, ns)
+		}
 		sim := model.RestoreSimNamespace{
-			Namespace:   ns,
-			HasCoverage: policyCoversNamespace(inv, ns),
-			RPOHours:    bestRPOForNamespace(inv, ns),
+			Namespace:     ns,
+			CoverageKnown: coverageKnown,
+			HasCoverage:   hasCoverage,
+			RPOHours:      rpoHours,
 		}
 
 		// Sum PVC sizes and collect blockers/warnings.
@@ -87,13 +95,13 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 		}
 		sim.PVCSizeGB = nsSizeGB
 
-		if !sim.HasCoverage {
+		if sim.CoverageKnown && !sim.HasCoverage {
 			uncoveredNS = append(uncoveredNS, ns)
 		}
 
 		result.Namespaces = append(result.Namespaces, sim)
 		result.TotalPVCsGB += nsSizeGB
-		if sim.HasCoverage {
+		if sim.CoverageKnown && sim.HasCoverage {
 			result.CoveredPVCsGB += nsSizeGB
 		}
 	}

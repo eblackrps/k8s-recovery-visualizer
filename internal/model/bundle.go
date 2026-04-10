@@ -3,18 +3,18 @@ package model
 import "time"
 
 type Bundle struct {
-	Checks        []Check          `json:"checks,omitempty"`
-	SchemaVersion string           `json:"schemaVersion"`
-	Metadata      Metadata         `json:"metadata"`
-	Tool          Tool             `json:"tool"`
-	Scan          Scan             `json:"scan"`
-	Cluster       Cluster          `json:"cluster"`
-	Inventory     Inventory        `json:"inventory"`
-	Score         Score            `json:"score"`
+	Checks        []Check   `json:"checks,omitempty"`
+	SchemaVersion string    `json:"schemaVersion"`
+	Metadata      Metadata  `json:"metadata"`
+	Tool          Tool      `json:"tool"`
+	Scan          Scan      `json:"scan"`
+	Cluster       Cluster   `json:"cluster"`
+	Inventory     Inventory `json:"inventory"`
+	Score         Score     `json:"score"`
 	// Target is the declared recovery destination: "baremetal" or "vm"
-	Target        string           `json:"target,omitempty"`
+	Target string `json:"target,omitempty"`
 	// Profile is the scoring profile used for this scan: standard|enterprise|dev|airgap
-	Profile       string           `json:"profile,omitempty"`
+	Profile string `json:"profile,omitempty"`
 	// CollectorSkips records collectors that were skipped due to RBAC or missing APIs.
 	CollectorSkips []CollectorSkip `json:"collectorSkips,omitempty"`
 	// ScanNamespaces restricts the scan to specific namespaces. Empty = all namespaces.
@@ -109,24 +109,25 @@ type BackupDetectedTool struct {
 type BackupPolicy struct {
 	Tool            string   `json:"tool"`
 	Name            string   `json:"name"`
-	PolicyNamespace string   `json:"policyNamespace,omitempty"` // namespace the policy object lives in
+	PolicyNamespace string   `json:"policyNamespace,omitempty"`    // namespace the policy object lives in
 	IncludedNS      []string `json:"includedNamespaces,omitempty"` // empty = all namespaces
 	ExcludedNS      []string `json:"excludedNamespaces,omitempty"`
-	Schedule        string   `json:"schedule,omitempty"`      // cron expression or label e.g. "@daily"
+	Schedule        string   `json:"schedule,omitempty"`     // cron expression or label e.g. "@daily"
 	RetentionTTL    string   `json:"retentionTtl,omitempty"` // e.g. "720h0m0s"
-	RPOHours        int      `json:"rpoHours"`                // estimated RPO in hours; -1 = unknown
+	RPOHours        int      `json:"rpoHours"`               // estimated RPO in hours; -1 = unknown
 	HasOffsite      bool     `json:"hasOffsite"`
 	StorageLocation string   `json:"storageLocation,omitempty"`
 }
 
 // RestoreSimNamespace holds the restore feasibility assessment for one namespace.
 type RestoreSimNamespace struct {
-	Namespace   string   `json:"namespace"`
-	HasCoverage bool     `json:"hasCoverage"`
-	RPOHours    int      `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
-	PVCSizeGB   float64  `json:"pvcSizeGb"`
-	Blockers    []string `json:"blockers,omitempty"`
-	Warnings    []string `json:"warnings,omitempty"`
+	Namespace     string   `json:"namespace"`
+	CoverageKnown bool     `json:"coverageKnown"`
+	HasCoverage   bool     `json:"hasCoverage"`
+	RPOHours      int      `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
+	PVCSizeGB     float64  `json:"pvcSizeGb"`
+	Blockers      []string `json:"blockers,omitempty"`
+	Warnings      []string `json:"warnings,omitempty"`
 }
 
 // RestoreSimResult holds the full restore simulation output.
@@ -141,6 +142,7 @@ type RestoreSimResult struct {
 type BackupInventory struct {
 	Tools               []BackupDetectedTool `json:"tools"`
 	PrimaryTool         string               `json:"primaryTool"` // "none" if nothing found
+	CoverageVerified    bool                 `json:"coverageVerified"`
 	CoveredNamespaces   []string             `json:"coveredNamespaces,omitempty"`
 	UncoveredStatefulNS []string             `json:"uncoveredStatefulNamespaces,omitempty"`
 	Policies            []BackupPolicy       `json:"policies,omitempty"`
@@ -150,8 +152,8 @@ type BackupInventory struct {
 
 // RemediationStep is one prioritized DR remediation action.
 type RemediationStep struct {
-	Priority    int      `json:"priority"`    // 1=critical, 2=recommended, 3=optional
-	Category    string   `json:"category"`    // Storage, Backup, Workload, Network, Config
+	Priority    int      `json:"priority"` // 1=critical, 2=recommended, 3=optional
+	Category    string   `json:"category"` // Storage, Backup, Workload, Network, Config
 	Title       string   `json:"title"`
 	Detail      string   `json:"detail"`
 	Commands    []string `json:"commands,omitempty"`
@@ -161,13 +163,13 @@ type RemediationStep struct {
 
 type Inventory struct {
 	// Core resources (existing)
-	Namespaces   []Namespace             `json:"namespaces"`
-	PVCs         []PersistentVolumeClaim `json:"pvcs"`
-	PVs          []PersistentVolume      `json:"pvs"`
-	Pods         []Pod                   `json:"pods"`
-	StatefulSets []StatefulSet           `json:"statefulSets"`
-	Nodes        []Node                  `json:"nodes"`
-	StorageClasses []StorageClass        `json:"storageClasses"`
+	Namespaces     []Namespace             `json:"namespaces"`
+	PVCs           []PersistentVolumeClaim `json:"pvcs"`
+	PVs            []PersistentVolume      `json:"pvs"`
+	Pods           []Pod                   `json:"pods"`
+	StatefulSets   []StatefulSet           `json:"statefulSets"`
+	Nodes          []Node                  `json:"nodes"`
+	StorageClasses []StorageClass          `json:"storageClasses"`
 
 	// Workload resources
 	Deployments []Deployment `json:"deployments,omitempty"`
@@ -176,24 +178,24 @@ type Inventory struct {
 	CronJobs    []CronJob    `json:"cronJobs,omitempty"`
 
 	// Network resources
-	Services       []Service       `json:"services,omitempty"`
-	Ingresses      []Ingress       `json:"ingresses,omitempty"`
+	Services        []Service       `json:"services,omitempty"`
+	Ingresses       []Ingress       `json:"ingresses,omitempty"`
 	NetworkPolicies []NetworkPolicy `json:"networkPolicies,omitempty"`
 
 	// Config resources
-	ConfigMaps     []ConfigMap          `json:"configMaps,omitempty"`
-	Secrets        []Secret             `json:"secrets,omitempty"`
-	ClusterRoles   []ClusterRole        `json:"clusterRoles,omitempty"`
-	ClusterRoleBindings []ClusterRoleBinding `json:"clusterRoleBindings,omitempty"`
-	ResourceQuotas []ResourceQuota      `json:"resourceQuotas,omitempty"`
-	HPAs           []HPA                `json:"hpas,omitempty"`
+	ConfigMaps           []ConfigMap           `json:"configMaps,omitempty"`
+	Secrets              []Secret              `json:"secrets,omitempty"`
+	ClusterRoles         []ClusterRole         `json:"clusterRoles,omitempty"`
+	ClusterRoleBindings  []ClusterRoleBinding  `json:"clusterRoleBindings,omitempty"`
+	ResourceQuotas       []ResourceQuota       `json:"resourceQuotas,omitempty"`
+	HPAs                 []HPA                 `json:"hpas,omitempty"`
 	PodDisruptionBudgets []PodDisruptionBudget `json:"podDisruptionBudgets,omitempty"`
 
 	// Extended inventory
-	CRDs         []CRD           `json:"crds,omitempty"`
-	HelmReleases []HelmRelease   `json:"helmReleases,omitempty"`
+	CRDs         []CRD            `json:"crds,omitempty"`
+	HelmReleases []HelmRelease    `json:"helmReleases,omitempty"`
 	Images       []ContainerImage `json:"images,omitempty"`
-	Certificates []Certificate   `json:"certificates,omitempty"`
+	Certificates []Certificate    `json:"certificates,omitempty"`
 
 	// Round 13 — volume snapshot coverage
 	VolumeSnapshotClasses []VolumeSnapshotClass `json:"volumeSnapshotClasses,omitempty"`
@@ -242,14 +244,14 @@ func NewBundle(scanID string, started time.Time) Bundle {
 			Mode:      "auto",
 		},
 		Inventory: Inventory{
-			Namespaces:   []Namespace{},
-			PVCs:         []PersistentVolumeClaim{},
-			PVs:          []PersistentVolume{},
-			Pods:         []Pod{},
-			StatefulSets: []StatefulSet{},
-			Nodes:        []Node{},
+			Namespaces:     []Namespace{},
+			PVCs:           []PersistentVolumeClaim{},
+			PVs:            []PersistentVolume{},
+			Pods:           []Pod{},
+			StatefulSets:   []StatefulSet{},
+			Nodes:          []Node{},
 			StorageClasses: []StorageClass{},
-			Findings:     []Finding{},
+			Findings:       []Finding{},
 			Backup: BackupInventory{
 				PrimaryTool: "none",
 				Tools:       []BackupDetectedTool{},

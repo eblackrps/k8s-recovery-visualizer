@@ -16,25 +16,26 @@ const (
 
 // Penalty constants — named for readability and auditing.
 const (
-	penPVCUnbound          = 25
-	penPVCNoStorageClass   = 10
-	penPVHostPath          = 30
-	penPVDeletePolicy      = 15
-	penPVOrphan            = 5
-	penSTSNoPVC            = 15
-	penBackupNone          = 60
-	penBackupNoPolicies    = 30
-	penBackupPartial       = 20
-	penBackupNoOffsite     = 15
-	penBackupRPOHigh       = 10 // worst-case RPO > 24 h
-	penRestoreSimUncovered = 20 // namespaces with stateful workloads not covered by any policy
-	penCRDNoBackup         = 10
-	penCertExpiring        = 10
-	penImageExternal       = 5
-	penHelmUntracked       = 5
-	penRBACWildcard        = 20 // custom ClusterRole with wildcard verb
-	penRBACEscalate        = 10 // custom ClusterRole with escalate/bind/impersonate
-	penRBACSecrets         = 10 // custom ClusterRole with broad secrets read
+	penPVCUnbound            = 25
+	penPVCNoStorageClass     = 10
+	penPVHostPath            = 30
+	penPVDeletePolicy        = 15
+	penPVOrphan              = 5
+	penSTSNoPVC              = 15
+	penBackupNone            = 60
+	penBackupCoverageUnknown = 20
+	penBackupNoPolicies      = 30
+	penBackupPartial         = 20
+	penBackupNoOffsite       = 15
+	penBackupRPOHigh         = 10 // worst-case RPO > 24 h
+	penRestoreSimUncovered   = 20 // namespaces with stateful workloads not covered by any policy
+	penCRDNoBackup           = 10
+	penCertExpiring          = 10
+	penImageExternal         = 5
+	penHelmUntracked         = 5
+	penRBACWildcard          = 20 // custom ClusterRole with wildcard verb
+	penRBACEscalate          = 10 // custom ClusterRole with escalate/bind/impersonate
+	penRBACSecrets           = 10 // custom ClusterRole with broad secrets read
 
 	// Round 11 — resource governance (Workload domain)
 	penNoRequests = 15 // pods without CPU+memory requests
@@ -214,6 +215,11 @@ func Evaluate(b *model.Bundle) {
 		addFinding(b, "BACKUP_NONE", "CRITICAL", "cluster",
 			"No backup tool detected in cluster",
 			"Install a backup solution (Kasten K10, Velero, Rubrik, Longhorn) before DR onboarding")
+	} else if !inv.CoverageVerified {
+		backup -= penBackupCoverageUnknown
+		addFinding(b, "BACKUP_COVERAGE_UNVERIFIED", "HIGH", inv.PrimaryTool,
+			"Backup tool detected, but policy coverage could not be verified by this scanner",
+			"Treat backup coverage as unknown until schedules and namespace scope are verified manually, or add native policy inspection support for this backup product")
 	} else {
 		// Tool present — check for coverage gaps
 		if len(inv.UncoveredStatefulNS) > 0 {
@@ -229,37 +235,36 @@ func Evaluate(b *model.Bundle) {
 				"Backup tool detected but no backup policies or schedules found",
 				"Create backup schedules covering all production namespaces")
 		}
-	}
-
-	// Offsite backup check — tool present but no offsite/export policy found.
-	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.HasOffsite {
-		backup -= penScale(penBackupNoOffsite, wRepl)
-		addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", inv.PrimaryTool,
-			"Backup tool detected but no offsite/export location configured",
-			"Configure an offsite or cloud export target to protect against site-level failures")
-	}
-
-	// RPO check — flag when worst-case RPO exceeds 24 hours.
-	worstRPO := 0
-	for _, p := range inv.Policies {
-		if p.RPOHours > worstRPO {
-			worstRPO = p.RPOHours
+		// Offsite backup check — tool present but no offsite/export policy found.
+		if !inv.HasOffsite {
+			backup -= penScale(penBackupNoOffsite, wRepl)
+			addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", inv.PrimaryTool,
+				"Backup tool detected but no offsite/export location configured",
+				"Configure an offsite or cloud export target to protect against site-level failures")
 		}
-	}
-	if inv.PrimaryTool != "none" && len(inv.Policies) > 0 && worstRPO > 24 {
-		backup -= penBackupRPOHigh
-		addFinding(b, "BACKUP_RPO_HIGH", "MEDIUM", inv.PrimaryTool,
-			"Backup schedule results in RPO exposure greater than 24 hours",
-			"Increase backup frequency to reduce potential data loss window")
-	}
 
-	// Restore simulation — penalise when stateful namespaces have no coverage.
-	if sim := b.Inventory.Backup.RestoreSim; sim != nil && len(sim.UncoveredNS) > 0 {
-		backup -= penScale(penRestoreSimUncovered, wRestore)
-		addFinding(b, "RESTORE_SIM_UNCOVERED", "HIGH",
-			"namespaces:"+joinFirst(sim.UncoveredNS, 3),
-			"Restore simulation: stateful namespaces have no backup policy coverage",
-			"Add backup policies covering all namespaces with PVCs or StatefulSets")
+		// RPO check — flag when worst-case RPO exceeds 24 hours.
+		worstRPO := 0
+		for _, p := range inv.Policies {
+			if p.RPOHours > worstRPO {
+				worstRPO = p.RPOHours
+			}
+		}
+		if len(inv.Policies) > 0 && worstRPO > 24 {
+			backup -= penBackupRPOHigh
+			addFinding(b, "BACKUP_RPO_HIGH", "MEDIUM", inv.PrimaryTool,
+				"Backup schedule results in RPO exposure greater than 24 hours",
+				"Increase backup frequency to reduce potential data loss window")
+		}
+
+		// Restore simulation — penalise when stateful namespaces have no coverage.
+		if sim := b.Inventory.Backup.RestoreSim; sim != nil && len(sim.UncoveredNS) > 0 {
+			backup -= penScale(penRestoreSimUncovered, wRestore)
+			addFinding(b, "RESTORE_SIM_UNCOVERED", "HIGH",
+				"namespaces:"+joinFirst(sim.UncoveredNS, 3),
+				"Restore simulation: stateful namespaces have no backup policy coverage",
+				"Add backup policies covering all namespaces with PVCs or StatefulSets")
+		}
 	}
 
 	// CRDs present with no backup = extra risk

@@ -1117,6 +1117,9 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`<div class="card"><h2>Backup Policies / Schedules</h2>`)
 	if backupInv.PrimaryTool == "none" || backupInv.PrimaryTool == "" {
 		w(`<div class="empty">No backup tool detected — no policies to display.</div>`)
+	} else if !backupInv.CoverageVerified {
+		wf(`<div class="empty" style="color:#f2cc60">%s detected, but policy coverage could not be verified by this scanner. Treat backup scope as unknown until you inspect schedules and namespace coverage directly in the backup tool.</div>`,
+			e(backupInv.PrimaryTool))
 	} else if len(backupInv.Policies) == 0 {
 		wf(`<div class="empty" style="color:#ffa657">%s detected but no policies or schedules found. Create backup schedules to establish coverage.</div>`,
 			e(backupInv.PrimaryTool))
@@ -1161,26 +1164,41 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	} else if len(sim.Namespaces) == 0 {
 		w(`<div class="empty" style="color:#7ee787">No stateful namespaces found — nothing to simulate.</div>`)
 	} else {
+		unknownCount := 0
+		for _, ns := range sim.Namespaces {
+			if !ns.CoverageKnown {
+				unknownCount++
+			}
+		}
 		covPct := 0.0
 		if sim.TotalPVCsGB > 0 {
 			covPct = sim.CoveredPVCsGB / sim.TotalPVCsGB * 100
 		}
+		coverageVolumeText := fmt.Sprintf("%.0f%%", covPct)
+		coverageCountLabel := "Uncovered"
+		coverageCount := len(sim.UncoveredNS)
+		coverageCountColor := "#7ee787"
+		if coverageCount > 0 {
+			coverageCountColor = "#f85149"
+		}
+		if unknownCount > 0 {
+			coverageVolumeText = "unknown"
+			coverageCountLabel = "Unverified"
+			coverageCount = unknownCount
+			coverageCountColor = "#f2cc60"
+		}
 		wf(`<div class="grid" style="margin-bottom:12px">
 <div class="sbox"><div class="v">%d</div><div class="l">Namespaces</div></div>
-<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Uncovered</div></div>
+<div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">%s</div></div>
 <div class="sbox"><div class="v">%.1f GB</div><div class="l">Total PVC Data</div></div>
-<div class="sbox"><div class="v">%.0f%%</div><div class="l">Coverage by Volume</div></div>
+<div class="sbox"><div class="v">%s</div><div class="l">Coverage by Volume</div></div>
 </div>`,
 			len(sim.Namespaces),
-			func() string {
-				if len(sim.UncoveredNS) > 0 {
-					return "#f85149"
-				}
-				return "#7ee787"
-			}(),
-			len(sim.UncoveredNS),
+			coverageCountColor,
+			coverageCount,
+			coverageCountLabel,
 			sim.TotalPVCsGB,
-			covPct)
+			coverageVolumeText)
 		w(`<table id="t-sim"><thead><tr>`)
 		for _, h := range []string{"Namespace", "Coverage", "RPO (h)", "PVC Data (GB)", "Blockers", "Warnings"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -1188,7 +1206,9 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`</tr></thead><tbody>`)
 		for _, ns := range sim.Namespaces {
 			covCell := `<span class="chip f">none</span>`
-			if ns.HasCoverage {
+			if !ns.CoverageKnown {
+				covCell = `<span class="chip w">unverified</span>`
+			} else if ns.HasCoverage {
 				covCell = `<span class="chip p">covered</span>`
 			}
 			rpoCell := `<span style="color:#8b949e">unknown</span>`
@@ -1221,10 +1241,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`<div class="empty">etcd backup detection not run (dry-run mode or collector skipped).</div>`)
 	} else if eb.Detected {
 		sourceLabel := map[string]string{
-			"provider-managed":   "Provider-managed",
-			"cronjob":            "CronJob",
-			"configmap":          "ConfigMap",
-			"velero-cluster":     "Velero cluster-scoped backup",
+			"provider-managed": "Provider-managed",
+			"cronjob":          "CronJob",
+			"configmap":        "ConfigMap",
+			"velero-cluster":   "Velero cluster-scoped backup",
 		}[eb.Source]
 		if sourceLabel == "" {
 			sourceLabel = eb.Source
