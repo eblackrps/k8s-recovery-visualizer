@@ -31,10 +31,10 @@ jobs:
       - name: go test ./...
         run: go test ./...
 
-      - name: Regression tests -- backup coverage trust behavior
+      - name: Regression tests -- backup coverage trust behavior and rendered artifacts
         run: >
-          go test ./internal/backup ./internal/restore ./internal/analyze ./internal/output
-          -run "TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified"
+          go test ./cmd/scan ./internal/backup ./internal/restore ./internal/analyze ./internal/output
+          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified"
 
       # ── 4. Cross-compile release binaries with explicit GOOS/GOARCH ─────
       #     This is the key regression guard: a bare 'go build' with GOOS set
