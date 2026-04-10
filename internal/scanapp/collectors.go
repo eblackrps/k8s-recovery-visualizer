@@ -17,8 +17,8 @@ type collectorStep struct {
 	Run      func() error
 }
 
-func runCollectors(ctx context.Context, cs *kubernetes.Clientset, dc dynamic.Interface, bundle *model.Bundle) error {
-	for _, step := range buildCollectorPipeline(ctx, cs, dc, bundle) {
+func runCollectors(ctx context.Context, cs *kubernetes.Clientset, dc dynamic.Interface, bundle *model.Bundle, opts Options) error {
+	for _, step := range buildCollectorPipeline(ctx, cs, dc, bundle, opts) {
 		if err := step.Run(); err != nil {
 			if step.Required {
 				return err
@@ -29,8 +29,8 @@ func runCollectors(ctx context.Context, cs *kubernetes.Clientset, dc dynamic.Int
 	return nil
 }
 
-func buildCollectorPipeline(ctx context.Context, cs *kubernetes.Clientset, dc dynamic.Interface, bundle *model.Bundle) []collectorStep {
-	return []collectorStep{
+func buildCollectorPipeline(ctx context.Context, cs *kubernetes.Clientset, dc dynamic.Interface, bundle *model.Bundle, opts Options) []collectorStep {
+	steps := []collectorStep{
 		{Name: "Namespaces", Required: true, Run: func() error { return collect.Namespaces(ctx, cs, bundle) }},
 		{Name: "Nodes", Required: true, Run: func() error { return collect.Nodes(ctx, cs, bundle) }},
 		{Name: "Pods", Required: true, Run: func() error { return collect.Pods(ctx, cs, bundle) }},
@@ -49,7 +49,6 @@ func buildCollectorPipeline(ctx context.Context, cs *kubernetes.Clientset, dc dy
 		{Name: "NetworkPolicies", Run: func() error { return collect.NetworkPolicies(ctx, cs, bundle) }},
 
 		{Name: "ConfigMaps", Run: func() error { return collect.ConfigMaps(ctx, cs, bundle) }},
-		{Name: "Secrets", Run: func() error { return collect.Secrets(ctx, cs, bundle) }},
 		{Name: "ClusterRoles", Run: func() error { return collect.ClusterRoles(ctx, cs, bundle) }},
 		{Name: "ClusterRoleBindings", Run: func() error { return collect.ClusterRoleBindings(ctx, cs, bundle) }},
 		{Name: "HPAs", Run: func() error { return collect.HPAs(ctx, cs, bundle) }},
@@ -69,6 +68,11 @@ func buildCollectorPipeline(ctx context.Context, cs *kubernetes.Clientset, dc dy
 		{Name: "EtcdBackup", Run: func() error { return collect.EtcdBackup(ctx, cs, bundle) }},
 		{Name: "ServiceAccounts", Run: func() error { return collect.ServiceAccounts(ctx, cs, bundle) }},
 	}
+
+	if opts.IncludeSecretMetadata {
+		steps = append(steps, collectorStep{Name: "Secrets", Run: func() error { return collect.Secrets(ctx, cs, bundle) }})
+	}
+	return steps
 }
 
 func recordCollectorSkip(name string, err error, bundle *model.Bundle) {

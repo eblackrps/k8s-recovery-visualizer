@@ -16,7 +16,6 @@ rules:
       - persistentvolumeclaims
       - services
       - configmaps
-      - secrets
       - resourcequotas
       - limitranges
       - serviceaccounts

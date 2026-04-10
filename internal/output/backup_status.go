@@ -1,6 +1,10 @@
 package output
 
-import "k8s-recovery-visualizer/internal/model"
+import (
+	"strings"
+
+	"k8s-recovery-visualizer/internal/model"
+)
 
 func backupCoverageStatusText(inv model.BackupInventory) string {
 	switch inv.CoverageStatus {
@@ -65,10 +69,10 @@ func backupAssuranceConclusionText(assurance *model.BackupAssurance) string {
 		return "not assessed"
 	}
 	switch assurance.Conclusion {
-	case model.BackupAssuranceConfirmedRecoverable:
-		return "confirmed recoverable"
-	case model.BackupAssuranceInferredRecoverable:
-		return "inferred recoverable"
+	case model.BackupAssuranceEvidenceConfirmed:
+		return "evidence confirmed"
+	case model.BackupAssuranceEvidenceInferred:
+		return "evidence inferred"
 	case model.BackupAssuranceCoverageGap:
 		return "coverage gap"
 	case model.BackupAssuranceUnverified:
@@ -85,9 +89,9 @@ func backupAssuranceColor(assurance *model.BackupAssurance) string {
 		return "#8b949e"
 	}
 	switch assurance.Conclusion {
-	case model.BackupAssuranceConfirmedRecoverable:
+	case model.BackupAssuranceEvidenceConfirmed:
 		return "#7ee787"
-	case model.BackupAssuranceInferredRecoverable:
+	case model.BackupAssuranceEvidenceInferred:
 		return "#f2cc60"
 	case model.BackupAssuranceCoverageGap, model.BackupAssuranceUnverified:
 		return "#ffa657"
@@ -95,5 +99,18 @@ func backupAssuranceColor(assurance *model.BackupAssurance) string {
 		return "#f85149"
 	default:
 		return "#8b949e"
+	}
+}
+
+func backupOffsiteDetailText(inv model.BackupInventory) string {
+	switch {
+	case len(inv.OffsiteMissingNS) > 0:
+		return "missing for namespaces: " + strings.Join(inv.OffsiteMissingNS, ", ")
+	case inv.HasOffsite:
+		return "all covered namespaces have offsite evidence"
+	case inv.PrimaryTool == "" || inv.PrimaryTool == "none":
+		return "not applicable"
+	default:
+		return "no offsite evidence"
 	}
 }

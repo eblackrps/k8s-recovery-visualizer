@@ -133,6 +133,9 @@ func TestApplyInspectionResultsPrefersVerifiedCoverageSource(t *testing.T) {
 	if len(inv.CoverageSourceTools) != 1 || inv.CoverageSourceTools[0] != "longhorn" {
 		t.Fatalf("CoverageSourceTools = %v, want [longhorn]", inv.CoverageSourceTools)
 	}
+	if !inv.HasOffsite {
+		t.Fatal("HasOffsite = false, want true when all covered namespaces have offsite evidence")
+	}
 }
 
 func TestApplyInspectionResultsSurfacesPermissionDeniedReason(t *testing.T) {
@@ -165,5 +168,47 @@ func TestApplyInspectionResultsSurfacesPermissionDeniedReason(t *testing.T) {
 	}
 	if inv.CoverageVerified {
 		t.Fatal("CoverageVerified = true, want false")
+	}
+}
+
+func TestApplyInspectionResultsRequiresOffsiteForEveryCoveredNamespace(t *testing.T) {
+	b := model.Bundle{
+		Inventory: model.Inventory{
+			Namespaces: []model.Namespace{
+				{Name: "prod"},
+				{Name: "staging"},
+			},
+		},
+	}
+	inv := model.BackupInventory{
+		PrimaryTool: "none",
+		Tools: []model.BackupDetectedTool{
+			{Name: "velero", Detected: true},
+		},
+	}
+
+	applyInspectionResults(&b, &inv, []rankedInspection{
+		{
+			index: 0,
+			result: inspectionResult{
+				Tool:   "velero",
+				Status: model.BackupCoverageStatusVerified,
+				Reason: "Parsed 2 velero schedules.",
+				Policies: []model.BackupPolicy{
+					{Tool: "velero", Name: "prod-offsite", IncludedNS: []string{"prod"}, HasOffsite: true},
+					{Tool: "velero", Name: "staging-local", IncludedNS: []string{"staging"}, HasOffsite: false},
+				},
+			},
+		},
+	})
+
+	if inv.HasOffsite {
+		t.Fatal("HasOffsite = true, want false when any covered namespace lacks offsite coverage")
+	}
+	if len(inv.OffsiteCoveredNS) != 1 || inv.OffsiteCoveredNS[0] != "prod" {
+		t.Fatalf("OffsiteCoveredNS = %v, want [prod]", inv.OffsiteCoveredNS)
+	}
+	if len(inv.OffsiteMissingNS) != 1 || inv.OffsiteMissingNS[0] != "staging" {
+		t.Fatalf("OffsiteMissingNS = %v, want [staging]", inv.OffsiteMissingNS)
 	}
 }

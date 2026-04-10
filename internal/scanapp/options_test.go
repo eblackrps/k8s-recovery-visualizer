@@ -25,3 +25,14 @@ func TestParseArgsRejectsUnknownTarget(t *testing.T) {
 		t.Fatal("ParseArgs() error = nil, want invalid target error")
 	}
 }
+
+func TestParseArgsEnablesSecretMetadataCollection(t *testing.T) {
+	var stderr bytes.Buffer
+	opts, err := ParseArgs([]string{"--include-secret-metadata"}, &stderr)
+	if err != nil {
+		t.Fatalf("ParseArgs() error = %v", err)
+	}
+	if !opts.IncludeSecretMetadata {
+		t.Fatal("IncludeSecretMetadata = false, want true")
+	}
+}

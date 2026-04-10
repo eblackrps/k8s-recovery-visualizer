@@ -28,6 +28,7 @@ type Options struct {
 	ProfileName string
 	Runbook     bool
 	Insecure    bool
+	IncludeSecretMetadata bool
 }
 
 func ParseArgs(args []string, stderr io.Writer) (Options, error) {
@@ -59,6 +60,7 @@ func ParseArgs(args []string, stderr io.Writer) (Options, error) {
 	fs.StringVar(&opts.ProfileName, "profile", "standard", "Scoring profile: standard|enterprise|dev|airgap")
 	fs.BoolVar(&opts.Runbook, "runbook", false, "Also write a customer-facing DR runbook HTML")
 	fs.BoolVar(&opts.Insecure, "insecure", false, "Skip TLS certificate verification (use for self-signed certs, e.g. RKE2/k3s)")
+	fs.BoolVar(&opts.IncludeSecretMetadata, "include-secret-metadata", false, "Collect Secret type/key-count metadata. Requires Secret read permissions and is off by default.")
 
 	if err := fs.Parse(args); err != nil {
 		return Options{}, err

@@ -47,9 +47,17 @@ What to do:
 Validate emitted JSON against the published contracts:
 
 ```bash
-go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./out/recovery-scan.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/recovery-scan.json
 go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
 ```
+
+## Secret metadata was not collected
+
+This is expected unless you explicitly enable it.
+
+- The default RBAC manifests do not grant Secret reads.
+- `inventory.secrets` is only populated when you run with `--include-secret-metadata`.
+- If you enable that flag, you must extend RBAC yourself and accept that Kubernetes Secret reads expose full Secret objects to the scanner.
 
 ## Namespace-scoped scan skips collectors
 

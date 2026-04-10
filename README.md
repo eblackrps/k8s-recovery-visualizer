@@ -42,11 +42,13 @@ Assurance conclusions:
 
 | Conclusion | Meaning |
 | --- | --- |
-| `confirmed_recoverable` | Coverage, offsite posture, and restore prerequisites all look good. |
-| `inferred_recoverable` | Coverage looks acceptable but recent success evidence is incomplete. |
+| `evidence_confirmed` | Verified coverage, offsite posture, and restore prerequisites look strong for the currently covered scope. |
+| `evidence_inferred` | Verified coverage exists, but recent success evidence is incomplete. |
 | `coverage_gap` | A real recoverability gap or blocker was found. |
 | `unverified` | Tooling exists but the scanner cannot verify scope safely. |
 | `at_risk` | No usable backup evidence was found. |
+
+`hasOffsite=true` now means every verified covered namespace has offsite or secondary-copy evidence. Partial offsite coverage is surfaced explicitly through `offsiteCoveredNamespaces`, `offsiteMissingNamespaces`, findings, and report text.
 
 ## Scoring model
 
@@ -167,16 +169,19 @@ Published manifests:
 
 RBAC guidance and degraded-mode behavior: [`docs/RBAC.md`](docs/RBAC.md)
 
+Secret metadata collection is opt-in. The default manifests intentionally do not grant Secret read access. If you want `inventory.secrets`, run with `--include-secret-metadata` and explicitly extend RBAC after accepting that Kubernetes Secret reads expose full Secret objects to the scanner.
+
 ## JSON contracts
 
 Current published schemas:
 
-- Scan bundle: [`schemas/recovery-scan-2.2.0.schema.json`](schemas/recovery-scan-2.2.0.schema.json)
+- Scan bundle: [`schemas/recovery-scan-3.0.0.schema.json`](schemas/recovery-scan-3.0.0.schema.json)
 - Enriched bundle: [`schemas/recovery-enriched-1.1.0.schema.json`](schemas/recovery-enriched-1.1.0.schema.json)
 
 Committed examples:
 
-- [`schemas/examples/recovery-scan-2.2.0.sample.json`](schemas/examples/recovery-scan-2.2.0.sample.json)
+- [`schemas/examples/recovery-scan-3.0.0.sample.json`](schemas/examples/recovery-scan-3.0.0.sample.json)
+- [`schemas/examples/recovery-scan-3.0.0.unverified.sample.json`](schemas/examples/recovery-scan-3.0.0.unverified.sample.json)
 - [`schemas/examples/recovery-enriched-1.1.0.sample.json`](schemas/examples/recovery-enriched-1.1.0.sample.json)
 
 Compatibility policy:

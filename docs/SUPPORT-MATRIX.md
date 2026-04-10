@@ -26,8 +26,8 @@ This project is conservative about support claims. The matrix below describes co
 
 | Scan mode | Strengths | Limitations |
 | --- | --- | --- |
-| Cluster-wide | Full scoring model, backup inspection, cluster RBAC audit | Needs broad read-only access |
-| Namespace-scoped | Least-privilege application assessment | Some cluster-wide findings and backup evidence become degraded or skipped |
+| Cluster-wide | Full default scoring model, backup inspection, cluster RBAC audit | Needs broad read-only access, but default manifests intentionally exclude Secret reads |
+| Namespace-scoped | Smallest supported application assessment | Some cluster-wide findings and backup evidence become degraded or skipped |
 
 ## Explicit non-claims
 

@@ -19,7 +19,7 @@
 4. Simulate restore and assurance
    Builds namespace-level restore assessments from verified backup coverage, PVC volume, and restore blockers.
    If backup coverage is not verified, restore coverage is reported as unknown instead of guessed.
-   `internal/backup/assurance.go` turns policy inspection, recent-success evidence, offsite state, snapshot readiness, and restore blockers into a conservative assurance conclusion.
+   `internal/backup/assurance.go` turns policy inspection, recent-success evidence, per-namespace offsite state, snapshot readiness, and restore blockers into a conservative assurance conclusion.
 
 5. Score and remediate
    Applies weighted DR scoring in `internal/analyze`.
@@ -39,7 +39,7 @@
 
 ## Key contracts
 
-- `recovery-scan.json` schema: [`../schemas/recovery-scan-2.2.0.schema.json`](../schemas/recovery-scan-2.2.0.schema.json)
+- `recovery-scan.json` schema: [`../schemas/recovery-scan-3.0.0.schema.json`](../schemas/recovery-scan-3.0.0.schema.json)
 - `recovery-enriched.json` schema: [`../schemas/recovery-enriched-1.1.0.schema.json`](../schemas/recovery-enriched-1.1.0.schema.json)
 
 ## Design choices

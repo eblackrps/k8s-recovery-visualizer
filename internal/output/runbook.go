@@ -238,6 +238,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 <tr><th>Backup Assurance</th><td>%s</td></tr>
 <tr><th>Assurance Summary</th><td>%s</td></tr>
 <tr><th>Offsite / Export Configured</th><td>%s</td></tr>
+<tr><th>Offsite Detail</th><td>%s</td></tr>
 <tr><th>Policies / Schedules Found</th><td>%d</td></tr>
 <tr><th>Covered Namespaces</th><td>%s</td></tr>
 <tr><th>Uncovered Stateful Namespaces</th><td class="%s">%s</td></tr>
@@ -262,6 +263,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 			return inv.Assurance.Summary
 		}()),
 		offsiteStr,
+		e(backupOffsiteDetailText(inv)),
 		len(inv.Policies),
 		func() string {
 			if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {

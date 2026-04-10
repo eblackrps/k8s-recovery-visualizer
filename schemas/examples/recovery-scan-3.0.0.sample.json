@@ -1,0 +1,182 @@
+{
+  "checks": [
+    {
+      "id": "cluster.nodes.present",
+      "title": "Nodes discovered",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Cluster: No nodes found in inventory. Either node collection is not implemented yet or the scan lacks permissions."
+    },
+    {
+      "id": "cluster.nodes.ready",
+      "title": "Node readiness",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Cluster: No nodes found, cannot assess readiness."
+    },
+    {
+      "id": "storage.classes.default",
+      "title": "Default StorageClass",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Storage: No StorageClasses found, cannot determine default."
+    },
+    {
+      "id": "storage.classes.present",
+      "title": "StorageClasses discovered",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Storage: No StorageClasses found. Either storageclass collection is not implemented yet or dynamic provisioning is not configured."
+    }
+  ],
+  "schemaVersion": "3.0.0",
+  "metadata": {
+    "toolVersion": "1.3.0-dev",
+    "generatedAt": "2026-04-10T23:43:12Z"
+  },
+  "tool": {
+    "name": "k8s-recovery-visualizer",
+    "version": "1.3.0-dev",
+    "buildDate": "2026-04-10"
+  },
+  "scan": {
+    "scanId": "796b5355-ccfe-41a0-bac2-71495ab16332",
+    "startedAt": "2026-04-10T23:43:12.9366205Z",
+    "endedAt": "2026-04-10T23:43:12.9366205Z",
+    "durationSeconds": 0,
+    "mode": "auto"
+  },
+  "cluster": {
+    "apiServer": {},
+    "platform": {
+      "provider": ""
+    }
+  },
+  "inventory": {
+    "namespaces": [
+      {
+        "id": "ns:default",
+        "name": "default"
+      },
+      {
+        "id": "ns:test",
+        "name": "test"
+      }
+    ],
+    "pvcs": [],
+    "pvs": [],
+    "pods": [],
+    "statefulSets": [],
+    "nodes": [],
+    "storageClasses": [],
+    "backup": {
+      "tools": [],
+      "primaryTool": "none",
+      "coverageVerified": false,
+      "coverageStatus": "not_detected",
+      "hasOffsite": false,
+      "restoreSim": {
+        "namespaces": [],
+        "totalPvcsGb": 0,
+        "coveredPvcsGb": 0
+      },
+      "assurance": {
+        "conclusion": "at_risk",
+        "confidence": "confirmed",
+        "summary": "No backup tool was detected, so recoverability is at risk.",
+        "signals": [
+          {
+            "id": "tool-detected",
+            "status": "missing",
+            "confidence": "confirmed",
+            "summary": "No backup tool detected."
+          }
+        ]
+      }
+    },
+    "remediationSteps": [
+      {
+        "priority": 1,
+        "category": "Backup",
+        "title": "Install a backup solution — no backup tool detected",
+        "detail": "Without a backup tool, cluster recovery is not possible. Install Kasten K10, Velero, or Rubrik.",
+        "whyItMatters": "A DR score without any backup platform is mostly theoretical because there is no automated path to reconstruct workload data and cluster objects.",
+        "drImpact": "A site loss, accidental deletion, or storage failure becomes a rebuild exercise instead of a recovery exercise.",
+        "validation": [
+          "Confirm whether any approved backup platform is installed in the cluster or managed externally.",
+          "Verify whether both application data and cluster-scoped configuration are covered."
+        ],
+        "fixSteps": [
+          "Install a supported backup platform.",
+          "Create production backup policies and retention settings.",
+          "Run and record a recovery drill before treating the environment as protected."
+        ],
+        "commands": [
+          "# Kasten K10 install:\nhelm repo add kasten https://charts.kasten.io/\nhelm install k10 kasten/k10 --namespace kasten-io --create-namespace",
+          "# Velero install (example with AWS S3):\nvelero install --provider aws --plugins velero/velero-plugin-for-aws:v1.9.0 \\\n  --bucket \u003cBUCKET\u003e --backup-location-config region=\u003cREGION\u003e \\\n  --secret-file ./credentials-velero"
+        ],
+        "caveats": [
+          "External enterprise backup products can exist without leaving inspectable in-cluster evidence. If that is the case, document them and verify coverage manually."
+        ],
+        "targetNotes": "VM target: Kasten K10 or Velero with cloud storage backend (S3, Azure Blob, GCS) are recommended.",
+        "findingId": "BACKUP_NONE"
+      },
+      {
+        "priority": 1,
+        "category": "Backup",
+        "title": "Install a backup solution — no backup tool detected",
+        "detail": "Without a backup tool, cluster recovery is not possible. Install Kasten K10, Velero, or Rubrik.",
+        "commands": [
+          "# Kasten K10 install:\nhelm repo add kasten https://charts.kasten.io/\nhelm install k10 kasten/k10 --namespace kasten-io --create-namespace",
+          "# Velero install (example with AWS S3):\nvelero install --provider aws --plugins velero/velero-plugin-for-aws:v1.9.0 \\\n  --bucket \u003cBUCKET\u003e --backup-location-config region=\u003cREGION\u003e \\\n  --secret-file ./credentials-velero"
+        ],
+        "targetNotes": "VM target: Kasten K10 or Velero with cloud storage backend (S3, Azure Blob, GCS) are recommended."
+      }
+    ],
+    "findings": [
+      {
+        "id": "BACKUP_NONE",
+        "domain": "backup",
+        "severity": "CRITICAL",
+        "resourceId": "cluster",
+        "message": "No backup tool detected in cluster",
+        "recommendation": "Install a backup solution (Kasten K10, Velero, Rubrik, Longhorn) before DR onboarding",
+        "penalty": 60,
+        "confidence": "confirmed"
+      }
+    ]
+  },
+  "score": {
+    "storage": {
+      "max": 100,
+      "final": 100
+    },
+    "workload": {
+      "max": 100,
+      "final": 100
+    },
+    "config": {
+      "max": 100,
+      "final": 100
+    },
+    "backup": {
+      "max": 100,
+      "final": 40
+    },
+    "overall": {
+      "max": 100,
+      "final": 82
+    },
+    "maturity": "GOLD"
+  },
+  "target": "vm",
+  "profile": "standard"
+}

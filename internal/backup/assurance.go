@@ -1,6 +1,10 @@
 package backup
 
-import "k8s-recovery-visualizer/internal/model"
+import (
+	"strings"
+
+	"k8s-recovery-visualizer/internal/model"
+)
 
 // AssessAssurance derives operator-facing assurance signals from backup policy
 // inspection, restore simulation, snapshot capability, and recent-success
@@ -80,7 +84,11 @@ func AssessAssurance(b *model.Bundle) {
 	if inv.HasOffsite {
 		addSignal("offsite", "confirmed", "An offsite or secondary backup target was detected.", "", model.EvidenceConfidenceConfirmed)
 	} else {
-		addSignal("offsite", "missing", "No offsite or secondary backup target was detected.", "", model.EvidenceConfidenceConfirmed)
+		detail := ""
+		if len(inv.OffsiteMissingNS) > 0 {
+			detail = "Covered namespaces without offsite evidence: " + strings.Join(inv.OffsiteMissingNS, ", ")
+		}
+		addSignal("offsite", "missing", "Offsite or secondary backup evidence is incomplete for the verified coverage set.", detail, model.EvidenceConfidenceConfirmed)
 	}
 
 	if len(b.Inventory.PVCs) == 0 {
@@ -120,19 +128,19 @@ func AssessAssurance(b *model.Bundle) {
 		addSignal("restore-dependencies", "confirmed", "Restore simulation did not find dependency blockers.", "", model.EvidenceConfidenceConfirmed)
 	}
 
-	conclusion := model.BackupAssuranceConfirmedRecoverable
+	conclusion := model.BackupAssuranceEvidenceConfirmed
 	confidence := model.EvidenceConfidenceConfirmed
-	summary := "Backup coverage, offsite protection, and restore prerequisites are all confirmed."
+	summary := "Verified backup evidence is strong for the current coverage scope."
 
 	switch {
 	case len(inv.UncoveredStatefulNS) > 0 || blockerCount > 0 || !inv.HasOffsite || hasStaleRun:
 		conclusion = model.BackupAssuranceCoverageGap
 		confidence = model.EvidenceConfidenceConfirmed
-		summary = "Recoverability has confirmed gaps or blockers that need attention."
+		summary = "Verified backup evidence has gaps or blockers that need attention."
 	case !hasRecentEvidence:
-		conclusion = model.BackupAssuranceInferredRecoverable
+		conclusion = model.BackupAssuranceEvidenceInferred
 		confidence = model.EvidenceConfidenceInferred
-		summary = "Coverage looks recoverable, but recent successful backup evidence could not be confirmed."
+		summary = "Verified backup scope exists, but recent successful backup evidence is incomplete."
 	}
 
 	inv.Assurance = &model.BackupAssurance{

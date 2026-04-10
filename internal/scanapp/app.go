@@ -101,7 +101,7 @@ func runLiveScan(bundle *model.Bundle, opts Options) error {
 	defer cancel()
 	bundle.Cluster.APIServer.Endpoint = restCfg.Host
 
-	if err := runCollectors(ctx, clientset, dc, bundle); err != nil {
+	if err := runCollectors(ctx, clientset, dc, bundle, opts); err != nil {
 		return err
 	}
 

@@ -141,7 +141,8 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 <tr><td>Backup Tool</td><td class="%s">%s</td><td>Recovery Target</td><td>%s</td></tr>
 <tr><td>Backup Coverage</td><td>%s</td><td>Coverage Detail</td><td>%s</td></tr>
 <tr><td>Backup Assurance</td><td>%s</td><td>Assurance Summary</td><td>%s</td></tr>
-<tr><td>Helm Releases</td><td>%d</td><td>Certificates</td><td>%d</td></tr>
+<tr><td>Offsite Detail</td><td>%s</td><td>Helm Releases</td><td>%d</td></tr>
+<tr><td>Certificates</td><td>%d</td><td>Schema Version</td><td>%s</td></tr>
 </tbody></table>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion),
 		len(b.Inventory.Nodes), len(b.Inventory.Namespaces),
@@ -158,7 +159,7 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 			}
 			return b.Inventory.Backup.Assurance.Summary
 		}()),
-		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates))
+		e(backupOffsiteDetailText(b.Inventory.Backup)), len(b.Inventory.HelmReleases), len(b.Inventory.Certificates), e(b.SchemaVersion))
 
 	// Top findings — CRITICAL + HIGH only, max 10
 	var topFindings []model.Finding

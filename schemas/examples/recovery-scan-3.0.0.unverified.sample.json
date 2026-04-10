@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "3.0.0",
+  "metadata": {
+    "toolVersion": "1.3.0-dev",
+    "generatedAt": "2026-04-10T12:00:00Z"
+  },
+  "tool": {
+    "name": "k8s-recovery-visualizer",
+    "version": "1.3.0-dev",
+    "buildDate": "2026-04-10"
+  },
+  "scan": {
+    "scanId": "sample-unverified",
+    "startedAt": "2026-04-10T12:00:00Z",
+    "endedAt": "2026-04-10T12:00:15Z",
+    "durationSeconds": 15,
+    "mode": "auto"
+  },
+  "cluster": {
+    "apiServer": {},
+    "platform": {
+      "provider": ""
+    }
+  },
+  "inventory": {
+    "namespaces": [
+      {
+        "id": "ns:prod",
+        "name": "prod"
+      }
+    ],
+    "pvcs": [],
+    "pvs": [],
+    "pods": [],
+    "statefulSets": [
+      {
+        "namespace": "prod",
+        "name": "db",
+        "replicas": 1,
+        "hasVolumeClaim": true
+      }
+    ],
+    "nodes": [],
+    "storageClasses": [],
+    "backup": {
+      "tools": [
+        {
+          "name": "rubrik",
+          "detected": true,
+          "policyInspectionStatus": "unsupported",
+          "policyInspectionDetail": "rubrik was detected, but this scanner does not yet inspect its policies or schedules."
+        }
+      ],
+      "primaryTool": "rubrik",
+      "coverageVerified": false,
+      "coverageStatus": "unsupported",
+      "coverageReason": "rubrik was detected, but this scanner does not yet inspect its policies or schedules.",
+      "hasOffsite": false,
+      "restoreSim": {
+        "namespaces": [
+          {
+            "namespace": "prod",
+            "coverageKnown": false,
+            "hasCoverage": false,
+            "rpoHours": -1,
+            "pvcSizeGb": 0,
+            "confidence": "unknown"
+          }
+        ],
+        "totalPvcsGb": 0,
+        "coveredPvcsGb": 0
+      },
+      "assurance": {
+        "conclusion": "unverified",
+        "confidence": "confirmed",
+        "summary": "A backup product was detected, but policy coverage could not be verified.",
+        "signals": [
+          {
+            "id": "coverage",
+            "status": "unverified",
+            "confidence": "confirmed",
+            "summary": "Namespace coverage could not be verified from the detected tool.",
+            "detail": "rubrik was detected, but this scanner does not yet inspect its policies or schedules."
+          }
+        ]
+      }
+    },
+    "findings": [
+      {
+        "id": "BACKUP_COVERAGE_UNVERIFIED",
+        "domain": "backup",
+        "severity": "HIGH",
+        "resourceId": "rubrik",
+        "message": "Backup tool detected, but this scanner does not yet inspect its policy coverage",
+        "recommendation": "Treat backup coverage as unknown until schedules and namespace scope are verified manually. rubrik was detected, but this scanner does not yet inspect its policies or schedules.",
+        "penalty": 20,
+        "confidence": "confirmed"
+      }
+    ]
+  },
+  "score": {
+    "storage": {
+      "max": 100,
+      "final": 100
+    },
+    "workload": {
+      "max": 100,
+      "final": 100
+    },
+    "config": {
+      "max": 100,
+      "final": 100
+    },
+    "backup": {
+      "max": 100,
+      "final": 80
+    },
+    "overall": {
+      "max": 100,
+      "final": 94
+    },
+    "maturity": "PLATINUM"
+  },
+  "target": "vm",
+  "profile": "standard"
+}

@@ -1150,6 +1150,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
 			len(backupInv.Policies), offsiteCount, e(strings.Join(backupInv.CoverageSourceTools, ", ")))
+		if len(backupInv.OffsiteMissingNS) > 0 {
+			wf(`<p style="color:#ffa657;font-size:.84em;margin-bottom:8px">Offsite evidence is missing for covered namespaces: %s</p>`,
+				e(strings.Join(backupInv.OffsiteMissingNS, ", ")))
+		}
 		w(`<table id="t-policies"><thead><tr>`)
 		for _, h := range []string{"Tool", "Name", "Namespaces", "Schedule", "RPO (h)", "Last Success", "Evidence", "Offsite", "Retention"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))

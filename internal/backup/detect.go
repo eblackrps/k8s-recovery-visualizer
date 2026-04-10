@@ -470,6 +470,34 @@ func uncoveredStatefulNamespacesFromPolicies(b *model.Bundle, policies []model.B
 	return uncovered
 }
 
+func offsiteCoverageFromPolicies(policies []model.BackupPolicy, coveredNamespaces []string) ([]string, []string) {
+	if len(coveredNamespaces) == 0 {
+		return nil, nil
+	}
+	offsiteSet := map[string]struct{}{}
+	for _, p := range policies {
+		if !p.HasOffsite {
+			continue
+		}
+		for _, ns := range coveredNamespaces {
+			if policyCoversNamespace(p, ns) {
+				offsiteSet[ns] = struct{}{}
+			}
+		}
+	}
+
+	var covered []string
+	var missing []string
+	for _, ns := range coveredNamespaces {
+		if _, ok := offsiteSet[ns]; ok {
+			covered = append(covered, ns)
+			continue
+		}
+		missing = append(missing, ns)
+	}
+	return covered, missing
+}
+
 func policyListCoversNamespace(policies []model.BackupPolicy, ns string) bool {
 	for _, p := range policies {
 		if policyCoversNamespace(p, ns) {
@@ -542,12 +570,8 @@ func applyInspectionResults(b *model.Bundle, inv *model.BackupInventory, detecte
 		}
 		inv.CoveredNamespaces = coveredNamespacesFromPolicies(b, inv.Policies)
 		inv.UncoveredStatefulNS = uncoveredStatefulNamespacesFromPolicies(b, inv.Policies)
-		for _, p := range inv.Policies {
-			if p.HasOffsite {
-				inv.HasOffsite = true
-				break
-			}
-		}
+		inv.OffsiteCoveredNS, inv.OffsiteMissingNS = offsiteCoverageFromPolicies(inv.Policies, inv.CoveredNamespaces)
+		inv.HasOffsite = len(inv.CoveredNamespaces) > 0 && len(inv.OffsiteMissingNS) == 0
 		return
 	}
 

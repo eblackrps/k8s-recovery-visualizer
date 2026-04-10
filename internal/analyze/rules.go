@@ -221,9 +221,9 @@ func Evaluate(b *model.Bundle) {
 		// Offsite backup check — tool present but no offsite/export policy found.
 		if !inv.HasOffsite {
 			backup -= penScale(penBackupNoOffsite, wRepl)
-			addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", inv.PrimaryTool,
-				"Backup tool detected but no offsite/export location configured",
-				"Configure an offsite or cloud export target to protect against site-level failures")
+			addFinding(b, "BACKUP_NO_OFFSITE", "HIGH", backupNoOffsiteResource(inv),
+				backupNoOffsiteMessage(inv),
+				backupNoOffsiteRecommendation(inv))
 		}
 
 		// RPO check — flag when worst-case RPO exceeds 24 hours.
@@ -775,4 +775,25 @@ func namespacesWithRestoreBlockers(sim *model.RestoreSimResult) []string {
 		}
 	}
 	return out
+}
+
+func backupNoOffsiteResource(inv model.BackupInventory) string {
+	if len(inv.OffsiteMissingNS) > 0 {
+		return "namespaces:" + joinFirst(inv.OffsiteMissingNS, 3)
+	}
+	return inv.PrimaryTool
+}
+
+func backupNoOffsiteMessage(inv model.BackupInventory) string {
+	if len(inv.OffsiteMissingNS) > 0 {
+		return "Verified backup coverage includes namespaces without offsite or secondary copy evidence"
+	}
+	return "Backup tool detected but no offsite/export location configured"
+}
+
+func backupNoOffsiteRecommendation(inv model.BackupInventory) string {
+	if len(inv.OffsiteMissingNS) > 0 {
+		return "Extend offsite replication or export so every covered namespace has site-loss protection"
+	}
+	return "Configure an offsite or cloud export target to protect against site-level failures"
 }

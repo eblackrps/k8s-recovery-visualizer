@@ -31,4 +31,5 @@
 | Backup tool detected but not inspectable | `coverageStatus` becomes `unsupported` and assurance becomes `unverified` |
 | Backup API forbidden | `coverageStatus` becomes `permission_denied`; reports call this out explicitly |
 | Collector RBAC failures | Collector skip is recorded in JSON and reports |
-| No recent backup run evidence | Assurance downgrades to `inferred_recoverable` or `coverage_gap` depending on the rest of the evidence |
+| No recent backup run evidence | Assurance downgrades to `evidence_inferred` or `coverage_gap` depending on the rest of the evidence |
+| Offsite evidence exists for only part of verified coverage | `hasOffsite=false`, missing namespaces are listed, and `BACKUP_NO_OFFSITE` stays active |

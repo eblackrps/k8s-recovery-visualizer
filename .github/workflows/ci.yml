@@ -84,15 +84,26 @@ jobs:
           echo "JSON smoke test passed"
 
       - name: Smoke test -- validate recovery-scan schema
-        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input /tmp/smoke/recovery-scan.json
+        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input /tmp/smoke/recovery-scan.json
 
       - name: Smoke test -- validate recovery-enriched schema
         run: go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
 
       - name: Validate committed schema samples
         run: |
-          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./schemas/examples/recovery-scan-2.2.0.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
           go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./schemas/examples/recovery-enriched-1.1.0.sample.json
+
+      - name: Validate committed trust semantics example
+        run: |
+          JSON=./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
+          grep -q '"coverageStatus": "unsupported"' "$JSON" || \
+            { echo "ERROR: committed unverified example must show unsupported coverage"; exit 1; }
+          grep -q '"conclusion": "unverified"' "$JSON" || \
+            { echo "ERROR: committed unverified example must show unverified assurance"; exit 1; }
+          grep -q '"id": "BACKUP_COVERAGE_UNVERIFIED"' "$JSON" || \
+            { echo "ERROR: committed unverified example must include the backup trust finding"; exit 1; }
 
       - name: Smoke test -- evaluate CI gate engine
         run: go run ./cmd/check --current /tmp/smoke/recovery-scan.json --min-score 0 --format json

@@ -66,7 +66,7 @@ test:
 
 .PHONY: schema-validate
 schema-validate:
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-2.2.0.schema.json -input ./out/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/recovery-scan.json
 	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
 
 .PHONY: docker-build

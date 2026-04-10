@@ -110,11 +110,11 @@ const (
 type BackupAssuranceConclusion string
 
 const (
-	BackupAssuranceAtRisk               BackupAssuranceConclusion = "at_risk"
-	BackupAssuranceUnverified           BackupAssuranceConclusion = "unverified"
-	BackupAssuranceCoverageGap          BackupAssuranceConclusion = "coverage_gap"
-	BackupAssuranceInferredRecoverable  BackupAssuranceConclusion = "inferred_recoverable"
-	BackupAssuranceConfirmedRecoverable BackupAssuranceConclusion = "confirmed_recoverable"
+	BackupAssuranceAtRisk            BackupAssuranceConclusion = "at_risk"
+	BackupAssuranceUnverified        BackupAssuranceConclusion = "unverified"
+	BackupAssuranceCoverageGap       BackupAssuranceConclusion = "coverage_gap"
+	BackupAssuranceEvidenceInferred  BackupAssuranceConclusion = "evidence_inferred"
+	BackupAssuranceEvidenceConfirmed BackupAssuranceConclusion = "evidence_confirmed"
 )
 
 type BackupEvidenceSignal struct {
@@ -192,7 +192,9 @@ type BackupInventory struct {
 	CoveredNamespaces   []string             `json:"coveredNamespaces,omitempty"`
 	UncoveredStatefulNS []string             `json:"uncoveredStatefulNamespaces,omitempty"`
 	Policies            []BackupPolicy       `json:"policies,omitempty"`
-	HasOffsite          bool                 `json:"hasOffsite"`
+	HasOffsite          bool                 `json:"hasOffsite"` // true only when all verified covered namespaces have offsite evidence
+	OffsiteCoveredNS    []string             `json:"offsiteCoveredNamespaces,omitempty"`
+	OffsiteMissingNS    []string             `json:"offsiteMissingNamespaces,omitempty"`
 	RestoreSim          *RestoreSimResult    `json:"restoreSim,omitempty"`
 	Assurance           *BackupAssurance     `json:"assurance,omitempty"`
 }
