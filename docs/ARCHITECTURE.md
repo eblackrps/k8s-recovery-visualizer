@@ -1,51 +1,97 @@
 # Architecture
 
-`k8s-recovery-visualizer` now keeps the CLI entrypoint thin by routing the scan workflow through `internal/scanapp`. The process is still a single binary, but the main responsibilities are split into explicit layers with clearer trust boundaries:
+`k8s-recovery-visualizer` is now organized around a shared application core so the CLI and desktop app execute the same scan and artifact pipeline.
+
+## Layers
+
+1. `cmd/scan`
+   The supported CLI entrypoint.
+   It remains intentionally thin and delegates orchestration to `internal/scanapp`.
+
+2. `internal/scanapp`
+   CLI-facing option parsing, validation, profile selection, and result printing.
+   Converts command-line flags into `internal/appcore.ScanRequest`.
+
+3. `internal/appcore`
+   Shared service layer for CLI and desktop.
+   Owns:
+   - scan orchestration
+   - deterministic dry-run fixtures
+   - preflight and RBAC probing
+   - comparison loading
+   - output writing and export refresh
+   - workspace and history loading
+   - typed progress and warning events
+
+4. `desktop/`
+   Wails v2 desktop shell.
+   The Go backend binds typed methods and emits scan events.
+   The React + TypeScript frontend renders the Home, Projects, New Scan, Live Run, Results, and Settings surfaces.
+
+5. `internal/theme`
+   Shared theme tokens used by report generation and desktop bootstrap.
+   This keeps the offline reports and GUI on the same palette, typography, and radius system.
+
+6. `internal/output`
+   HTML, Markdown, CSV, summary, runbook, and redacted artifact writers.
+   `report.go`, `summary.go`, `runbook.go`, and the legacy `html.go` now consume the centralized theme tokens.
+
+7. Analysis and remediation packages
+   - `internal/analyze`
+   - `internal/backup`
+   - `internal/compare`
+   - `internal/enrich`
+   - `internal/history`
+   - `internal/remediation`
+   - `internal/restore`
+
+## Scan Flow
 
 1. Parse options
-   `internal/scanapp/options.go` owns flags and validation.
+   `internal/scanapp/options.go` owns CLI flags and validation.
 
-2. Bootstrap and collect
-   `internal/scanapp/collectors.go` builds the collector pipeline.
-   Reads Kubernetes resources into `internal/model.Bundle`.
-   Required collectors fail the scan.
-   Optional collectors are recorded in `collectorSkips` when RBAC or API access is missing.
+2. Build a shared request
+   `ScanRequest` carries kubeconfig/context, namespace scope, output options, compare path, profile, and dry-run flags.
 
-3. Detect backup tooling
-   Detects installed backup products from namespaces, CRDs, and pods.
-   Supported tools are inspected for policies and schedules.
-   Detection-only tools remain explicitly unverified.
+3. Run preflight
+   `internal/appcore.Preflight` validates kubeconfig loading, API reachability, and key RBAC capabilities using `SelfSubjectAccessReview`.
+   Optional failures are surfaced as degraded mode instead of silent omission.
 
-4. Simulate restore and assurance
-   Builds namespace-level restore assessments from verified backup coverage, PVC volume, and restore blockers.
-   If backup coverage is not verified, restore coverage is reported as unknown instead of guessed.
-   `internal/backup/assurance.go` turns policy inspection, recent-success evidence, per-namespace offsite state, snapshot readiness, and restore blockers into a conservative assurance conclusion.
+4. Collect inventory
+   Live runs use Kubernetes clients directly.
+   Dry runs use deterministic fixtures so screenshots, smoke tests, and frontend previews stay stable.
 
-5. Score and remediate
-   Applies weighted DR scoring in `internal/analyze`.
-   Rule weights, penalties, and built-in profiles are loaded from `internal/scoring/config/`.
-   Generates prioritized remediation steps in `internal/remediation`.
+5. Analyze and compare
+   Restore simulation, backup assurance, scoring, findings, remediation, and bundle comparison are applied to the same `model.Bundle`.
 
 6. Write artifacts
-   `internal/scanapp/artifacts.go` owns JSON, HTML, summary, runbook, redaction, enrichment, and history writing.
-   `recovery-scan.json` is the source-of-truth scan bundle.
-   `recovery-enriched.json` is derived trend/risk metadata.
-   `recovery-report.html`, `recovery-report.md`, `recovery-summary.html`, and `recovery-runbook.html` are presentation outputs.
+   The shared service writes:
+   - `recovery-scan.json`
+   - `recovery-enriched.json`
+   - `recovery-report.html`
+   - `recovery-report.md`
+   - optional summary, runbook, redacted, and CSV artifacts
 
-7. Record history and policy gates
-   Writes historical scan metadata under `out/history/`.
-   The final rendered HTML report is snapshotted into history after the tabbed report is generated.
-   `cmd/check` evaluates deterministic CI gates against current and previous scan bundles.
+7. Record history
+   History snapshots are written under `out/history/` and surfaced in both the report and the desktop history dashboard.
 
-## Key contracts
+## Desktop Data Flow
+
+- The Wails backend binds typed methods such as `RunScan`, `RunPreflight`, `OpenBundle`, `ExportBundle`, and `ListProjects`.
+- Live progress is delivered as structured Wails events instead of shelling out to the CLI.
+- The frontend can also run in deterministic mock mode for fixture-backed testing and screenshot generation.
+
+## Compatibility Contracts
 
 - `recovery-scan.json` schema: [`../schemas/recovery-scan-3.0.0.schema.json`](../schemas/recovery-scan-3.0.0.schema.json)
 - `recovery-enriched.json` schema: [`../schemas/recovery-enriched-1.1.0.schema.json`](../schemas/recovery-enriched-1.1.0.schema.json)
 
-## Design choices
+`v1.4.0` preserves both published schema versions.
 
-- Conservative backup claims: detection does not equal verified coverage.
-- Evidence-backed remediation: finding output now carries operator guidance beyond a one-line recommendation.
-- Offline-friendly reports: HTML output is self-contained and does not need a CDN.
-- Deterministic scoring: the same bundle produces the same score.
-- Additive JSON changes require schema version updates and CI validation.
+## Design Choices
+
+- Conservative backup claims: detection does not equal verified recoverability.
+- Offline-first outputs: reports and desktop bundles do not depend on a CDN.
+- Shared core: the GUI does not shell out to the CLI for normal operation.
+- Deterministic fixtures: screenshot and smoke-test output stays stable across runs.
+- Centralized theme tokens: the desktop app and reports share one backend-defined visual system.

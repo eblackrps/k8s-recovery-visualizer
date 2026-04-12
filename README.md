@@ -1,162 +1,69 @@
 # k8s-recovery-visualizer
 
-`k8s-recovery-visualizer` scans a Kubernetes cluster, scores disaster recovery readiness across weighted domains, and produces operator-friendly artifacts for audits, remediation planning, and CI/CD policy gates.
+[![CI](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/ci.yml)
+[![Release](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/release.yml/badge.svg)](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/release.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](https://github.com/eblackrps/k8s-recovery-visualizer/blob/main/go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/eblackrps/k8s-recovery-visualizer)](https://github.com/eblackrps/k8s-recovery-visualizer/releases)
 
-## Report screenshots
+`k8s-recovery-visualizer` inventories a Kubernetes cluster, scores disaster recovery readiness across weighted domains, and produces offline-friendly artifacts for audits, remediation planning, compare/diff reviews, and CI/CD policy gates.
 
-The generated HTML outputs are self-contained, offline-friendly, and designed for operator review, executive summaries, and customer-facing runbooks.
+`v1.4.0` keeps the supported Go CLI intact while adding a production-oriented Wails desktop app powered by the same shared Go service layer and the same visual language as the generated reports.
 
-Main tabbed report:
+## Screenshot Gallery
 
-![Recovery report overview](images/recovery-report-overview.png)
+Report surfaces:
 
-Executive summary:
+![Report summary](images/report-summary.png)
+![DR score report](images/report-dr-score.png)
+![Sample report](images/sample-report.png)
 
-![Executive summary overview](images/recovery-summary-overview.png)
+Desktop surfaces:
 
-Customer-facing runbook:
+![GUI dashboard](images/gui-dashboard.png)
+![GUI scan wizard](images/gui-scan-wizard.png)
+![GUI live run](images/gui-live-run.png)
+![GUI findings](images/gui-results-findings.png)
+![GUI compare](images/gui-compare.png)
 
-![Runbook overview](images/recovery-runbook-overview.png)
+## What's New In v1.4.0
 
-## What's New (v1.4.5)
+- Added a shared backend service layer in `internal/appcore` so the CLI and GUI execute the same scan, preflight, compare, export, and workspace-loading flow.
+- Added a Wails v2 desktop app in `desktop/` with React + TypeScript screens for Home, Projects, New Scan, Live Run, Results, and Settings.
+- Centralized report and desktop theme tokens in `internal/theme`, preserving the existing report palette and feel.
+- Added a guided scan wizard, RBAC/preflight assistant, live progress events, structured warnings, cancel support, and an open-existing-bundle workflow.
+- Added a results workspace that mirrors the report tabs: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare.
+- Added deterministic frontend fixtures plus automated GUI screenshot generation for release docs.
+- Expanded release readiness with changelog, contributing guide, GUI docs, screenshot docs, release notes guidance, Make targets, and stronger CI/release automation.
 
-- Redesigned the HTML report, summary, and runbook surfaces with a cohesive purple/lavender design system.
-- Added polished hero/metric layouts, modern tables, and structured remediation panels while preserving all report semantics.
-- Updated the README with fresh screenshots of the new report surfaces.
-- Aligned the legacy HTML writer with the new visual system.
-
-The repo now prioritizes trust over optimism:
-
-- backup detection is not treated as verified recoverability
-- scoring is backed by golden rule scenarios instead of blob snapshots
-- JSON output is versioned and schema-validated
-- remediation output explains why a finding matters and how to verify and fix it
-
-## What the tool does
-
-- Inventories workloads, storage, networking, config, images, certificates, Helm metadata, backup evidence, and restore blockers.
-- Produces weighted DR scores across `storage`, `workload`, `config`, and `backup / recovery`.
-- Applies built-in scoring profiles: `standard`, `enterprise`, `dev`, `airgap`.
-- Detects supported backup tools and distinguishes `detected`, `inferred`, `verified`, and `unverified` evidence.
-- Generates:
-  - `recovery-scan.json`
-  - `recovery-enriched.json`
-  - `recovery-report.html`
-  - `recovery-report.md`
-  - optional summary, runbook, CSV, and redacted artifacts
-- Supports compare/trend policy gates for CI/CD.
-
-## Trust model
-
-Backup and restore conclusions are deliberately conservative.
-
-Coverage states:
-
-| Status | Meaning |
-| --- | --- |
-| `verified` | Policies or schedules were parsed and namespace coverage is known. |
-| `unsupported` | A tool was detected but the scanner cannot inspect its policy objects yet. |
-| `permission_denied` | The scanner knows how to inspect the tool but lacked permissions. |
-| `api_error` | Policy inspection hit the API but failed. |
-| `parse_error` | The API responded but the objects could not be parsed safely. |
-| `not_detected` | No backup tool was detected. |
-
-Assurance conclusions:
-
-| Conclusion | Meaning |
-| --- | --- |
-| `evidence_confirmed` | Verified coverage, offsite posture, and restore prerequisites look strong for the currently covered scope. |
-| `evidence_inferred` | Verified coverage exists, but recent success evidence is incomplete. |
-| `coverage_gap` | A real recoverability gap or blocker was found. |
-| `unverified` | Tooling exists but the scanner cannot verify scope safely. |
-| `at_risk` | No usable backup evidence was found. |
-
-`hasOffsite=true` now means every verified covered namespace has offsite or secondary-copy evidence. Partial offsite coverage is surfaced explicitly through `offsiteCoveredNamespaces`, `offsiteMissingNamespaces`, findings, and report text.
-
-## Scoring model
-
-Domain weights are loaded from [`internal/scoring/config/rule-pack.v1.json`](internal/scoring/config/rule-pack.v1.json). Profiles are loaded from [`internal/scoring/config/profiles.v1.json`](internal/scoring/config/profiles.v1.json).
-
-Base weights:
-
-| Domain | Weight |
-| --- | --- |
-| Storage | 35% |
-| Workload | 20% |
-| Config | 15% |
-| Backup / Recovery | 30% |
-
-Built-in profiles:
-
-| Profile | Intent |
-| --- | --- |
-| `standard` | Baseline weighting |
-| `enterprise` | Heavier restore, immutability, replication, and security penalties |
-| `dev` | Slightly relaxed replication / immutability emphasis |
-| `airgap` | Stronger penalties for external image dependency and immutability gaps |
-
-Golden scenario tests live under [`internal/analyze/testdata/golden`](internal/analyze/testdata/golden) and validate exact triggered rules, domain deltas, overall score, maturity, and profile effects.
-
-## Backup capability matrix
-
-| Tool | Detection | Policy inspection | Recent success evidence | Offsite evidence |
-| --- | --- | --- | --- | --- |
-| Velero | Yes | Yes | Yes | Yes |
-| Kasten K10 | Yes | Yes | Partial / inferred | Yes |
-| Longhorn | Yes | Yes | Partial / inferred | Yes |
-| Rubrik | Yes | Detection only | No | No |
-| Trilio | Yes | Detection only | No | No |
-| Stash | Yes | Detection only | No | No |
-| CloudCasa | Yes | Detection only | No | No |
-
-More detail: [`docs/CAPABILITY-MATRIX.md`](docs/CAPABILITY-MATRIX.md)
-
-## Build
+## CLI Quickstart
 
 Prerequisites:
 
-- Go `1.25+`, or a release binary from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases)
-- Kubernetes credentials with the RBAC you intend to use
+- Go `1.25+`
+- Kubernetes credentials for the cluster or namespace scope you want to inspect
 
-Host build:
+Build the CLI:
 
 ```bash
 make build
 ```
 
-Cross-platform release binaries:
+Run a dry-run scan:
 
 ```bash
-make release
+./dist/scan-linux-amd64 --dry-run --summary --runbook --out ./out --min-score 0
 ```
 
-Container image build:
+Run a live cluster-wide scan:
 
 ```bash
-docker build -t k8vis .
+./dist/scan-linux-amd64 --profile enterprise --summary --runbook --out ./out
 ```
 
-## Run
-
-Cluster-wide scan:
+Run a namespace-scoped scan:
 
 ```bash
-./dist/scan-linux-amd64 --out ./out
-./dist/scan-linux-amd64 --profile=enterprise --out ./out
-./dist/scan-linux-amd64 --summary --runbook --redact --out ./out
-```
-
-Namespace-scoped scan:
-
-```bash
-./dist/scan-linux-amd64 --namespace=prod --out ./out
-./dist/scan-linux-amd64 --namespace=prod,staging --out ./out
-```
-
-Dry run:
-
-```bash
-./dist/scan-linux-amd64 --dry-run --out ./out --min-score 0
+./dist/scan-linux-amd64 --namespace payments,frontend --context prod-east-admin --out ./out
 ```
 
 Compare against a previous bundle:
@@ -165,86 +72,112 @@ Compare against a previous bundle:
 ./dist/scan-linux-amd64 --compare ./previous/recovery-scan.json --out ./out
 ```
 
-## Policy gates for CI/CD
+## Desktop Quickstart
 
-Use [`cmd/check`](cmd/check) against current and previous `recovery-scan.json` bundles.
-
-Examples:
+Install frontend dependencies:
 
 ```bash
-go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
-go run ./cmd/check --current ./out/recovery-scan.json --previous ./previous/recovery-scan.json --max-drop 5 --fail-on-new-critical
-go run ./cmd/check --current ./out/recovery-scan.json --previous ./previous/recovery-scan.json --fail-on-offsite-loss --fail-on-uncovered-stateful --fail-on-missing-backup-policies
+make frontend-install
 ```
 
-Legacy enriched-artifact checks still work:
+Run the desktop app in dev mode:
 
 ```bash
-go run ./cmd/check --in ./out/recovery-enriched.json --max-risk MODERATE --max-drop 5
+make dev-gui
 ```
 
-## RBAC
+Build the desktop app for the current host:
 
-Published manifests:
+```bash
+make build-gui
+```
 
-- Cluster-wide scan: [`deploy/rbac/cluster-scan.yaml`](deploy/rbac/cluster-scan.yaml)
-- Namespace-scoped scan: [`deploy/rbac/namespace-scan.yaml`](deploy/rbac/namespace-scan.yaml)
+The desktop app uses the same shared Go backend as the CLI. It does not shell out to `cmd/scan` during normal runs.
 
-RBAC guidance and degraded-mode behavior: [`docs/RBAC.md`](docs/RBAC.md)
+## Desktop Workflow
 
-Secret metadata collection is opt-in. The default manifests intentionally do not grant Secret read access. If you want `inventory.secrets`, run with `--include-secret-metadata` and explicitly extend RBAC after accepting that Kubernetes Secret reads expose full Secret objects to the scanner.
+- `Home / Projects`: recent output bundles discovered from the workspace root.
+- `New Scan`: guided wizard for kubeconfig/context, namespace scope, profile, baseline compare path, output location, redaction, summary/runbook, CSV export, and dry-run.
+- `Live Run`: progress, structured scan events, warning surfacing, and cancel support.
+- `Results`: a tabbed workspace aligned to the offline HTML report model.
+- `Settings`: workspace defaults plus a simple “Open existing bundle” path for inspecting prior scans without live cluster access.
 
-## JSON contracts
+More detail: [docs/GUI.md](docs/GUI.md)
 
-Current published schemas:
+## Generated Outputs
+
+The scan pipeline writes:
+
+- `recovery-scan.json`
+- `recovery-enriched.json`
+- `recovery-report.html`
+- `recovery-report.md`
+- optional summary, runbook, CSV, and redacted artifacts
+
+All HTML outputs remain self-contained and offline-friendly.
+
+## JSON Contracts
+
+Published schemas remain unchanged in `v1.4.0`:
 
 - Scan bundle: [`schemas/recovery-scan-3.0.0.schema.json`](schemas/recovery-scan-3.0.0.schema.json)
 - Enriched bundle: [`schemas/recovery-enriched-1.1.0.schema.json`](schemas/recovery-enriched-1.1.0.schema.json)
 
-Committed examples:
-
-- [`schemas/examples/recovery-scan-3.0.0.sample.json`](schemas/examples/recovery-scan-3.0.0.sample.json)
-- [`schemas/examples/recovery-scan-3.0.0.unverified.sample.json`](schemas/examples/recovery-scan-3.0.0.unverified.sample.json)
-- [`schemas/examples/recovery-enriched-1.1.0.sample.json`](schemas/examples/recovery-enriched-1.1.0.sample.json)
-
 Compatibility policy:
 
 - additive fields require a schema minor version bump
-- removals, renames, or new required fields require a major version bump
-- CI validates emitted artifacts and committed samples against the published schemas
+- removals, renames, or new required fields require a schema major version bump
+- CI validates emitted bundles and committed samples against the published schemas
 
-Schema docs: [`docs/SCHEMAS.md`](docs/SCHEMAS.md)
+More detail: [docs/SCHEMAS.md](docs/SCHEMAS.md)
 
-## Release process
+## Trust Model
 
-Tags matching `v*` trigger [`.github/workflows/release.yml`](.github/workflows/release.yml).
+Backup and restore conclusions are intentionally conservative:
 
-Release outputs now include:
+- backup detection is not treated as verified recoverability
+- namespace-scoped scans are useful, but less complete than cluster-wide scans
+- passing scores are not a substitute for real restore drills with workload owners
 
-- versioned binaries
-- SHA-256 checksums
-- SPDX SBOM
-- generated GitHub release notes
-- GHCR container image with Buildx provenance and SBOM metadata
+RBAC and degraded-mode behavior: [docs/RBAC.md](docs/RBAC.md)
+
+## Build, Test, And Validation
+
+Common targets:
+
+- `make fmt`
+- `make vet`
+- `make test`
+- `make frontend-build`
+- `make frontend-test`
+- `make screenshots`
+- `make smoke`
+- `make schema-samples`
+- `make docs-check`
+- `make ci`
+
+Release packaging guidance: [docs/RELEASE.md](docs/RELEASE.md)
 
 ## Documentation
 
-- Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- RBAC: [`docs/RBAC.md`](docs/RBAC.md)
-- Security: [`SECURITY.md`](SECURITY.md)
-- Support matrix: [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md)
-- Capability matrix: [`docs/CAPABILITY-MATRIX.md`](docs/CAPABILITY-MATRIX.md)
-- Schemas: [`docs/SCHEMAS.md`](docs/SCHEMAS.md)
-- Troubleshooting: [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Desktop app: [docs/GUI.md](docs/GUI.md)
+- Screenshot generation: [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
+- Release workflow: [docs/RELEASE.md](docs/RELEASE.md)
+- Capability matrix: [docs/CAPABILITY-MATRIX.md](docs/CAPABILITY-MATRIX.md)
+- RBAC: [docs/RBAC.md](docs/RBAC.md)
+- Schemas: [docs/SCHEMAS.md](docs/SCHEMAS.md)
+- Support matrix: [docs/SUPPORT-MATRIX.md](docs/SUPPORT-MATRIX.md)
+- Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-## Repository notes
+## Repository Notes
 
-- The supported implementation is the Go CLI in [`cmd/scan`](cmd/scan).
-- The original PowerShell workflow is archived under [`legacy/powershell`](legacy/powershell).
-- The scan pipeline orchestration now lives under [`internal/scanapp`](internal/scanapp).
-
-## Known limitations
-
-- Detection-only backup products remain inventory signals, not proof of recoverability.
-- Namespace-scoped scans are useful but intentionally less complete than cluster-wide scans.
-- A passing score is still not a substitute for a real restore drill with workload owners.
+- The supported CLI implementation remains [`cmd/scan`](cmd/scan).
+- The scan entrypoint stays intentionally thin and routes through [`internal/scanapp`](internal/scanapp).
+- Shared application logic for both CLI and desktop now lives in [`internal/appcore`](internal/appcore).
+- Shared design tokens for reports and the desktop UI now live in [`internal/theme`](internal/theme).
+- The legacy HTML writer in [`internal/output/html.go`](internal/output/html.go) is retained for compatibility and now consumes the shared theme.
+- The original PowerShell workflow remains archived in [`legacy/powershell`](legacy/powershell).

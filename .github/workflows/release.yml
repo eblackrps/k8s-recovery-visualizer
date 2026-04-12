@@ -11,8 +11,8 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-publish:
-    name: Build and publish release assets
+  verify:
+    name: Release gate
     runs-on: ubuntu-latest
 
     steps:
@@ -23,34 +23,256 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
+
+      - name: Frontend tests
+        working-directory: desktop/frontend
+        run: npm test
+
+      - name: Install Playwright Chromium
+        working-directory: desktop/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: go vet ./...
+        run: go vet ./...
+
       - name: go test ./...
         run: go test ./...
 
-      - name: Build release binaries
+      - name: Smoke test and schema validation
+        run: |
+          mkdir -p /tmp/smoke
+          go build -ldflags "-s -w" -o /tmp/scan ./cmd/scan
+          /tmp/scan --dry-run --summary --runbook --redact --csv --out /tmp/smoke --min-score 0
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input /tmp/smoke/recovery-scan.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
+          go run ./cmd/check --current /tmp/smoke/recovery-scan.json --min-score 0 --format json
+
+      - name: Generate deterministic GUI screenshots
+        working-directory: desktop/frontend
+        run: npm run screenshots
+
+      - name: Validate docs links and screenshot references
+        run: go run ./tools/docscheck
+
+      - name: Build Wails desktop app
+        working-directory: desktop
+        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop
+
+  cli-assets:
+    name: CLI assets
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build CLI release binaries
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          mkdir -p dist
+          mkdir -p release
           BUILD_DATE="$(date -u +%F)"
-          LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE%%T*}'"
-          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-linux-amd64 ./cmd/scan
-          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/scan-linux-arm64 ./cmd/scan
-          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-darwin-amd64 ./cmd/scan
-          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o dist/scan-darwin-arm64 ./cmd/scan
-          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o dist/scan-windows-amd64.exe ./cmd/scan
+          LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE}'"
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o release/scan-linux-amd64 ./cmd/scan
+          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o release/scan-linux-arm64 ./cmd/scan
+          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o release/scan-darwin-amd64 ./cmd/scan
+          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o release/scan-darwin-arm64 ./cmd/scan
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o release/scan-windows-amd64.exe ./cmd/scan
 
-      - name: Generate checksums
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-assets
+          path: release/*
+
+  gui-linux:
+    name: Desktop package (Linux)
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Linux desktop build dependencies
         run: |
-          cd dist
-          sha256sum scan-* > checksums.txt
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
-      - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Generate SBOM
-        run: syft dir:dist -o spdx-json=dist/k8s-recovery-visualizer.spdx.json
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
 
-      - name: Compute build date
+      - name: Build Linux desktop package
+        env:
+          VERSION: ${{ github.ref_name }}
+        working-directory: desktop
+        run: |
+          BUILD_DATE="$(date -u +%F)"
+          LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE}'"
+          wails build -clean -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop -ldflags "$LDFLAGS"
+
+      - name: Archive Linux desktop output
+        run: |
+          mkdir -p release
+          tar -czf release/k8s-recovery-visualizer-desktop-linux-amd64.tar.gz -C desktop/build/bin .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-linux
+          path: release/*
+
+  gui-windows:
+    name: Desktop package (Windows)
+    runs-on: windows-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          "$((go env GOPATH))\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build Windows desktop package
+        shell: pwsh
+        working-directory: desktop
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          $buildDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+          $ldflags = "-s -w -X 'k8s-recovery-visualizer/internal/model.Version=$($env:VERSION.TrimStart('v'))' -X 'k8s-recovery-visualizer/internal/model.BuildDate=$buildDate'"
+          wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o k8s-recovery-visualizer-desktop -ldflags $ldflags
+
+      - name: Collect Windows desktop output
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Get-ChildItem desktop\build\bin | Copy-Item -Destination release -Recurse -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-windows
+          path: release/*
+
+  gui-macos:
+    name: Desktop package (macOS)
+    runs-on: macos-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build macOS desktop package
+        env:
+          VERSION: ${{ github.ref_name }}
+        working-directory: desktop
+        run: |
+          BUILD_DATE="$(date -u +%F)"
+          LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE}'"
+          wails build -clean -skipbindings -s -platform darwin/amd64 -o k8s-recovery-visualizer-desktop -ldflags "$LDFLAGS"
+
+      - name: Archive macOS desktop output
+        run: |
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent desktop/build/bin/k8s-recovery-visualizer-desktop.app release/k8s-recovery-visualizer-desktop-darwin-amd64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-macos
+          path: release/*
+
+  publish-container:
+    name: Publish container image
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute build metadata
         id: buildmeta
         run: |
           echo "build_date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
@@ -90,15 +312,62 @@ jobs:
           provenance: mode=max
           sbom: true
 
+  publish-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - cli-assets
+      - gui-linux
+      - gui-windows
+      - gui-macos
+      - publish-container
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: release
+          merge-multiple: true
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate checksums
+        run: |
+          find release -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > release/checksums.txt
+
+      - name: Generate SBOM
+        run: syft dir:release -o spdx-json=release/k8s-recovery-visualizer.spdx.json
+
+      - name: Create release notes from CHANGELOG
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = re.compile(rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)", re.M | re.S)
+          match = pattern.search(changelog)
+          notes = match.group(0).strip() if match else f"## [{version}]\n\nRelease notes unavailable."
+          pathlib.Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          mapfile -t ASSETS < <(find release -maxdepth 1 -type f | sort)
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" dist/scan-linux-amd64 dist/scan-linux-arm64 dist/scan-darwin-amd64 dist/scan-darwin-arm64 dist/scan-windows-amd64.exe dist/checksums.txt dist/k8s-recovery-visualizer.spdx.json --clobber
+            gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file release-notes.md
+            gh release upload "${GITHUB_REF_NAME}" "${ASSETS[@]}" --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/scan-linux-amd64 dist/scan-linux-arm64 dist/scan-darwin-amd64 dist/scan-darwin-arm64 dist/scan-windows-amd64.exe dist/checksums.txt dist/k8s-recovery-visualizer.spdx.json \
+            gh release create "${GITHUB_REF_NAME}" "${ASSETS[@]}" \
               --verify-tag \
-              --generate-notes \
+              --notes-file release-notes.md \
               --title "${GITHUB_REF_NAME}"
           fi
