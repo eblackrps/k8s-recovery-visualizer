@@ -18,6 +18,13 @@ workload-report.json
 *.pdb
 /build/
 /release/
+/desktop/build/bin/
+/desktop/frontend/node_modules/
+/desktop/frontend/dist/*
+!/desktop/frontend/dist/.gitkeep
+/desktop/frontend/wailsjs/
+/desktop/frontend/playwright-report/
+/desktop/frontend/test-results/
 
 # Logs and temp files
 *.log

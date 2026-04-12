@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "{{.Info.ProductVersion}}"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "{{.Info.ProductVersion}}",
+			"CompanyName": "Eric Black",
+			"FileDescription": "K8s Recovery Visualizer desktop workspace",
+			"LegalCopyright": "Copyright (c) Eric Black",
+			"ProductName": "K8s Recovery Visualizer",
+			"Comments": "Offline-friendly Kubernetes disaster recovery assessments for operators and platform teams."
+		}
+	}
+}
