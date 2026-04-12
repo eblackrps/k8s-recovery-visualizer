@@ -23,21 +23,24 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	wf := func(f string, a ...any) { buf.WriteString(fmt.Sprintf(f, a...)) }
 	e := html.EscapeString
 
-	matColor := map[string]string{
-		"PLATINUM": "#79c0ff", "GOLD": "#f2cc60",
-		"SILVER": "#c9d1d9", "BRONZE": "#ffa657",
-	}[b.Score.Maturity]
-	if matColor == "" {
-		matColor = "#c9d1d9"
-	}
+	matColor := maturityAccent(b.Score.Maturity)
+	overallTone := scoreAccent(b.Score.Overall.Final)
 
 	platform := b.Cluster.Platform.Provider
 	if platform == "" {
 		platform = "unknown"
 	}
+	clusterName := b.Metadata.ClusterName
+	if clusterName == "" {
+		clusterName = "unknown"
+	}
 	backupTool := b.Inventory.Backup.PrimaryTool
 	if backupTool == "" {
 		backupTool = "none"
+	}
+	generatedAt := b.Metadata.GeneratedAt
+	if generatedAt == "" {
+		generatedAt = "unknown"
 	}
 	scopeLabel := "all namespaces"
 	if len(b.ScanNamespaces) > 0 {
@@ -47,97 +50,114 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	if activeProfile == "" {
 		activeProfile = "standard"
 	}
-
-	w(`<!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>K8s DR Recovery Report</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#0d1117;color:#c9d1d9;font-family:system-ui,"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.5}
-h2{color:#f0f6fc;font-size:1.05em;margin:16px 0 8px}
-h3{color:#c9d1d9;font-size:.92em;margin:14px 0 6px}
-.hdr{background:#161b22;border-bottom:1px solid #30363d;padding:14px 22px;display:flex;align-items:center;gap:16px}
-.hdr h1{color:#f0f6fc;font-size:1.3em}
-.hdr-meta{color:#8b949e;font-size:.82em;margin-top:3px}
-.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-weight:700;font-size:.85em;border:1px solid}
-.tabs{display:flex;background:#161b22;border-bottom:1px solid #30363d;overflow-x:auto;padding:0 16px}
-.tab{padding:9px 15px;cursor:pointer;color:#8b949e;border-bottom:2px solid transparent;font-size:.88em;user-select:none;white-space:nowrap}
-.tab:hover{color:#c9d1d9}.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.pane{display:none;padding:20px}.pane.active{display:block}
-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.86em}
-th{background:#161b22;color:#8b949e;text-align:left;padding:7px 9px;border-bottom:1px solid #30363d;white-space:nowrap;cursor:pointer;user-select:none}
-th:hover{color:#c9d1d9}
-th.asc::after{content:" \2191";color:#58a6ff}
-th.desc::after{content:" \2193";color:#58a6ff}
-td{padding:6px 9px;border-bottom:1px solid #21262d;vertical-align:top;word-break:break-word}
-tr:hover td{background:#161b22}
-.card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:14px;margin-bottom:14px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0}
-.sbox{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;text-align:center}
-.sbox .v{font-size:2em;font-weight:700;color:#f0f6fc}
-.sbox .l{font-size:.78em;color:#8b949e;margin-top:2px}
-.sbox .bar{background:#21262d;border-radius:3px;height:5px;margin-top:7px;overflow:hidden}
-.sbox .fill{height:5px;border-radius:3px;background:#58a6ff}
-.c-CRITICAL,.sev-CRITICAL{color:#f85149}
-.c-HIGH,.sev-HIGH{color:#ffa657}
-.c-MEDIUM,.sev-MEDIUM{color:#f2cc60}
-.c-LOW,.c-INFO,.sev-LOW,.sev-INFO{color:#8b949e}
-.ok{color:#7ee787}.bad{color:#f85149}
-.chip{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.78em;margin:1px}
-.chip.p{background:#1f2d1f;color:#7ee787}
-.chip.f{background:#3d1f1f;color:#f85149}
-.chip.w{background:#3d2400;color:#f2cc60}
-.chip.n{background:#21262d;color:#8b949e}
-.pub{background:#3d1f1f;color:#f85149}.prv{background:#1f2d1f;color:#7ee787}
-.step{border:1px solid #30363d;border-radius:5px;margin-bottom:10px;overflow:hidden}
-.step-h{background:#161b22;padding:9px 13px;cursor:pointer;display:flex;align-items:center;gap:9px}
-.step-h:hover{background:#21262d}
-.step-b{padding:11px 13px;display:none;border-top:1px solid #21262d}
-.step-b.open{display:block}
-pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;overflow-x:auto;font-size:.8em;color:#7ee787;margin-top:7px;white-space:pre-wrap}
-.note{background:#1f2d1f;border-left:3px solid #7ee787;padding:7px 10px;margin-top:7px;font-size:.84em;border-radius:0 4px 4px 0}
-.empty{color:#8b949e;font-style:italic;padding:10px 0}
-.filter-bar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
-.filter-bar span{color:#8b949e;font-size:.82em;margin-right:4px}
-.fbtn{padding:3px 10px;border-radius:10px;font-size:.78em;cursor:pointer;border:1px solid #30363d;background:#161b22;color:#8b949e}
-.fbtn:hover{border-color:#58a6ff;color:#58a6ff}
-.fbtn.active{background:#1f3a5f;border-color:#58a6ff;color:#58a6ff}
-.fbtn.fc{border-color:#f85149;color:#f85149}.fbtn.fc.active{background:#3d1f1f}
-.fbtn.fh{border-color:#ffa657;color:#ffa657}.fbtn.fh.active{background:#3d2400}
-.fbtn.fm{border-color:#f2cc60;color:#f2cc60}.fbtn.fm.active{background:#3d3000}
-.rem-controls{display:flex;gap:8px;margin-bottom:12px}
-.btn-sm{padding:4px 12px;border-radius:4px;font-size:.82em;cursor:pointer;border:1px solid #30363d;background:#161b22;color:#8b949e}
-.btn-sm:hover{border-color:#58a6ff;color:#58a6ff}
-</style></head><body>
-`)
+	coverageStatus := backupCoverageStatusText(b.Inventory.Backup)
+	assuranceText := backupAssuranceConclusionText(b.Inventory.Backup.Assurance)
+	criticalOrHigh := 0
+	for _, f := range b.Inventory.Findings {
+		if f.Severity == "CRITICAL" || f.Severity == "HIGH" {
+			criticalOrHigh++
+		}
+	}
+	priorityOne := 0
+	for _, step := range b.Inventory.RemediationSteps {
+		if step.Priority == 1 {
+			priorityOne++
+		}
+	}
+	actionHeadline := "No urgent actions"
+	actionDetail := "No priority-one remediation steps were generated for this assessment."
+	if priorityOne > 0 {
+		actionHeadline = fmt.Sprintf("%d priority-one action(s)", priorityOne)
+		actionDetail = "Immediate remediation focus for the current report scope."
+	} else if criticalOrHigh > 0 {
+		actionHeadline = fmt.Sprintf("%d critical/high finding(s)", criticalOrHigh)
+		actionDetail = "Review the Findings and Remediation tabs for the highest-risk gaps."
+	}
+	w(reportDocumentStart("K8s DR Recovery Report", "report-page", reportPageCSS()))
 
 	// Header
-	wf(`<div class="hdr"><div><h1>K8s DR Recovery Report</h1>
-<div class="hdr-meta">Cluster: %s &nbsp;|&nbsp; Platform: %s &nbsp;|&nbsp; Scope: %s &nbsp;|&nbsp; Profile: <strong style="color:#c9d1d9">%s</strong> &nbsp;|&nbsp; %s</div></div>
-<div style="margin-left:auto;text-align:right">
-<div class="badge" style="color:%s;border-color:%s;font-size:1.1em">%s</div>
-<div style="color:#8b949e;font-size:.83em;margin-top:3px">Score: <strong style="color:#f0f6fc">%d / 100</strong></div>
-</div></div>`,
-		e(b.Metadata.ClusterName), e(platform), e(scopeLabel), e(activeProfile), e(b.Metadata.GeneratedAt),
-		matColor, matColor, e(b.Score.Maturity), b.Score.Overall.Final)
+	wf(`<header class="hero">
+<div class="hero-copy">
+<span class="eyebrow">Recovery assessment</span>
+<h1>K8s DR Recovery Report</h1>
+<p>Offline-ready disaster recovery readiness, backup trust, and remediation guidance for the scanned Kubernetes environment.</p>
+<div class="hero-meta-grid">
+<span class="meta-chip">Cluster <strong>%s</strong></span>
+<span class="meta-chip">Platform <strong>%s</strong></span>
+<span class="meta-chip">Scope <strong>%s</strong></span>
+<span class="meta-chip">Profile <strong>%s</strong></span>
+<span class="meta-chip">Target <strong>%s</strong></span>
+</div>
+<div class="hero-brief-grid">
+<div class="hero-brief">
+<span class="hero-brief-label">Assessment posture</span>
+<strong>%s maturity at score %d</strong>
+<p>Scored against the <strong>%s</strong> profile for the current cluster scope.</p>
+</div>
+<div class="hero-brief">
+<span class="hero-brief-label">Backup trust</span>
+<strong>%s</strong>
+<p>Backup assurance is currently <strong>%s</strong> for this environment.</p>
+</div>
+<div class="hero-brief">
+<span class="hero-brief-label">Action focus</span>
+<strong>%s</strong>
+<p>%s</p>
+</div>
+</div>
+</div>
+<div class="hero-panel">
+<div class="hero-pill">Generated %s</div>
+<div class="hero-score">
+<div>
+<div class="hero-score-label">Overall DR Score</div>
+<div class="hero-score-value" style="color:%s">%d</div>
+</div>
+<div class="badge" style="color:%s;border-color:%s">%s</div>
+</div>
+<div class="badge-row">
+<span class="badge badge-subtle">Backup: %s</span>
+<span class="badge badge-subtle">Coverage: %s</span>
+<span class="badge badge-subtle">Assurance: %s</span>
+</div>
+<div class="hero-stat-grid">
+<div class="hero-stat"><span>Nodes</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Namespaces</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Findings</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Policies</span><strong>%d</strong></div>
+</div>
+</div></header>`,
+		e(clusterName), e(platform), e(scopeLabel), e(activeProfile), e(b.Target),
+		e(b.Score.Maturity), b.Score.Overall.Final, e(activeProfile),
+		e(coverageStatus), e(assuranceText),
+		e(actionHeadline), e(actionDetail),
+		e(generatedAt), overallTone, b.Score.Overall.Final,
+		matColor, matColor, e(b.Score.Maturity),
+		e(backupTool), e(coverageStatus), e(assuranceText),
+		len(b.Inventory.Nodes), len(b.Inventory.Namespaces), len(b.Inventory.Findings), len(b.Inventory.Backup.Policies))
 
 	// Tab bar — add Compare tab only when comparison data is present
 	tabNames := []string{"Summary", "Nodes", "Workloads", "Storage", "Networking", "Config", "Images", "Backup", "DR Score", "Findings", "Remediation"}
 	if b.Comparison != nil {
 		tabNames = append(tabNames, "Compare")
 	}
-	w(`<div class="tabs">`)
+	w(`<nav class="tabs" role="tablist" aria-label="Report sections">`)
 	for i, t := range tabNames {
 		cls := "tab"
+		selected := "false"
+		tabIndex := -1
 		if i == 0 {
 			cls += " active"
+			selected = "true"
+			tabIndex = 0
 		}
-		wf(`<div class="%s" onclick="show(%d)">%s</div>`, cls, i, e(t))
+		wf(`<button type="button" id="tab-%d" class="%s" role="tab" aria-selected="%s" aria-controls="p%d" tabindex="%d" onclick="show(%d)">%s</button>`,
+			i, cls, selected, i, tabIndex, i, e(t))
 	}
-	w(`</div>`)
+	w(`</nav>`)
 
 	// ── Tab 0: Summary ───────────────────────────────────────────────────────
-	w(`<div class="pane active" id="p0">`)
+	w(`<div class="pane active" id="p0" role="tabpanel" aria-labelledby="tab-0">`)
 	w(`<div class="grid">`)
 	for _, d := range []struct {
 		label, weight string
@@ -148,7 +168,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
 		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
-		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#58a6ff">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
+		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:var(--accent-soft)">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
 	}
 	w(`</div>`)
@@ -219,13 +239,13 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		{"CRITICAL", "#f85149", crit},
 		{"HIGH", "#ffa657", high},
 		{"MEDIUM", "#f2cc60", med},
-		{"LOW / INFO", "#8b949e", low},
+		{"LOW / INFO", "#c8bfdc", low},
 	} {
 		wf(`<tr><td style="color:%s;width:80px;padding:3px 0">%s</td><td style="padding:3px 8px">%s</td><td style="padding:3px 0;color:%s">%d</td></tr>`,
 			row.color, row.label, sevBar(row.count, sevMax, row.color), row.color, row.count)
 	}
 	w(`</table>`)
-	w(`<p style="margin-top:10px;color:#8b949e;font-size:.86em">Full details → <strong onclick="showTab('Findings')" style="cursor:pointer;color:#58a6ff">Findings</strong> tab. Action steps → <strong onclick="showTab('Remediation')" style="cursor:pointer;color:#58a6ff">Remediation</strong> tab.</p>`)
+	w(`<p class="subtle" style="margin-top:10px">Full details -> <button type="button" class="inline-link" onclick="showTab('Findings')">Findings</button> tab. Action steps -> <button type="button" class="inline-link" onclick="showTab('Remediation')">Remediation</button> tab.</p>`)
 	w(`</div>`)
 
 	// Scan coverage / skipped collectors callout
@@ -241,7 +261,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`<div class="card" style="border-color:#f2cc60">`)
 		wf(`<h2 style="color:#f2cc60">Scan Coverage — %d/%d collectors skipped</h2>`, skipped, totalCollectors)
 		if rbacSkips > 0 {
-			wf(`<p style="color:#8b949e;font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
+			wf(`<p style="color:#c8bfdc;font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
 		}
 		w(`<table style="margin-top:4px"><thead><tr>`)
 		for _, h := range []string{"Collector", "Reason", "RBAC?"} {
@@ -258,12 +278,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			if len(reason) > 120 {
 				reason = reason[:117] + "..."
 			}
-			wf(`<tr><td>%s</td><td style="color:#8b949e;font-size:.84em">%s</td><td>%s</td></tr>`,
+			wf(`<tr><td>%s</td><td style="color:#c8bfdc;font-size:.84em">%s</td><td>%s</td></tr>`,
 				e(sk.Name), e(reason), rbacCell)
 		}
 		w(`</tbody></table></div>`)
 	} else {
-		wf(`<div class="card" style="border-color:#30363d"><h2>Scan Coverage</h2>
+		wf(`<div class="card" style="border-color:rgba(190,172,255,0.16)"><h2>Scan Coverage</h2>
 <p style="color:#7ee787;font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
 	}
 
@@ -273,7 +293,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		const svgW, svgH = 500, 90
 		last := b.TrendHistory[n-1]
 		prev := b.TrendHistory[n-2]
-		trendColor := "#58a6ff"
+		trendColor := "#c4b5fd"
 		trendLabel := "STABLE"
 		if last.Overall > prev.Overall {
 			trendColor = "#7ee787"
@@ -307,7 +327,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				dash = "2,6"
 			}
 			wf(`<line x1="30" y1="%.1f" x2="%d" y2="%.1f" stroke="#21262d" stroke-dasharray="%s" stroke-width="1"/>`, ry, svgW-5, ry, dash)
-			wf(`<text x="0" y="%.1f" fill="#8b949e" font-size="9" dominant-baseline="middle">%s</text>`, ry, ref.lbl)
+			wf(`<text x="0" y="%.1f" fill="#c8bfdc" font-size="9" dominant-baseline="middle">%s</text>`, ry, ref.lbl)
 		}
 		wf(`<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="%s" stop-opacity="0.25"/><stop offset="1" stop-color="%s" stop-opacity="0"/></linearGradient></defs>`,
 			trendColor, trendColor)
@@ -327,7 +347,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			wf(`<circle cx="%.1f" cy="%.1f" r="%s" fill="%s"/>`, d.cx, d.cy, r, trendColor)
 		}
 		w(`</svg>`)
-		wf(`<div style="color:#8b949e;font-size:.83em;margin-top:4px">Last <strong style="color:#f0f6fc">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
+		wf(`<div style="color:#c8bfdc;font-size:.83em;margin-top:4px">Last <strong style="color:#f5f1ff">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
 			n, trendColor, last.Overall, e(last.Maturity))
 		w(`</div>`)
 	}
@@ -335,7 +355,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p0
 
 	// ── Tab 1: Nodes ─────────────────────────────────────────────────────────
-	w(`<div class="pane" id="p1"><h2>Nodes</h2>`)
+	w(`<div class="pane" id="p1" role="tabpanel" aria-labelledby="tab-1"><h2>Nodes</h2>`)
 	if len(b.Inventory.Nodes) == 0 {
 		w(`<div class="empty">No node data collected.</div>`)
 	} else {
@@ -363,7 +383,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p1
 
 	// ── Tab 2: Workloads ─────────────────────────────────────────────────────
-	w(`<div class="pane" id="p2"><h2>Workloads</h2>`)
+	w(`<div class="pane" id="p2" role="tabpanel" aria-labelledby="tab-2"><h2>Workloads</h2>`)
 
 	// ── Round 11: Resource Governance + Round 12 pod security summary ──────
 	{
@@ -403,7 +423,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			hostColor = "#ffa657"
 		}
 		wf(`<div class="card"><h2>Resource Governance &amp; Pod Security</h2>
-<p style="color:#8b949e;font-size:.84em;margin-bottom:10px">kube-system pods are excluded from governance checks.</p>
+<p style="color:#c8bfdc;font-size:.84em;margin-bottom:10px">kube-system pods are excluded from governance checks.</p>
 <div class="grid">
 <div class="sbox"><div class="v">%d</div><div class="l">Total Pods</div></div>
 <div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Missing Requests</div></div>
@@ -429,11 +449,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				if !pod.HasLimits {
 					limCell = `<span class="c-MEDIUM">✗</span>`
 				}
-				privCell := `<span style="color:#8b949e">—</span>`
+				privCell := `<span style="color:#c8bfdc">—</span>`
 				if pod.Privileged {
 					privCell = `<span class="bad">yes</span>`
 				}
-				hnCell := `<span style="color:#8b949e">—</span>`
+				hnCell := `<span style="color:#c8bfdc">—</span>`
 				if pod.HostNetwork || pod.HostPID {
 					parts := []string{}
 					if pod.HostNetwork {
@@ -474,7 +494,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			e(sts.Namespace), e(sts.Name), sts.Replicas, pvcBadge)
 	}
 	for _, j := range b.Inventory.Jobs {
-		done := `<span style="color:#8b949e">active</span>`
+		done := `<span style="color:#c8bfdc">active</span>`
 		if j.Completed {
 			done = `<span class="ok">done</span>`
 		}
@@ -488,7 +508,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</tbody></table></div>`) // p2
 
 	// ── Tab 3: Storage ───────────────────────────────────────────────────────
-	w(`<div class="pane" id="p3"><h2>Storage</h2>`)
+	w(`<div class="pane" id="p3" role="tabpanel" aria-labelledby="tab-3"><h2>Storage</h2>`)
 	pvMap := map[string]model.PersistentVolume{}
 	for _, pv := range b.Inventory.PVs {
 		pvMap[pv.ClaimRef] = pv
@@ -608,7 +628,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p3
 
 	// ── Tab 4: Networking ────────────────────────────────────────────────────
-	w(`<div class="pane" id="p4"><h2>Networking</h2>`)
+	w(`<div class="pane" id="p4" role="tabpanel" aria-labelledby="tab-4"><h2>Networking</h2>`)
 
 	// ── Round 10b: Network Topology card ──────────────────────────────────
 	{
@@ -670,7 +690,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 					npCell = `<span class="ok">✓</span>`
 				}
 				if len(ing.Rules) == 0 {
-					wf(`<tr><td>%s</td><td>%s</td><td colspan="2"><span style="color:#8b949e">no rules</span></td><td>%s</td><td>%s</td></tr>`,
+					wf(`<tr><td>%s</td><td>%s</td><td colspan="2"><span style="color:#c8bfdc">no rules</span></td><td>%s</td><td>%s</td></tr>`,
 						e(ing.Name), e(ing.Namespace), tlsStr, npCell)
 					continue
 				}
@@ -712,11 +732,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			}
 
 			for _, ns := range b.Inventory.Namespaces {
-				ingCell := `<span style="color:#8b949e">—</span>`
+				ingCell := `<span style="color:#c8bfdc">—</span>`
 				if nsHasIngress[ns.Name] {
 					ingCell = `<span class="c-HIGH">exposed</span>`
 				}
-				lbCell := `<span style="color:#8b949e">—</span>`
+				lbCell := `<span style="color:#c8bfdc">—</span>`
 				if nsHasLB[ns.Name] {
 					lbCell = `<span class="c-HIGH">exposed</span>`
 				}
@@ -779,7 +799,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</tbody></table></div>`) // p4
 
 	// ── Tab 5: Config ────────────────────────────────────────────────────────
-	w(`<div class="pane" id="p5"><h2>Config</h2>`)
+	w(`<div class="pane" id="p5" role="tabpanel" aria-labelledby="tab-5"><h2>Config</h2>`)
 	w(`<h3>Helm Releases</h3>`)
 	if len(b.Inventory.HelmReleases) == 0 {
 		w(`<div class="empty">No Helm releases detected.</div>`)
@@ -790,7 +810,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		w(`</tr></thead><tbody>`)
 		for _, hr := range b.Inventory.HelmReleases {
-			sc := "#8b949e"
+			sc := "#c8bfdc"
 			if hr.Status == "deployed" {
 				sc = "#7ee787"
 			} else if hr.Status == "failed" {
@@ -893,12 +913,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`</tr></thead><tbody>`)
 		for _, lr := range b.Inventory.LimitRanges {
 			if len(lr.Items) == 0 {
-				wf(`<tr><td>%s</td><td>%s</td><td colspan="5"><span style="color:#8b949e">no items</span></td></tr>`,
+				wf(`<tr><td>%s</td><td>%s</td><td colspan="5"><span style="color:#c8bfdc">no items</span></td></tr>`,
 					e(lr.Namespace), e(lr.Name))
 				continue
 			}
 			for _, item := range lr.Items {
-				dash := `<span style="color:#8b949e">—</span>`
+				dash := `<span style="color:#c8bfdc">—</span>`
 				maxCPU, maxMem, defCPU, defMem := dash, dash, dash, dash
 				if item.MaxCPU != "" {
 					maxCPU = e(item.MaxCPU)
@@ -921,7 +941,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Round 14: PSA label coverage ─────────────────────────────────────
 	w(`<h3>Pod Security Admission (PSA) Coverage</h3>`)
-	w(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">Namespaces should carry <code>pod-security.kubernetes.io/enforce</code> labels to activate PSA admission control. System namespaces are excluded.</p>`)
+	w(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">Namespaces should carry <code>pod-security.kubernetes.io/enforce</code> labels to activate PSA admission control. System namespaces are excluded.</p>`)
 	if len(b.Inventory.Namespaces) == 0 {
 		w(`<div class="empty">No namespace data collected.</div>`)
 	} else {
@@ -934,7 +954,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			if ns.Name == "kube-system" || ns.Name == "kube-public" || ns.Name == "kube-node-lease" {
 				continue
 			}
-			dash := `<span style="color:#8b949e">—</span>`
+			dash := `<span style="color:#c8bfdc">—</span>`
 			enf := dash
 			if ns.PSAEnforce != "" {
 				enf = fmt.Sprintf(`<span class="chip p">%s</span>`, e(ns.PSAEnforce))
@@ -976,15 +996,15 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		w(`</tr></thead><tbody>`)
 		for _, cr := range customRoles {
-			wcCell := `<span style="color:#8b949e">—</span>`
+			wcCell := `<span style="color:#c8bfdc">—</span>`
 			if cr.HasWildcardVerb {
 				wcCell = `<span class="bad">yes</span>`
 			}
-			saCell := `<span style="color:#8b949e">—</span>`
+			saCell := `<span style="color:#c8bfdc">—</span>`
 			if cr.HasSecretAccess {
 				saCell = `<span class="c-HIGH">yes</span>`
 			}
-			esCell := `<span style="color:#8b949e">—</span>`
+			esCell := `<span style="color:#c8bfdc">—</span>`
 			if cr.HasEscalatePriv {
 				esCell = `<span class="c-HIGH">yes</span>`
 			}
@@ -1021,7 +1041,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 
 		w(`<h3>RBAC: ClusterRoleBinding Subject Audit</h3>`)
-		w(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">Shows who holds cluster-level permissions. System-to-system bindings (both role and all subjects prefixed with <code>system:</code>) are hidden for clarity.</p>`)
+		w(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">Shows who holds cluster-level permissions. System-to-system bindings (both role and all subjects prefixed with <code>system:</code>) are hidden for clarity.</p>`)
 		w(`<table id="t-crbs"><thead><tr>`)
 		for _, h := range []string{"Binding", "Role", "Subjects", "Risk"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -1051,12 +1071,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			}
 
 			riskColor := map[string]string{
-				"CRITICAL": "#f85149", "HIGH": "#ffa657", "MEDIUM": "#f2cc60", "LOW": "#8b949e",
+				"CRITICAL": "#f85149", "HIGH": "#ffa657", "MEDIUM": "#f2cc60", "LOW": "#c8bfdc",
 			}[risk]
 			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, risk)
 			subjCell := e(strings.Join(crb.Subjects, ", "))
 			if len(crb.Subjects) == 0 {
-				subjCell = `<span style="color:#8b949e">—</span>`
+				subjCell = `<span style="color:#c8bfdc">—</span>`
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td style="font-size:.82em">%s</td><td>%s</td></tr>`,
 				e(crb.Name), e(crb.RoleName), subjCell, riskCell)
@@ -1066,7 +1086,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p5
 
 	// ── Tab 6: Images ────────────────────────────────────────────────────────
-	w(`<div class="pane" id="p6"><h2>Container Images</h2>`)
+	w(`<div class="pane" id="p6" role="tabpanel" aria-labelledby="tab-6"><h2>Container Images</h2>`)
 	if len(b.Inventory.Images) == 0 {
 		w(`<div class="empty">No image data collected (run against a live cluster with workloads).</div>`)
 	} else {
@@ -1088,7 +1108,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p6
 
 	// ── Tab 7: Backup ────────────────────────────────────────────────────────
-	w(`<div class="pane" id="p7">`)
+	w(`<div class="pane" id="p7" role="tabpanel" aria-labelledby="tab-7">`)
 	backupInv := b.Inventory.Backup
 
 	// Detected tools card
@@ -1107,7 +1127,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				detectedCell = `<span class="chip p">yes</span>`
 			}
 			inspectionStatus := `<span class="chip n">not inspected</span>`
-			inspectionDetail := `<span style="color:#8b949e">—</span>`
+			inspectionDetail := `<span style="color:#c8bfdc">—</span>`
 			if t.Detected {
 				switch t.PolicyInspectionStatus {
 				case model.BackupCoverageStatusVerified:
@@ -1148,7 +1168,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				offsiteCount++
 			}
 		}
-		wf(`<p style="color:#8b949e;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
+		wf(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
 			len(backupInv.Policies), offsiteCount, e(strings.Join(backupInv.CoverageSourceTools, ", ")))
 		if len(backupInv.OffsiteMissingNS) > 0 {
 			wf(`<p style="color:#ffa657;font-size:.84em;margin-bottom:8px">Offsite evidence is missing for covered namespaces: %s</p>`,
@@ -1196,9 +1216,9 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		w(`<div class="empty">Backup assurance was not calculated.</div>`)
 	} else {
 		color := backupAssuranceColor(backupInv.Assurance)
-		wf(`<p style="margin-bottom:8px"><strong style="color:%s">%s</strong> &nbsp; <span style="color:#8b949e">confidence: %s</span></p>`,
+		wf(`<p style="margin-bottom:8px"><strong style="color:%s">%s</strong> &nbsp; <span style="color:#c8bfdc">confidence: %s</span></p>`,
 			color, e(backupAssuranceConclusionText(backupInv.Assurance)), e(string(backupInv.Assurance.Confidence)))
-		wf(`<p style="color:#8b949e;font-size:.85em;margin-bottom:10px">%s</p>`, e(backupInv.Assurance.Summary))
+		wf(`<p style="color:#c8bfdc;font-size:.85em;margin-bottom:10px">%s</p>`, e(backupInv.Assurance.Summary))
 		if len(backupInv.Assurance.Signals) > 0 {
 			w(`<table id="t-assurance"><thead><tr>`)
 			for _, h := range []string{"Signal", "Status", "Confidence", "Summary", "Detail"} {
@@ -1206,7 +1226,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			}
 			w(`</tr></thead><tbody>`)
 			for _, signal := range backupInv.Assurance.Signals {
-				statusColor := "#8b949e"
+				statusColor := "#c8bfdc"
 				switch signal.Status {
 				case "confirmed":
 					statusColor = "#7ee787"
@@ -1281,7 +1301,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			} else if ns.HasCoverage {
 				covCell = `<span class="chip p">covered</span>`
 			}
-			rpoCell := `<span style="color:#8b949e">unknown</span>`
+			rpoCell := `<span style="color:#c8bfdc">unknown</span>`
 			if ns.RPOHours >= 0 {
 				color := "#7ee787"
 				if ns.RPOHours > 24 {
@@ -1290,11 +1310,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				rpoCell = fmt.Sprintf(`<span style="color:%s">%d</span>`, color, ns.RPOHours)
 			}
 			sizeCell := fmt.Sprintf("%.1f", ns.PVCSizeGB)
-			blockersCell := `<span style="color:#8b949e">—</span>`
+			blockersCell := `<span style="color:#c8bfdc">—</span>`
 			if len(ns.Blockers) > 0 {
 				blockersCell = fmt.Sprintf(`<span class="c-CRITICAL">%s</span>`, e(strings.Join(ns.Blockers, "; ")))
 			}
-			warningsCell := `<span style="color:#8b949e">—</span>`
+			warningsCell := `<span style="color:#c8bfdc">—</span>`
 			if len(ns.Warnings) > 0 {
 				warningsCell = fmt.Sprintf(`<span class="c-MEDIUM">%s</span>`, e(strings.Join(ns.Warnings, "; ")))
 			}
@@ -1321,18 +1341,18 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		wf(`<p><span class="ok">✓</span> <strong>etcd backup detected</strong> — source: <em>%s</em></p>`, e(sourceLabel))
 		if eb.Detail != "" {
-			wf(`<p style="color:#8b949e;font-size:.84em">%s</p>`, e(eb.Detail))
+			wf(`<p style="color:#c8bfdc;font-size:.84em">%s</p>`, e(eb.Detail))
 		}
 	} else {
 		w(`<p><span class="bad">✗</span> <strong style="color:#f85149">No etcd backup evidence found</strong></p>`)
-		w(`<p style="color:#8b949e;font-size:.84em">etcd holds all cluster state. Without a backup, the cluster cannot be recovered after catastrophic failure. Configure periodic <code>etcdctl snapshot save</code> via a CronJob, or migrate to a managed K8s service.</p>`)
+		w(`<p style="color:#c8bfdc;font-size:.84em">etcd holds all cluster state. Without a backup, the cluster cannot be recovered after catastrophic failure. Configure periodic <code>etcdctl snapshot save</code> via a CronJob, or migrate to a managed K8s service.</p>`)
 	}
 	w(`</div>`) // etcd backup card
 
 	w(`</div>`) // p7
 
 	// ── Tab 8: DR Score ──────────────────────────────────────────────────────
-	w(`<div class="pane" id="p8"><h2>DR Score Breakdown</h2>`)
+	w(`<div class="pane" id="p8" role="tabpanel" aria-labelledby="tab-8"><h2>DR Score Breakdown</h2>`)
 	w(`<table id="t-score"><thead><tr>`)
 	for _, h := range []string{"Domain", "Score", "Max", "Weight"} {
 		wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -1372,12 +1392,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		{"Airgap Restrictions", "airgap"},
 	}
 	w(`<div class="card" style="margin-top:16px"><h2>Active Scoring Profile: `)
-	wf(`<span style="color:#58a6ff">%s</span></h2>`, e(activeProfile))
+	wf(`<span style="color:#c4b5fd">%s</span></h2>`, e(activeProfile))
 	hasCustom := len(pWeights) > 0
 	if !hasCustom {
-		w(`<p style="color:#8b949e;font-size:.86em">Standard profile — all domain weights at baseline (1.0×). Use <code>--profile enterprise|dev|airgap</code> to adjust penalty emphasis.</p>`)
+		w(`<p style="color:#c8bfdc;font-size:.86em">Standard profile — all domain weights at baseline (1.0×). Use <code>--profile enterprise|dev|airgap</code> to adjust penalty emphasis.</p>`)
 	} else {
-		w(`<p style="color:#8b949e;font-size:.86em;margin-bottom:8px">Penalty multipliers applied to relevant scoring rules:</p>`)
+		w(`<p style="color:#c8bfdc;font-size:.86em;margin-bottom:8px">Penalty multipliers applied to relevant scoring rules:</p>`)
 		w(`<table style="width:auto"><thead><tr><th>Category</th><th>Multiplier</th><th>Effect</th></tr></thead><tbody>`)
 		for _, r := range wRows {
 			if mul, ok := pWeights[r.key]; ok {
@@ -1387,7 +1407,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 					effect = "reduced penalty"
 					effectColor = "#7ee787"
 				}
-				wf(`<tr><td>%s</td><td style="color:#f0f6fc;font-weight:700">%.2f×</td><td style="color:%s">%s</td></tr>`,
+				wf(`<tr><td>%s</td><td style="color:#f5f1ff;font-weight:700">%.2f×</td><td style="color:%s">%s</td></tr>`,
 					e(r.label), mul, effectColor, effect)
 			}
 		}
@@ -1423,7 +1443,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p8
 
 	// ── Tab 9: Findings ───────────────────────────────────────────────────────
-	w(`<div class="pane" id="p9"><h2>Findings</h2>`)
+	w(`<div class="pane" id="p9" role="tabpanel" aria-labelledby="tab-9"><h2>Findings</h2>`)
 	if len(b.Inventory.Findings) == 0 {
 		w(`<div class="empty">No findings — cluster passed all checks.</div>`)
 	} else {
@@ -1479,7 +1499,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			{"CRITICAL", "#f85149", fCrit},
 			{"HIGH", "#ffa657", fHigh},
 			{"MEDIUM", "#f2cc60", fMed},
-			{"LOW/INFO", "#8b949e", fLow},
+			{"LOW/INFO", "#c8bfdc", fLow},
 		} {
 			y := float64(row)*18 + 8
 			bw := barW(sev.count, fMax)
@@ -1505,11 +1525,11 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		}
 		w(`</tr></thead><tbody id="findings2-tbody">`)
 		for _, f := range b.Inventory.Findings {
-			actionCell := `<span style="color:#8b949e;font-size:.82em">—</span>`
+			actionCell := `<span style="color:#c8bfdc;font-size:.82em">—</span>`
 			if remI, ok := remIdx[f.ID]; ok {
-				actionCell = fmt.Sprintf(`<a href="#" onclick="showRemStep(%d);return false;" style="color:#58a6ff;font-size:.82em;white-space:nowrap">→ Remediation #%d</a>`, remI, remI+1)
+				actionCell = fmt.Sprintf(`<a href="#" onclick="showRemStep(%d);return false;" style="color:var(--accent-soft);font-size:.82em;white-space:nowrap">-> Remediation #%d</a>`, remI, remI+1)
 			}
-			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:#8b949e;font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:#c8bfdc;font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ID), e(f.ResourceID), e(f.Message), e(f.Recommendation), actionCell)
 		}
 		w(`</tbody></table>`)
@@ -1517,7 +1537,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	w(`</div>`) // p9
 
 	// ── Tab 10: Remediation ───────────────────────────────────────────────────
-	w(`<div class="pane" id="p10"><h2>Remediation Plan</h2>`)
+	w(`<div class="pane" id="p10" role="tabpanel" aria-labelledby="tab-10"><h2>Remediation Plan</h2>`)
 	if len(b.Inventory.RemediationSteps) == 0 {
 		w(`<div class="empty">No remediation steps generated. Run with a live cluster to produce findings.</div>`)
 	} else {
@@ -1534,9 +1554,9 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 				curPri = step.Priority
 				wf(`<h3 class="%s">%s</h3>`, priClass[step.Priority], e(priLabel[step.Priority]))
 			}
-			wf(`<div class="step"><div class="step-h" onclick="tog(%d)"><span class="chip %s">%s</span><span>%s</span></div>
+			wf(`<div class="step"><button type="button" class="step-h" onclick="tog(%d)" aria-controls="sb%d" aria-expanded="false"><span class="chip %s">%s</span><span>%s</span></button>
 <div class="step-b" id="sb%d">`,
-				i, chipClass[step.Priority], e(step.Category), e(step.Title),
+				i, i, chipClass[step.Priority], e(step.Category), e(step.Title),
 				i)
 			w(remediationBodyHTML(step))
 			w(`</div></div>`)
@@ -1546,12 +1566,12 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 
 	// ── Tab 11: Compare (only rendered when --compare was used) ──────────────
 	if c := b.Comparison; c != nil {
-		w(`<div class="pane" id="p11">`)
+		w(`<div class="pane" id="p11" role="tabpanel" aria-labelledby="tab-11">`)
 		wf(`<h2>Comparison vs scan from %s</h2>`, e(c.PreviousScannedAt))
 
 		// Score delta card
 		deltaSign := ""
-		deltaColor := "#8b949e"
+		deltaColor := "#c8bfdc"
 		if c.ScoreDelta > 0 {
 			deltaSign = "+"
 			deltaColor = "#7ee787"
@@ -1563,7 +1583,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 <div class="sbox"><div class="v" style="color:%s">%s%d</div><div class="l">Score Delta</div></div>
 <div class="sbox"><div class="v">%d</div><div class="l">Previous Score</div></div>
 <div class="sbox"><div class="v">%d</div><div class="l">Current Score</div></div>
-<div class="sbox"><div class="v" style="color:#8b949e;font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
+<div class="sbox"><div class="v" style="color:#c8bfdc;font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
 </div></div>`,
 			deltaColor, deltaSign, c.ScoreDelta,
 			c.PreviousScore, b.Score.Overall.Final,
@@ -1572,7 +1592,7 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 		// Backup tool change
 		if c.BackupToolChanged {
 			wf(`<div class="card" style="border-color:#f2cc60"><h2 style="color:#f2cc60">Backup Tool Changed</h2>
-<p style="color:#8b949e;font-size:.86em;margin-top:4px">%s → <strong style="color:#f0f6fc">%s</strong></p></div>`,
+<p style="color:#c8bfdc;font-size:.86em;margin-top:4px">%s → <strong style="color:#f5f1ff">%s</strong></p></div>`,
 				e(c.BackupToolPrevious), e(c.BackupToolCurrent))
 		}
 
@@ -1597,10 +1617,10 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 			addedCell := fmt.Sprintf(`<span class="ok">+%d</span>`, len(row.added))
 			removedCell := fmt.Sprintf(`<span class="bad">-%d</span>`, len(row.removed))
 			if len(row.added) == 0 {
-				addedCell = `<span style="color:#8b949e">—</span>`
+				addedCell = `<span style="color:#c8bfdc">—</span>`
 			}
 			if len(row.removed) == 0 {
-				removedCell = `<span style="color:#8b949e">—</span>`
+				removedCell = `<span style="color:#c8bfdc">—</span>`
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td></tr>`, e(row.label), addedCell, removedCell)
 		}
@@ -1644,13 +1664,36 @@ pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:9px;ov
 	}
 
 	// JS
-	w(`<script>
+	w(`</main><script>
 function show(n){
-  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',i===n)});
-  document.querySelectorAll('.pane').forEach(function(p,i){p.classList.toggle('active',i===n)});
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    var active=i===n;
+    t.classList.toggle('active',active);
+    t.setAttribute('aria-selected',active?'true':'false');
+    t.tabIndex=active?0:-1;
+  });
+  document.querySelectorAll('.pane').forEach(function(p,i){
+    var active=i===n;
+    p.classList.toggle('active',active);
+    p.hidden=!active;
+  });
 }
-function tog(n){var b=document.getElementById('sb'+n);if(b)b.classList.toggle('open');}
-function remAll(open){document.querySelectorAll('.step-b').forEach(function(b){b.classList.toggle('open',open)});}
+function setStepState(n,open){
+  var b=document.getElementById('sb'+n);
+  if(!b)return;
+  b.classList.toggle('open',open);
+  var trigger=document.querySelector('.step-h[aria-controls="sb'+n+'"]');
+  if(trigger)trigger.setAttribute('aria-expanded',open?'true':'false');
+}
+function tog(n){
+  var b=document.getElementById('sb'+n);
+  if(b)setStepState(n,!b.classList.contains('open'));
+}
+function remAll(open){
+  document.querySelectorAll('.step-b').forEach(function(b){
+    setStepState(b.id.replace('sb',''),open);
+  });
+}
 function sortTbl(th){
   var tbl=th.closest('table'),tbody=tbl.querySelector('tbody');
   if(!tbody)return;
@@ -1693,7 +1736,13 @@ function showTab(name){
 function showRemStep(idx){
   showTab('Remediation');
   var el=document.getElementById('sb'+idx);
-  if(el){el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'center'});}
+  var behavior=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  if(el){
+    setStepState(idx,true);
+    el.scrollIntoView({behavior:behavior,block:'center'});
+  }
 }
-</script></body></html>`)
+show(0);
+</script>`)
+	w(reportDocumentEnd())
 }

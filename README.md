@@ -2,6 +2,22 @@
 
 `k8s-recovery-visualizer` scans a Kubernetes cluster, scores disaster recovery readiness across weighted domains, and produces operator-friendly artifacts for audits, remediation planning, and CI/CD policy gates.
 
+## Report screenshots
+
+The generated HTML outputs are self-contained, offline-friendly, and designed for operator review, executive summaries, and customer-facing runbooks.
+
+Main tabbed report:
+
+![Recovery report overview](images/recovery-report-overview.png)
+
+Executive summary:
+
+![Executive summary overview](images/recovery-summary-overview.png)
+
+Customer-facing runbook:
+
+![Runbook overview](images/recovery-runbook-overview.png)
+
 The repo now prioritizes trust over optimism:
 
 - backup detection is not treated as verified recoverability

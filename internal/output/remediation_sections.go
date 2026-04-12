@@ -24,50 +24,54 @@ func renderRemediationBody(step model.RemediationStep, dark bool) string {
 		if len(items) == 0 {
 			return
 		}
-		buf.WriteString(`<div style="margin-top:10px">`)
-		buf.WriteString(`<strong style="display:block;margin-bottom:4px">`)
+		buf.WriteString(`<section class="rem-section">`)
+		buf.WriteString(`<div class="rem-section-title">`)
 		buf.WriteString(e(title))
-		buf.WriteString(`</strong><ul style="margin:0;padding-left:18px">`)
+		buf.WriteString(`</div><ul class="rem-list">`)
 		for _, item := range items {
-			buf.WriteString(`<li style="margin:2px 0">`)
+			buf.WriteString(`<li>`)
 			buf.WriteString(e(item))
 			buf.WriteString(`</li>`)
 		}
-		buf.WriteString(`</ul></div>`)
+		buf.WriteString(`</ul></section>`)
 	}
 
-	buf.WriteString(`<p>`)
-	buf.WriteString(e(step.Detail))
-	buf.WriteString(`</p>`)
+	buf.WriteString(`<div class="rem-body">`)
+	if step.Detail != "" {
+		buf.WriteString(`<p class="rem-detail">`)
+		buf.WriteString(e(step.Detail))
+		buf.WriteString(`</p>`)
+	}
 
 	if step.WhyItMatters != "" {
-		buf.WriteString(`<div style="margin-top:10px"><strong style="display:block;margin-bottom:4px">Why It Matters</strong><p>`)
+		buf.WriteString(`<section class="rem-section"><div class="rem-section-title">Why It Matters</div><p>`)
 		buf.WriteString(e(step.WhyItMatters))
-		buf.WriteString(`</p></div>`)
+		buf.WriteString(`</p></section>`)
 	}
 	if step.DRImpact != "" {
-		buf.WriteString(`<div style="margin-top:10px"><strong style="display:block;margin-bottom:4px">DR Impact</strong><p>`)
+		buf.WriteString(`<section class="rem-section"><div class="rem-section-title">DR Impact</div><p>`)
 		buf.WriteString(e(step.DRImpact))
-		buf.WriteString(`</p></div>`)
+		buf.WriteString(`</p></section>`)
 	}
 
 	writeSection("Validate", step.Validation)
 	writeSection("Fix Steps", step.FixSteps)
 
 	if step.TargetNotes != "" {
-		noteClass := `note`
+		noteClass := `note rem-note`
 		if !dark {
-			noteClass = `note`
+			noteClass = `note rem-note`
 		}
 		buf.WriteString(fmt.Sprintf(`<div class="%s">%s</div>`, noteClass, e(step.TargetNotes)))
 	}
 	if len(step.Commands) > 0 {
-		buf.WriteString(`<div style="margin-top:10px"><strong style="display:block;margin-bottom:4px">Example Commands</strong><pre>`)
+		buf.WriteString(`<section class="rem-section"><div class="rem-section-title">Example Commands</div><pre>`)
 		buf.WriteString(e(strings.Join(step.Commands, "\n")))
-		buf.WriteString(`</pre></div>`)
+		buf.WriteString(`</pre></section>`)
 	}
 
 	writeSection("Caveats", step.Caveats)
 
+	buf.WriteString(`</div>`)
 	return buf.String()
 }

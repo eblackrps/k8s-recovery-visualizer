@@ -23,13 +23,8 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 	wf := func(f string, a ...any) { buf.WriteString(fmt.Sprintf(f, a...)) }
 	e := html.EscapeString
 
-	matColor := map[string]string{
-		"PLATINUM": "#1a56a0", "GOLD": "#b8860b",
-		"SILVER": "#555", "BRONZE": "#b5521a",
-	}[b.Score.Maturity]
-	if matColor == "" {
-		matColor = "#555"
-	}
+	matColor := maturityAccent(b.Score.Maturity)
+	overallTone := scoreAccent(b.Score.Overall.Final)
 
 	platform := b.Cluster.Platform.Provider
 	if platform == "" {
@@ -39,107 +34,59 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 	if backupTool == "" {
 		backupTool = "none"
 	}
-
-	w(`<!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DR Runbook</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#fff;color:#1a1a1a;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;line-height:1.6;padding:32px 48px;max-width:1100px;margin:0 auto}
-h1{font-size:1.6em;font-weight:800;margin-bottom:4px}
-h2{font-size:1.05em;font-weight:700;margin:28px 0 8px;padding-bottom:4px;border-bottom:2px solid #1a1a1a}
-h3{font-size:.92em;font-weight:600;margin:14px 0 6px;color:#333}
-.meta{color:#555;font-size:.82em;margin-bottom:24px}
-.cover{border:2px solid #1a1a1a;border-radius:6px;padding:24px 28px;margin-bottom:32px;background:#fafafa}
-.cover h1{margin-bottom:6px}
-.score-row{display:flex;align-items:center;gap:20px;margin-top:14px}
-.score-big{font-size:3em;font-weight:800;line-height:1;color:#1a1a1a}
-.badge{display:inline-block;padding:5px 16px;border-radius:14px;font-weight:700;font-size:1.1em;border:2px solid}
-.domains{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
-.dom{border:1px solid #ccc;border-radius:4px;padding:8px;text-align:center;background:#fff}
-.dom .v{font-size:1.7em;font-weight:700}
-.dom .l{font-size:.74em;color:#555}
-.dom .bar{background:#e0e0e0;border-radius:3px;height:4px;margin-top:5px}
-.dom .fill{height:4px;border-radius:3px;background:#555}
-table{width:100%;border-collapse:collapse;margin-top:4px;font-size:.84em}
-th{background:#f0f0f0;text-align:left;padding:6px 9px;border:1px solid #ccc;font-weight:600}
-td{padding:5px 9px;border:1px solid #ddd;vertical-align:top;word-break:break-word}
-tr:nth-child(even) td{background:#fafafa}
-.c-CRITICAL{color:#b91c1c;font-weight:700}
-.c-HIGH{color:#c2410c;font-weight:600}
-.c-MEDIUM{color:#854d0e}
-.c-LOW,.c-INFO{color:#555}
-.ok{color:#166534}.bad{color:#b91c1c}
-.chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.77em;border:1px solid #ccc;margin:1px}
-.step{border:1px solid #ccc;border-radius:4px;margin-bottom:10px;page-break-inside:avoid}
-.step-hdr{background:#f5f5f5;padding:8px 12px;font-weight:600;border-bottom:1px solid #ccc;display:flex;align-items:center;gap:8px}
-.step-body{padding:10px 12px}
-pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-size:.8em;overflow-x:auto;margin-top:6px;white-space:pre-wrap}
-.note{background:#fffbeb;border-left:3px solid #b8860b;padding:6px 10px;margin-top:6px;font-size:.84em;border-radius:0 3px 3px 0}
-.section-break{page-break-before:always}
-.footer{margin-top:36px;color:#888;font-size:.78em;border-top:1px solid #ddd;padding-top:10px}
-.print-btn{display:inline-block;margin-bottom:20px;padding:7px 18px;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.86em}
-.toc{background:#f9f9f9;border:1px solid #ddd;border-radius:4px;padding:14px 18px;margin-bottom:28px;display:inline-block;min-width:260px}
-.toc h3{margin:0 0 8px}
-.toc ol{padding-left:20px;font-size:.88em;line-height:1.9}
-.toc a{color:#1a56a0;text-decoration:none}
-.toc a:hover{text-decoration:underline}
-@media print{
-  .print-btn,.toc{display:none}
-  body{padding:12px 20px}
-  h2{page-break-after:avoid}
-  @page{margin:1.5cm}
-}
-</style></head><body>
-`)
-
-	w(`<button class="print-btn" onclick="window.print()">Print / Save as PDF</button>`)
-
-	// ── Cover ────────────────────────────────────────────────────────────────
-	w(`<div class="cover">`)
-	wf(`<h1>Kubernetes DR Recovery Runbook</h1>`)
-	parts := []string{}
-	if b.Metadata.CustomerID != "" {
-		parts = append(parts, "Customer: "+b.Metadata.CustomerID)
+	activeProfile := b.Profile
+	if activeProfile == "" {
+		activeProfile = "standard"
 	}
-	if b.Metadata.ClusterName != "" {
-		parts = append(parts, "Cluster: "+b.Metadata.ClusterName)
-	}
-	if b.Metadata.Site != "" {
-		parts = append(parts, "Site: "+b.Metadata.Site)
-	}
-	if b.Metadata.Environment != "" {
-		parts = append(parts, "Environment: "+b.Metadata.Environment)
-	}
-	parts = append(parts, "Generated: "+b.Metadata.GeneratedAt)
-	parts = append(parts, "Profile: "+func() string {
-		if b.Profile == "" {
-			return "standard"
+	writeMetaChip := func(label, value string) {
+		if value == "" {
+			return
 		}
-		return b.Profile
-	}())
-	wf(`<div class="meta">`)
-	for i, p := range parts {
-		if i > 0 {
-			w(` &nbsp;|&nbsp; `)
-		}
-		w(e(p))
+		wf(`<span class="meta-chip">%s <strong>%s</strong></span>`, e(label), e(value))
 	}
-	w(`</div>`)
 
-	wf(`<div class="score-row">
-<div class="score-big">%d<span style="font-size:.35em;color:#555">/100</span></div>
+	w(reportDocumentStart("DR Runbook", "runbook-page", runbookPageCSS()))
+	w(`<div class="page-toolbar"><button type="button" class="print-btn" onclick="window.print()">Print / Save as PDF</button></div>`)
+	wf(`<header class="hero">
+<div class="hero-copy">
+<span class="eyebrow">Operational runbook</span>
+<h1>Kubernetes DR Recovery Runbook</h1>
+<p>Customer-facing recovery inventory, backup posture, restore simulation, and remediation guidance for operational planning and executive review.</p>
+<div class="hero-meta-grid">`)
+	writeMetaChip("Customer", b.Metadata.CustomerID)
+	writeMetaChip("Cluster", b.Metadata.ClusterName)
+	writeMetaChip("Site", b.Metadata.Site)
+	writeMetaChip("Environment", b.Metadata.Environment)
+	writeMetaChip("Generated", b.Metadata.GeneratedAt)
+	writeMetaChip("Profile", activeProfile)
+	w(`</div></div>`)
+	wf(`<div class="hero-panel">
+<div class="hero-pill">Recovery target: %s</div>
+<div class="hero-score">
 <div>
-<div class="badge" style="color:%s;border-color:%s;font-size:1.2em">%s</div>
-<div style="color:#555;font-size:.82em;margin-top:6px">Platform: %s &nbsp; Backup: %s &nbsp; Recovery Target: %s</div>
+<div class="hero-score-label">Overall DR Score</div>
+<div class="hero-score-value" style="color:%s">%d</div>
 </div>
-</div>`,
-		b.Score.Overall.Final,
+<div class="badge" style="color:%s;border-color:%s">%s</div>
+</div>
+<div class="badge-row">
+<span class="badge badge-subtle">Platform: %s</span>
+<span class="badge badge-subtle">Backup: %s</span>
+<span class="badge badge-subtle">Coverage: %s</span>
+</div>
+<div class="hero-stat-grid">
+<div class="hero-stat"><span>Nodes</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Namespaces</span><strong>%d</strong></div>
+<div class="hero-stat"><span>PVCs</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Findings</span><strong>%d</strong></div>
+</div>
+</div></header>`,
+		e(b.Target), overallTone, b.Score.Overall.Final,
 		matColor, matColor, e(b.Score.Maturity),
-		e(platform), e(backupTool), e(b.Target))
+		e(platform), e(backupTool), e(backupCoverageStatusText(b.Inventory.Backup)),
+		len(b.Inventory.Nodes), len(b.Inventory.Namespaces), len(b.Inventory.PVCs), len(b.Inventory.Findings))
 
-	w(`<div class="domains" style="margin-top:14px">`)
+	w(`<div class="grid">`)
 	for _, d := range []struct {
 		label, weight string
 		score         int
@@ -149,13 +96,11 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
 		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
-		wf(`<div class="dom"><div class="v">%d</div><div class="l">%s <span style="color:#888">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
+		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#c4b5fd">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
 	}
 	w(`</div>`)
-	w(`</div>`) // cover
 
-	// ── Table of contents ────────────────────────────────────────────────────
 	w(`<div class="toc"><h3>Contents</h3><ol>
 <li><a href="#s1">Cluster Inventory</a></li>
 <li><a href="#s2">Backup &amp; Recovery Status</a></li>
@@ -165,8 +110,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 <li><a href="#s6">Scan Metadata</a></li>
 </ol></div>`)
 
-	// ── Section 1: Cluster Inventory ─────────────────────────────────────────
-	w(`<h2 id="s1">1. Cluster Inventory</h2>`)
+	w(`<section class="card"><span class="section-tag">Section 1</span><h2 id="s1" style="margin-top:0.4rem">1. Cluster Inventory</h2>`)
 	wf(`<table><tbody>
 <tr><th style="width:180px">Provider</th><td>%s</td><th style="width:180px">K8s Version</th><td>%s</td></tr>
 <tr><th>Cluster UID</th><td>%s</td><th>Platform</th><td>%s</td></tr>
@@ -185,9 +129,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates),
 		len(b.Inventory.CRDs), e(b.Target), e(backupCoverageStatusText(b.Inventory.Backup)))
 
-	// Node list (condensed)
 	if len(b.Inventory.Nodes) > 0 {
-		w(`<h3>Nodes</h3><table><thead><tr><th>Name</th><th>Roles</th><th>Ready</th><th>OS</th><th>Kubelet</th></tr></thead><tbody>`)
+		w(`<h3 style="margin-top:1rem">Nodes</h3><table><thead><tr><th>Name</th><th>Roles</th><th>Ready</th><th>OS</th><th>Kubelet</th></tr></thead><tbody>`)
 		for _, n := range b.Inventory.Nodes {
 			rdStr := `<span class="bad">✗</span>`
 			if n.Ready {
@@ -199,9 +142,8 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		w(`</tbody></table>`)
 	}
 
-	// Storage summary
 	if len(b.Inventory.PVCs) > 0 {
-		w(`<h3>PVC Summary</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>StorageClass</th><th>Size</th><th>Status</th></tr></thead><tbody>`)
+		w(`<h3 style="margin-top:1rem">PVC Summary</h3><table><thead><tr><th>Namespace</th><th>Name</th><th>StorageClass</th><th>Size</th><th>Status</th></tr></thead><tbody>`)
 		pvMap := map[string]model.PersistentVolume{}
 		for _, pv := range b.Inventory.PVs {
 			pvMap[pv.ClaimRef] = pv
@@ -216,9 +158,9 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}
 		w(`</tbody></table>`)
 	}
+	w(`</section>`)
 
-	// ── Section 2: Backup & Recovery Status ──────────────────────────────────
-	w(`<h2 id="s2" class="section-break">2. Backup &amp; Recovery Status</h2>`)
+	w(`<section class="card section-break"><span class="section-tag">Section 2</span><h2 id="s2" style="margin-top:0.4rem">2. Backup &amp; Recovery Status</h2>`)
 	inv := b.Inventory.Backup
 	backupClass := "bad"
 	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
@@ -294,10 +236,10 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}())
 
 	if inv.PrimaryTool != "none" && inv.PrimaryTool != "" && !inv.CoverageVerified {
-		wf(`<p style="color:#555;margin-top:8px">This backup product was detected, but policy coverage could not be verified (%s). %s</p>`,
+		wf(`<p class="subtle" style="margin-top:8px">This backup product was detected, but policy coverage could not be verified (%s). %s</p>`,
 			e(backupCoverageStatusText(inv)), e(backupCoverageReasonText(inv)))
 	} else if len(inv.Policies) > 0 {
-		w(`<h3>Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Last Success</th><th>Evidence</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
+		w(`<h3 style="margin-top:1rem">Backup Policies</h3><table><thead><tr><th>Tool</th><th>Name</th><th>Namespaces</th><th>Schedule</th><th>RPO (h)</th><th>Last Success</th><th>Evidence</th><th>Offsite</th><th>Retention</th></tr></thead><tbody>`)
 		for _, p := range inv.Policies {
 			nsCell := "all"
 			if len(p.IncludedNS) > 0 {
@@ -328,7 +270,7 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		w(`</tbody></table>`)
 	}
 	if inv.Assurance != nil && len(inv.Assurance.Signals) > 0 {
-		w(`<h3>Assurance Signals</h3><table><thead><tr><th>Signal</th><th>Status</th><th>Confidence</th><th>Summary</th><th>Detail</th></tr></thead><tbody>`)
+		w(`<h3 style="margin-top:1rem">Assurance Signals</h3><table><thead><tr><th>Signal</th><th>Status</th><th>Confidence</th><th>Summary</th><th>Detail</th></tr></thead><tbody>`)
 		for _, signal := range inv.Assurance.Signals {
 			detail := "—"
 			if signal.Detail != "" {
@@ -339,11 +281,11 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}
 		w(`</tbody></table>`)
 	}
+	w(`</section>`)
 
-	// ── Section 3: Restore Simulation ────────────────────────────────────────
-	w(`<h2 id="s3">3. Restore Simulation</h2>`)
+	w(`<section class="card"><span class="section-tag">Section 3</span><h2 id="s3" style="margin-top:0.4rem">3. Restore Simulation</h2>`)
 	if sim := inv.RestoreSim; sim == nil || len(sim.Namespaces) == 0 {
-		w(`<p style="color:#555">No stateful namespaces found — nothing to simulate.</p>`)
+		w(`<p class="subtle">No stateful namespaces found — nothing to simulate.</p>`)
 	} else {
 		unknownCount := 0
 		for _, ns := range sim.Namespaces {
@@ -395,13 +337,12 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}
 		w(`</tbody></table>`)
 	}
+	w(`</section>`)
 
-	// ── Section 4: Findings ───────────────────────────────────────────────────
-	w(`<h2 id="s4" class="section-break">4. Findings</h2>`)
+	w(`<section class="card section-break"><span class="section-tag">Section 4</span><h2 id="s4" style="margin-top:0.4rem">4. Findings</h2>`)
 	if len(b.Inventory.Findings) == 0 {
 		w(`<p class="ok">No findings recorded.</p>`)
 	} else {
-		// Sort: CRITICAL → HIGH → MEDIUM → LOW → INFO
 		sevOrder := map[string]int{"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
 		sorted := make([]model.Finding, len(b.Inventory.Findings))
 		copy(sorted, b.Inventory.Findings)
@@ -439,11 +380,11 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		}
 		w(`</tbody></table>`)
 	}
+	w(`</section>`)
 
-	// ── Section 5: Remediation Playbook ──────────────────────────────────────
-	w(`<h2 id="s5" class="section-break">5. DR Remediation Playbook</h2>`)
+	w(`<section class="card section-break"><span class="section-tag">Section 5</span><h2 id="s5" style="margin-top:0.4rem">5. DR Remediation Playbook</h2>`)
 	if len(b.Inventory.RemediationSteps) == 0 {
-		w(`<p style="color:#555">No remediation steps generated. Run against a live cluster to produce findings.</p>`)
+		w(`<p class="subtle">No remediation steps generated. Run against a live cluster to produce findings.</p>`)
 	} else {
 		priLabel := map[int]string{
 			1: "Priority 1 — Must Fix Before DR",
@@ -458,16 +399,16 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 				curPri = step.Priority
 				wf(`<h3 class="%s">%s</h3>`, priClass[step.Priority], e(priLabel[step.Priority]))
 			}
-			wf(`<div class="step"><div class="step-hdr"><span class="chip" style="border-color:%s;color:%s">%s</span> %s</div>`,
+			wf(`<div class="step"><div class="step-h" style="cursor:default"><span class="chip" style="border-color:%s;color:%s">%s</span> %s</div>`,
 				chipBorder[step.Priority], chipBorder[step.Priority], e(step.Category), e(step.Title))
-			w(`<div class="step-body">`)
+			w(`<div class="step-b open">`)
 			w(remediationBodyPrintHTML(step))
 			w(`</div></div>`)
 		}
 	}
+	w(`</section>`)
 
-	// ── Section 6: Scan Metadata ─────────────────────────────────────────────
-	w(`<h2 id="s6">6. Scan Metadata</h2>`)
+	w(`<section class="card"><span class="section-tag">Section 6</span><h2 id="s6" style="margin-top:0.4rem">6. Scan Metadata</h2>`)
 	wf(`<table><tbody>
 <tr><th style="width:200px">Scan ID</th><td>%s</td></tr>
 <tr><th>Tool Version</th><td>%s</td></tr>
@@ -479,17 +420,12 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:9px;font-
 		e(b.Scan.ScanID), e(b.Metadata.ToolVersion),
 		e(b.Scan.StartedAt.Format("2006-01-02 15:04:05 UTC")),
 		b.Scan.DurationSeconds,
-		e(func() string {
-			if b.Profile == "" {
-				return "standard"
-			}
-			return b.Profile
-		}()),
+		e(activeProfile),
 		e(b.SchemaVersion))
+	w(`</section>`)
 
-	// Footer
 	wf(`<div class="footer">Generated by k8s-recovery-visualizer %s &nbsp;|&nbsp; Scan ID: %s</div>`,
 		e(b.Metadata.ToolVersion), e(b.Scan.ScanID))
-
-	w(`</body></html>`)
+	w(`</main>`)
+	w(reportDocumentEnd())
 }

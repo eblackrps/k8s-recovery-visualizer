@@ -24,6 +24,7 @@ workload-report.json
 *.tmp
 *.bak
 *.old
+/tmp/
 
 # PowerShell transient files
 *.ps1xml

@@ -22,13 +22,8 @@ func buildSummary(buf *bytes.Buffer, b *model.Bundle) {
 	wf := func(f string, a ...any) { buf.WriteString(fmt.Sprintf(f, a...)) }
 	e := html.EscapeString
 
-	matColor := map[string]string{
-		"PLATINUM": "#79c0ff", "GOLD": "#f2cc60",
-		"SILVER": "#c9d1d9", "BRONZE": "#ffa657",
-	}[b.Score.Maturity]
-	if matColor == "" {
-		matColor = "#c9d1d9"
-	}
+	matColor := maturityAccent(b.Score.Maturity)
+	overallTone := scoreAccent(b.Score.Overall.Final)
 
 	platform := b.Cluster.Platform.Provider
 	if platform == "" {
@@ -38,87 +33,55 @@ func buildSummary(buf *bytes.Buffer, b *model.Bundle) {
 	if backupTool == "" {
 		backupTool = "none"
 	}
-
-	w(`<!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>DR Executive Summary</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#fff;color:#111;font-family:"Segoe UI",Arial,sans-serif;font-size:13px;line-height:1.5;padding:32px 40px}
-h1{font-size:1.4em;font-weight:700;margin-bottom:2px}
-h2{font-size:1em;font-weight:600;margin:18px 0 6px;border-bottom:1px solid #e0e0e0;padding-bottom:3px}
-.meta{color:#555;font-size:.82em;margin-bottom:20px}
-.score-hero{display:flex;align-items:center;gap:24px;margin-bottom:20px;padding:16px 20px;border:1px solid #e0e0e0;border-radius:6px;background:#fafafa}
-.score-big{font-size:3.2em;font-weight:800;line-height:1}
-.badge{display:inline-block;padding:4px 14px;border-radius:14px;font-weight:700;font-size:1em;border:2px solid}
-.domains{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
-.dom{border:1px solid #e0e0e0;border-radius:5px;padding:10px;text-align:center;background:#fafafa}
-.dom .v{font-size:1.8em;font-weight:700}
-.dom .l{font-size:.74em;color:#555;margin-top:1px}
-.dom .bar{background:#e0e0e0;border-radius:3px;height:4px;margin-top:6px}
-.dom .fill{height:4px;border-radius:3px;background:#555}
-table{width:100%;border-collapse:collapse;margin-top:4px;font-size:.84em}
-th{background:#f0f0f0;text-align:left;padding:5px 8px;border-bottom:1px solid #ccc;font-weight:600}
-td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
-.c-CRITICAL{color:#c0392b;font-weight:600}
-.c-HIGH{color:#d35400;font-weight:600}
-.c-MEDIUM{color:#7d6608}
-.c-LOW,.c-INFO{color:#555}
-.ok{color:#1a7a1a}.bad{color:#c0392b}
-.chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.77em;border:1px solid #ccc;margin:1px}
-.footer{margin-top:28px;color:#888;font-size:.78em;border-top:1px solid #e0e0e0;padding-top:10px}
-.print-btn{display:inline-block;margin-bottom:20px;padding:7px 18px;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.86em}
-@media print{
-  .print-btn{display:none}
-  body{padding:16px 20px}
-  @page{margin:1.5cm}
-}
-</style></head><body>
-`)
-
-	// Print button (hidden when printing)
-	w(`<button class="print-btn" onclick="window.print()">Print / Save as PDF</button>`)
-
-	// Title
-	wf(`<h1>Kubernetes DR Readiness — Executive Summary</h1>`)
-	metaParts := []string{}
-	if b.Metadata.CustomerID != "" {
-		metaParts = append(metaParts, "Customer: "+b.Metadata.CustomerID)
-	}
-	if b.Metadata.ClusterName != "" {
-		metaParts = append(metaParts, "Cluster: "+b.Metadata.ClusterName)
-	}
-	if b.Metadata.Site != "" {
-		metaParts = append(metaParts, "Site: "+b.Metadata.Site)
-	}
-	if b.Metadata.Environment != "" {
-		metaParts = append(metaParts, "Env: "+b.Metadata.Environment)
-	}
-	metaParts = append(metaParts, "Scan: "+b.Metadata.GeneratedAt)
-	wf(`<div class="meta">`)
-	for i, p := range metaParts {
-		if i > 0 {
-			w(` &nbsp;|&nbsp; `)
+	writeMetaChip := func(label, value string) {
+		if value == "" {
+			return
 		}
-		w(e(p))
+		wf(`<span class="meta-chip">%s <strong>%s</strong></span>`, e(label), e(value))
 	}
-	w(`</div>`)
 
-	// Score hero
-	wf(`<div class="score-hero">
-<div class="score-big">%d<span style="font-size:.4em;color:#555">/100</span></div>
+	w(reportDocumentStart("DR Executive Summary", "summary-page", summaryPageCSS()))
+	w(`<div class="page-toolbar"><button type="button" class="print-btn" onclick="window.print()">Print / Save as PDF</button></div>`)
+	wf(`<header class="hero">
+<div class="hero-copy">
+<span class="eyebrow">Executive brief</span>
+<h1>Kubernetes DR Readiness - Executive Summary</h1>
+<p>High-level readiness, backup trust, and priority remediation guidance in a single offline-friendly assessment summary.</p>
+<div class="hero-meta-grid">`)
+	writeMetaChip("Customer", b.Metadata.CustomerID)
+	writeMetaChip("Cluster", b.Metadata.ClusterName)
+	writeMetaChip("Site", b.Metadata.Site)
+	writeMetaChip("Env", b.Metadata.Environment)
+	writeMetaChip("Scan", b.Metadata.GeneratedAt)
+	writeMetaChip("Schema", b.SchemaVersion)
+	w(`</div></div>`)
+	wf(`<div class="hero-panel">
+<div class="hero-pill">Primary backup tool: %s</div>
+<div class="hero-score">
 <div>
-<div class="badge" style="color:%s;border-color:%s">%s</div>
-<div style="color:#555;font-size:.82em;margin-top:6px">Platform: %s &nbsp; Backup: %s &nbsp; Target: %s</div>
+<div class="hero-score-label">Overall DR Score</div>
+<div class="hero-score-value" style="color:%s">%d</div>
 </div>
-</div>`,
-		b.Score.Overall.Final,
+<div class="badge" style="color:%s;border-color:%s">%s</div>
+</div>
+<div class="badge-row">
+<span class="badge badge-subtle">Platform: %s</span>
+<span class="badge badge-subtle">Coverage: %s</span>
+<span class="badge badge-subtle">Assurance: %s</span>
+</div>
+<div class="hero-stat-grid">
+<div class="hero-stat"><span>Nodes</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Namespaces</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Helm</span><strong>%d</strong></div>
+<div class="hero-stat"><span>Certificates</span><strong>%d</strong></div>
+</div>
+</div></header>`,
+		e(backupTool), overallTone, b.Score.Overall.Final,
 		matColor, matColor, e(b.Score.Maturity),
-		e(platform), e(backupTool), e(b.Target))
+		e(platform), e(backupCoverageStatusText(b.Inventory.Backup)), e(backupAssuranceConclusionText(b.Inventory.Backup.Assurance)),
+		len(b.Inventory.Nodes), len(b.Inventory.Namespaces), len(b.Inventory.HelmReleases), len(b.Inventory.Certificates))
 
-	// Domain breakdown
-	w(`<div class="domains">`)
+	w(`<div class="grid">`)
 	for _, d := range []struct {
 		label, weight string
 		score         int
@@ -128,30 +91,51 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
 		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
-		wf(`<div class="dom"><div class="v">%d</div><div class="l">%s <span style="color:#888">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
+		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#c4b5fd">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
 	}
 	w(`</div>`)
 
-	// Environment summary
-	wf(`<h2>Environment</h2>
-<table><tbody>
-<tr><td style="width:160px">Provider</td><td>%s</td><td style="width:160px">K8s Version</td><td>%s</td></tr>
-<tr><td>Nodes</td><td>%d</td><td>Namespaces</td><td>%d</td></tr>
-<tr><td>Backup Tool</td><td class="%s">%s</td><td>Recovery Target</td><td>%s</td></tr>
-<tr><td>Backup Coverage</td><td>%s</td><td>Coverage Detail</td><td>%s</td></tr>
-<tr><td>Backup Assurance</td><td>%s</td><td>Assurance Summary</td><td>%s</td></tr>
-<tr><td>Offsite Detail</td><td>%s</td><td>Helm Releases</td><td>%d</td></tr>
-<tr><td>Certificates</td><td>%d</td><td>Schema Version</td><td>%s</td></tr>
-</tbody></table>`,
+	w(`<div class="summary-grid"><div class="stack">`)
+	toolChipClass := "f"
+	if backupTool != "none" {
+		toolChipClass = "p"
+	}
+	wf(`<section class="card"><span class="section-tag">Environment</span><h2 style="margin-top:0.4rem">Platform and trust posture</h2>
+<div class="kv-grid">
+<div class="kv-card">
+<h3>Cluster context</h3>
+<div class="kv-list">
+<div class="kv-row"><span class="kv-key">Provider</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">K8s Version</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">Nodes</span><span class="kv-value">%d</span></div>
+<div class="kv-row"><span class="kv-key">Namespaces</span><span class="kv-value">%d</span></div>
+<div class="kv-row"><span class="kv-key">Recovery Target</span><span class="kv-value">%s</span></div>
+</div>
+</div>
+<div class="kv-card">
+<h3>Backup trust</h3>
+<div class="kv-list">
+<div class="kv-row"><span class="kv-key">Backup Tool</span><span class="kv-value"><span class="chip %s">%s</span></span></div>
+<div class="kv-row"><span class="kv-key">Backup Coverage</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">Coverage Detail</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">Backup Assurance</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">Assurance Summary</span><span class="kv-value">%s</span></div>
+<div class="kv-row"><span class="kv-key">Offsite Detail</span><span class="kv-value">%s</span></div>
+</div>
+</div>
+<div class="kv-card">
+<h3>Inventory signals</h3>
+<div class="kv-list">
+<div class="kv-row"><span class="kv-key">Helm Releases</span><span class="kv-value">%d</span></div>
+<div class="kv-row"><span class="kv-key">Certificates</span><span class="kv-value">%d</span></div>
+<div class="kv-row"><span class="kv-key">Schema Version</span><span class="kv-value">%s</span></div>
+</div>
+</div>
+</div></section>`,
 		e(platform), e(b.Cluster.Platform.K8sVersion),
-		len(b.Inventory.Nodes), len(b.Inventory.Namespaces),
-		func() string {
-			if backupTool == "none" {
-				return "bad"
-			}
-			return "ok"
-		}(), e(backupTool), e(b.Target),
+		len(b.Inventory.Nodes), len(b.Inventory.Namespaces), e(b.Target),
+		toolChipClass, e(backupTool),
 		e(backupCoverageStatusText(b.Inventory.Backup)), e(backupCoverageReasonText(b.Inventory.Backup)),
 		e(backupAssuranceConclusionText(b.Inventory.Backup.Assurance)), e(func() string {
 			if b.Inventory.Backup.Assurance == nil {
@@ -159,7 +143,8 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 			}
 			return b.Inventory.Backup.Assurance.Summary
 		}()),
-		e(backupOffsiteDetailText(b.Inventory.Backup)), len(b.Inventory.HelmReleases), len(b.Inventory.Certificates), e(b.SchemaVersion))
+		e(backupOffsiteDetailText(b.Inventory.Backup)),
+		len(b.Inventory.HelmReleases), len(b.Inventory.Certificates), e(b.SchemaVersion))
 
 	// Top findings — CRITICAL + HIGH only, max 10
 	var topFindings []model.Finding
@@ -193,13 +178,7 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 		}
 	}
 
-	wf(`<h2>Findings Summary</h2>`)
-	wf(`<p style="margin-bottom:8px">
-<span class="chip" style="border-color:#c0392b;color:#c0392b">CRITICAL: %d</span>
-<span class="chip" style="border-color:#d35400;color:#d35400">HIGH: %d</span>
-<span class="chip" style="border-color:#7d6608;color:#7d6608">MEDIUM: %d</span>
-<span class="chip">LOW/INFO: %d</span>
-</p>`, crit, high, med, low)
+	w(`<section class="card"><span class="section-tag">Top Issues</span><h2 style="margin-top:0.4rem">Critical and high findings</h2>`)
 
 	if len(topFindings) > 0 {
 		w(`<table><thead><tr><th>Severity</th><th>Resource</th><th>Issue</th><th>Recommendation</th></tr></thead><tbody>`)
@@ -209,11 +188,22 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 		}
 		w(`</tbody></table>`)
 		if crit+high > 10 {
-			wf(`<p style="color:#555;font-size:.82em;margin-top:4px">Showing top 10 of %d critical/high findings. See full report for complete list.</p>`, crit+high)
+			wf(`<p class="subtle" style="font-size:.82em;margin-top:4px">Showing top 10 of %d critical/high findings. See full report for complete list.</p>`, crit+high)
 		}
 	} else {
 		w(`<p class="ok">No critical or high severity findings.</p>`)
 	}
+	w(`</section></div><div class="stack">`)
+
+	wf(`<section class="card"><span class="section-tag">Findings Summary</span><h2 style="margin-top:0.4rem">Severity distribution</h2>
+<div class="badge-row" style="margin-top:0.9rem">
+<span class="chip" style="border-color:#fb7185;color:#fb7185">CRITICAL: %d</span>
+<span class="chip" style="border-color:#ffb86c;color:#ffb86c">HIGH: %d</span>
+<span class="chip" style="border-color:#f59e0b;color:#f59e0b">MEDIUM: %d</span>
+<span class="chip">LOW/INFO: %d</span>
+</div>
+<p class="subtle" style="margin-top:0.9rem">This summary keeps the highest-risk items front and center while preserving the underlying trust and assurance semantics.</p>
+</section>`, crit, high, med, low)
 
 	// Remediation top priorities
 	var p1 []model.RemediationStep
@@ -226,17 +216,20 @@ td{padding:5px 8px;border-bottom:1px solid #e8e8e8;vertical-align:top}
 		if len(p1) > 5 {
 			p1 = p1[:5]
 		}
-		w(`<h2>Priority Actions</h2>`)
+		w(`<section class="card"><span class="section-tag">Priority Actions</span><h2 style="margin-top:0.4rem">Immediate next steps</h2>`)
 		w(`<table><thead><tr><th>Category</th><th>Action</th></tr></thead><tbody>`)
 		for _, s := range p1 {
 			wf(`<tr><td style="width:120px">%s</td><td>%s</td></tr>`, e(s.Category), e(s.Title))
 		}
-		w(`</tbody></table>`)
+		w(`</tbody></table></section>`)
+	} else {
+		w(`<section class="card"><span class="section-tag">Priority Actions</span><h2 style="margin-top:0.4rem">Immediate next steps</h2><p class="subtle">No priority-one remediation items were generated for this scan.</p></section>`)
 	}
+	w(`</div></div>`)
 
 	// Footer
 	wf(`<div class="footer">Generated by k8s-recovery-visualizer %s &nbsp;|&nbsp; Scan ID: %s</div>`,
 		e(b.Metadata.ToolVersion), e(b.Scan.ScanID))
-
-	w(`</body></html>`)
+	w(`</main>`)
+	w(reportDocumentEnd())
 }
