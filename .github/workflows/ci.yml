@@ -28,7 +28,11 @@ jobs:
       - name: Install Linux desktop build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev
+          mkdir -p "$RUNNER_TEMP/pkgconfig"
+          ln -sf "$(dpkg -L libwebkit2gtk-4.1-dev | grep '/webkit2gtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/webkit2gtk-4.0.pc"
+          ln -sf "$(dpkg -L libjavascriptcoregtk-4.1-dev | grep '/javascriptcoregtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/javascriptcoregtk-4.0.pc"
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Install Wails CLI
         run: |
