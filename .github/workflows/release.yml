@@ -328,7 +328,9 @@ jobs:
       - name: Archive macOS desktop output
         run: |
           mkdir -p release
-          ditto -c -k --sequesterRsrc --keepParent desktop/build/bin/k8s-recovery-visualizer-desktop.app release/k8s-recovery-visualizer-desktop-darwin-amd64.zip
+          APP_PATH="$(find desktop/build/bin -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH" || { echo "ERROR: macOS app bundle not found"; exit 1; }
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" release/k8s-recovery-visualizer-desktop-darwin-amd64.zip
 
       - uses: actions/upload-artifact@v4
         with:
