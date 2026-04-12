@@ -54,11 +54,13 @@ func (r ScanRequest) Timeout() time.Duration {
 }
 
 type ExportRequest struct {
-	OutputDir string `json:"outputDir"`
-	CSVExport bool   `json:"csvExport,omitempty"`
-	Summary   bool   `json:"summary,omitempty"`
-	Runbook   bool   `json:"runbook,omitempty"`
-	Redact    bool   `json:"redact,omitempty"`
+	OutputDir  string `json:"outputDir"`
+	Report     bool   `json:"report,omitempty"`
+	BundleJSON bool   `json:"bundleJson,omitempty"`
+	CSVExport  bool   `json:"csvExport,omitempty"`
+	Summary    bool   `json:"summary,omitempty"`
+	Runbook    bool   `json:"runbook,omitempty"`
+	Redact     bool   `json:"redact,omitempty"`
 }
 
 type ArtifactPaths struct {

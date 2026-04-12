@@ -18,10 +18,10 @@ export function HomeView(props: {
           and preserves the existing report information architecture.
         </p>
         <div className="metric-grid">
-          <MetricCard label="Overall Score" value={bundle?.score.overall.final ?? 85} tone="accent" />
+          <MetricCard label="Overall Score" value={bundle ? bundle.score.overall.final : "—"} tone="accent" />
           <MetricCard label="Namespaces" value={(bundle?.inventory.namespaces || []).length} />
           <MetricCard label="Findings" value={(bundle?.inventory.findings || []).length} tone="high" />
-          <MetricCard label="History Points" value={props.workspace?.history.entries.length || 3} />
+          <MetricCard label="History Points" value={props.workspace?.history.entries.length ?? 0} />
         </div>
       </section>
 
@@ -36,23 +36,27 @@ export function HomeView(props: {
           </button>
         </div>
         <div className="stack-list">
-          {props.projects.map((project) => (
-            <button
-              type="button"
-              key={project.lastScanPath}
-              className="project-card"
-              onClick={() => props.onOpenBundle(project.lastScanPath)}
-            >
-              <div>
-                <strong>{project.clusterName || project.name}</strong>
-                <p className="muted">{project.environment || "Unknown environment"}</p>
-              </div>
-              <div className="project-score">
-                <strong>{project.score}</strong>
-                <span className="chip">{project.maturity}</span>
-              </div>
-            </button>
-          ))}
+          {props.projects.length ? (
+            props.projects.map((project) => (
+              <button
+                type="button"
+                key={project.lastScanPath}
+                className="project-card"
+                onClick={() => props.onOpenBundle(project.lastScanPath)}
+              >
+                <div>
+                  <strong>{project.clusterName || project.name}</strong>
+                  <p className="muted">{project.environment || "Unknown environment"}</p>
+                </div>
+                <div className="project-score">
+                  <strong>{project.score}</strong>
+                  <span className="chip">{project.maturity}</span>
+                </div>
+              </button>
+            ))
+          ) : (
+            <p className="muted">No bundles found yet. Run a scan or open an existing bundle to populate this workspace.</p>
+          )}
         </div>
       </section>
 

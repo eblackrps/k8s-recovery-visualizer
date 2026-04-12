@@ -60,8 +60,9 @@ func (a *App) GetSettings() Settings {
 }
 
 func (a *App) SaveSettings(settings Settings) error {
-	a.settings = settings
-	return saveSettings(settings)
+	merged := mergeSettings(defaultSettings(), settings)
+	a.settings = merged
+	return saveSettings(merged)
 }
 
 func (a *App) ListProjects(root string) ([]appcore.ProjectSummary, error) {
@@ -163,8 +164,8 @@ func loadSettings() (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
-	var settings Settings
-	if err := json.Unmarshal(raw, &settings); err != nil {
+	settings, err := parseSettings(raw, defaultSettings())
+	if err != nil {
 		return Settings{}, err
 	}
 	return settings, nil
@@ -200,4 +201,70 @@ func defaultSettings() Settings {
 		Runbook:          true,
 		CSVExport:        true,
 	}
+}
+
+type partialSettings struct {
+	WorkspaceRoot         *string `json:"workspaceRoot"`
+	DefaultOutputDir      *string `json:"defaultOutputDir"`
+	DefaultProfile        *string `json:"defaultProfile"`
+	IncludeSecretMetadata *bool   `json:"includeSecretMetadata"`
+	Summary               *bool   `json:"summary"`
+	Runbook               *bool   `json:"runbook"`
+	Redact                *bool   `json:"redact"`
+	CSVExport             *bool   `json:"csvExport"`
+}
+
+func parseSettings(raw []byte, defaults Settings) (Settings, error) {
+	var partial partialSettings
+	if err := json.Unmarshal(raw, &partial); err != nil {
+		return Settings{}, err
+	}
+	return mergeSettings(defaults, partialSettingsToSettings(partial, defaults)), nil
+}
+
+func partialSettingsToSettings(partial partialSettings, defaults Settings) Settings {
+	out := defaults
+	if partial.WorkspaceRoot != nil {
+		out.WorkspaceRoot = *partial.WorkspaceRoot
+	}
+	if partial.DefaultOutputDir != nil {
+		out.DefaultOutputDir = *partial.DefaultOutputDir
+	}
+	if partial.DefaultProfile != nil {
+		out.DefaultProfile = *partial.DefaultProfile
+	}
+	if partial.IncludeSecretMetadata != nil {
+		out.IncludeSecretMetadata = *partial.IncludeSecretMetadata
+	}
+	if partial.Summary != nil {
+		out.Summary = *partial.Summary
+	}
+	if partial.Runbook != nil {
+		out.Runbook = *partial.Runbook
+	}
+	if partial.Redact != nil {
+		out.Redact = *partial.Redact
+	}
+	if partial.CSVExport != nil {
+		out.CSVExport = *partial.CSVExport
+	}
+	return out
+}
+
+func mergeSettings(defaults, overrides Settings) Settings {
+	if overrides.WorkspaceRoot != "" {
+		defaults.WorkspaceRoot = overrides.WorkspaceRoot
+	}
+	if overrides.DefaultOutputDir != "" {
+		defaults.DefaultOutputDir = overrides.DefaultOutputDir
+	}
+	if overrides.DefaultProfile != "" {
+		defaults.DefaultProfile = overrides.DefaultProfile
+	}
+	defaults.IncludeSecretMetadata = overrides.IncludeSecretMetadata
+	defaults.Summary = overrides.Summary
+	defaults.Runbook = overrides.Runbook
+	defaults.Redact = overrides.Redact
+	defaults.CSVExport = overrides.CSVExport
+	return defaults
 }

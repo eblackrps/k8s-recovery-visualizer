@@ -44,6 +44,8 @@ const bootstrap: Bootstrap = {
   },
 };
 
+const demoTimestamp = "2026-04-12T14:11:00Z";
+
 const demoWorkspace: Workspace = {
   source: "bundle",
   loadedAt: "2026-04-12T16:00:00Z",
@@ -421,7 +423,7 @@ export const mockBackend = {
       emit({
         type: step === "complete" ? "complete" : "status",
         runId,
-        timestamp: new Date().toISOString(),
+        timestamp: demoTimestamp,
         step,
         level: "info",
         message,
@@ -431,7 +433,7 @@ export const mockBackend = {
       await new Promise((resolve) => setTimeout(resolve, step === "complete" ? 120 : 160));
     }
     const workspace = clone(demoWorkspace);
-    workspace.bundle.metadata.generatedAt = new Date().toISOString();
+    workspace.bundle.metadata.generatedAt = demoTimestamp;
     return {
       runId,
       exitCode: 0,
@@ -446,7 +448,7 @@ export const mockBackend = {
     emit({
       type: "warning",
       runId: "mock-run",
-      timestamp: new Date().toISOString(),
+      timestamp: demoTimestamp,
       step: "cancel",
       level: "warn",
       message: "Cancellation requested.",
@@ -457,9 +459,19 @@ export const mockBackend = {
     return clone(demoWorkspace);
   },
   async ExportBundle(path: string, request: ExportRequest) {
+    const outputDir = request.outputDir || demoWorkspace.artifacts.outputDir;
     return {
-      ...demoWorkspace.artifacts,
-      outputDir: request.outputDir || demoWorkspace.artifacts.outputDir,
+      outputDir,
+      bundleJson: request.bundleJson || request.report ? `${outputDir}/recovery-scan.json` : undefined,
+      enrichedJson: request.bundleJson || request.report ? `${outputDir}/recovery-enriched.json` : undefined,
+      htmlReport: request.report ? `${outputDir}/recovery-report.html` : undefined,
+      markdownReport: request.bundleJson || request.report ? `${outputDir}/recovery-report.md` : undefined,
+      summaryHtml: request.summary ? `${outputDir}/recovery-summary.html` : undefined,
+      runbookHtml: request.runbook ? `${outputDir}/recovery-runbook.html` : undefined,
+      redactedJson: request.redact ? `${outputDir}/recovery-scan-redacted.json` : undefined,
+      redactedHtml: request.redact ? `${outputDir}/recovery-report-redacted.html` : undefined,
+      csvDir: request.csvExport ? `${outputDir}/csv` : undefined,
+      historyIndex: request.bundleJson || request.report ? `${outputDir}/history/index.json` : undefined,
       loadedBundlePath: path || demoWorkspace.artifacts.loadedBundlePath,
     };
   },

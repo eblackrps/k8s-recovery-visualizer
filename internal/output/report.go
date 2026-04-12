@@ -283,7 +283,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		w(`</tbody></table></div>`)
 	} else {
-		wf(`<div class="card" style="border-color:rgba(190,172,255,0.16)"><h2>Scan Coverage</h2>
+		wf(`<div class="card" style="border-color:var(--line-soft)"><h2>Scan Coverage</h2>
 <p style="color:var(--success);font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
 	}
 

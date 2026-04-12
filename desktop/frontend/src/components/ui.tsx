@@ -91,6 +91,9 @@ export function DataTable(props: {
 }
 
 export function TrendRail(props: { entries: Array<{ timestampUtc: string; overall: number; maturity: string }> }) {
+  if (!props.entries.length) {
+    return <p className="muted trend-empty">No history recorded yet.</p>;
+  }
   const max = Math.max(...props.entries.map((entry) => entry.overall), 100);
   return (
     <div className="trend-rail" aria-label="History trend">
@@ -205,10 +208,18 @@ export function handleRovingTabs(
   current: number,
   setIndex: (index: number) => void,
 ) {
-  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") {
     return;
   }
   event.preventDefault();
+  if (event.key === "Home") {
+    setIndex(0);
+    return;
+  }
+  if (event.key === "End") {
+    setIndex(items.length - 1);
+    return;
+  }
   if (event.key === "ArrowRight") {
     setIndex((current + 1) % items.length);
     return;

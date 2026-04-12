@@ -84,7 +84,7 @@ func TestSharedOutputCSSUsesSharedThemePalette(t *testing.T) {
 			t.Fatalf("sharedOutputCSS() missing theme token %s", want)
 		}
 	}
-	for _, old := range []string{"#a78bfa", "#8b5cf6", "#c4b5fd"} {
+	for _, old := range []string{"#a78bfa", "#8b5cf6", "#c4b5fd", "rgba(196,181,253", "rgba(190,172,255", "rgba(167,139,250", "rgba(139,92,246"} {
 		if strings.Contains(css, old) {
 			t.Fatalf("sharedOutputCSS() still contains legacy color %s", old)
 		}

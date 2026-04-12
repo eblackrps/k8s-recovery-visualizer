@@ -21,10 +21,13 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Centralized report and desktop design tokens in `internal/theme`.
-- Refactored `internal/output/report.go`, `summary.go`, `runbook.go`, and the legacy HTML writer to consume shared palette tokens.
+- Refactored `internal/output/report.go`, `summary.go`, and `runbook.go` to consume shared palette tokens, and archived retired legacy writers out of the build.
 - Kept CLI orchestration thin by routing `cmd/scan` through `internal/scanapp` and `internal/appcore`.
 - Expanded the Makefile and GitHub Actions workflows to cover frontend build/test, desktop packaging, docs validation, screenshots, checksums, and SBOM generation.
 - Updated the README and architecture notes to describe the combined CLI + desktop product.
+- Hardened shared-core export behavior so GUI exports write only the requested artifact set and do not mutate loaded bundles.
+- Fixed dry-run finalization so findings and remediation are generated once, not duplicated.
+- Improved desktop defaults, screenshot determinism, accessibility wiring, and release-gate parity.
 
 ### Compatibility
 

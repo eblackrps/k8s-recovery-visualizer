@@ -56,11 +56,19 @@ async function waitForServer() {
 async function main() {
   await waitForServer();
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1440, height: 980 } });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 980 },
+    locale: "en-US",
+    timezoneId: "America/New_York",
+    colorScheme: "dark",
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
   for (const shot of pages) {
     await page.goto(shot.url, { waitUntil: "networkidle" });
     await page.screenshot({ path: shot.file, fullPage: true });
   }
+  await context.close();
   await browser.close();
 }
 

@@ -42,6 +42,7 @@ The screenshot script:
 - builds the frontend
 - serves the production build locally
 - opens fixture-backed routes for each required screen
+- uses a fixed locale, timezone, and reduced-motion profile for deterministic captures
 - writes the PNG files into `images/`
 
 No live cluster access is required.

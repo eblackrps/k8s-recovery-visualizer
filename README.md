@@ -33,7 +33,7 @@ Desktop surfaces:
 - Added a guided scan wizard, RBAC/preflight assistant, live progress events, structured warnings, cancel support, and an open-existing-bundle workflow.
 - Added a results workspace that mirrors the report tabs: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare.
 - Added deterministic frontend fixtures plus automated GUI screenshot generation for release docs.
-- Expanded release readiness with changelog, contributing guide, GUI docs, screenshot docs, release notes guidance, Make targets, and stronger CI/release automation.
+- Expanded release readiness with changelog, contributing guide, GUI docs, screenshot docs, release notes guidance, cross-host Make targets, and stronger CI/release automation.
 
 ## CLI Quickstart
 
@@ -71,6 +71,8 @@ Compare against a previous bundle:
 ```bash
 ./dist/scan-linux-amd64 --compare ./previous/recovery-scan.json --out ./out
 ```
+
+On Windows, use `dist/scan.exe` after `make build`.
 
 ## Desktop Quickstart
 
@@ -148,6 +150,7 @@ Common targets:
 - `make fmt`
 - `make vet`
 - `make test`
+- `make race`
 - `make frontend-build`
 - `make frontend-test`
 - `make screenshots`
@@ -179,5 +182,5 @@ Release packaging guidance: [docs/RELEASE.md](docs/RELEASE.md)
 - The scan entrypoint stays intentionally thin and routes through [`internal/scanapp`](internal/scanapp).
 - Shared application logic for both CLI and desktop now lives in [`internal/appcore`](internal/appcore).
 - Shared design tokens for reports and the desktop UI now live in [`internal/theme`](internal/theme).
-- The legacy HTML writer in [`internal/output/html.go`](internal/output/html.go) is retained for compatibility and now consumes the shared theme.
+- Retired legacy writers and duplicate scan helpers are archived out of the build; the maintained report path is [`internal/output/report.go`](internal/output/report.go) and the maintained shared scan path is [`internal/appcore`](internal/appcore).
 - The original PowerShell workflow remains archived in [`legacy/powershell`](legacy/powershell).

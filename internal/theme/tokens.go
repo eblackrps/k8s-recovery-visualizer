@@ -97,17 +97,27 @@ func (t Tokens) CSSVariables() string {
   --surface-raised:%s;
   --panel:%s;
   --panel-strong:%s;
+  --bg-deep:%s;
   --line:%s;
   --line-soft:%s;
   --text:%s;
   --muted:%s;
+  --muted-strong:%s;
   --accent:%s;
   --accent-soft:%s;
   --accent-strong:%s;
+  --accent-faint:%s;
+  --accent-surface:%s;
   --success:%s;
+  --success-faint:%s;
   --danger:%s;
+  --danger-faint:%s;
   --warning-high:%s;
+  --warning-high-faint:%s;
+  --warning:%s;
   --warning-medium:%s;
+  --warning-medium-faint:%s;
+  --glow:%s;
   --maturity-platinum:%s;
   --maturity-gold:%s;
   --maturity-silver:%s;
@@ -128,17 +138,27 @@ func (t Tokens) CSSVariables() string {
 		WithAlpha(t.Palette.Surface, 0.94),
 		WithAlpha(t.Palette.Surface, 0.88),
 		WithAlpha(t.Palette.Surface, 0.96),
+		WithAlpha(t.Palette.Background, 0.98),
 		t.Palette.Border,
 		WithAlpha(t.Palette.Border, 0.45),
 		t.Palette.Text,
 		t.Palette.Muted,
+		WithAlpha(t.Palette.Text, 0.92),
 		t.Palette.Accent,
 		WithAlpha(t.Palette.Accent, 0.82),
 		WithAlpha(t.Palette.Accent, 0.55),
+		WithAlpha(t.Palette.Accent, 0.14),
+		WithAlpha(t.Palette.Accent, 0.22),
 		t.Palette.Success,
+		WithAlpha(t.Palette.Success, 0.16),
 		t.Palette.Critical,
+		WithAlpha(t.Palette.Critical, 0.16),
 		t.Palette.High,
+		WithAlpha(t.Palette.High, 0.16),
 		t.Palette.Medium,
+		t.Palette.Medium,
+		WithAlpha(t.Palette.Medium, 0.16),
+		WithAlpha(t.Palette.Accent, 0.28),
 		t.Maturity.Platinum,
 		t.Maturity.Gold,
 		t.Maturity.Silver,

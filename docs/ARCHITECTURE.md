@@ -34,7 +34,8 @@
 
 6. `internal/output`
    HTML, Markdown, CSV, summary, runbook, and redacted artifact writers.
-   `report.go`, `summary.go`, `runbook.go`, and the legacy `html.go` now consume the centralized theme tokens.
+   `report.go`, `summary.go`, and `runbook.go` are the maintained report surfaces and consume the centralized theme tokens.
+   Archived legacy writers are excluded from the build to avoid duplicate output paths.
 
 7. Analysis and remediation packages
    - `internal/analyze`

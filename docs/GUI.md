@@ -40,8 +40,8 @@ Live run updates are emitted as the `scan:event` Wails event.
 ## Accessibility And Navigation
 
 - wizard controls use explicit labels
-- primary navigation and tabs expose semantic labeling
-- keyboard arrow navigation is supported for tab rows
+- primary navigation and tabs expose semantic labeling plus tab/tabpanel wiring
+- keyboard arrow navigation is supported for tab rows, with `Home` and `End` shortcuts on tablists
 - the UI keeps contrast aligned with the shared report palette
 
 ## Development
@@ -76,6 +76,7 @@ The frontend supports a deterministic mock backend for tests, local previews, an
 
 - screenshots are generated from the fixture-backed browser build
 - the fixture includes history, comparison data, findings, remediation steps, and backup evidence
+- fixture timestamps, locale, and timezone are fixed so the screenshot set stays reproducible
 - this keeps the screenshot set stable without requiring cluster access
 
 Screenshot workflow: [SCREENSHOTS.md](SCREENSHOTS.md)

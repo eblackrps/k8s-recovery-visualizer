@@ -35,11 +35,14 @@ export function ScanView(props: {
             <button
               key={step}
               type="button"
+              id={`wizard-tab-${index}`}
               role="tab"
               aria-selected={props.wizardStep === index}
+              aria-controls={`wizard-panel-${index}`}
+              tabIndex={props.wizardStep === index ? 0 : -1}
               className={`step-pill ${props.wizardStep === index ? "is-active" : ""}`}
               onClick={() => props.setWizardStep(index)}
-              onKeyDown={(event) => handleRovingTabs(event, wizardSteps, props.wizardStep, props.setWizardStep)}
+              onKeyDown={(event) => handleRovingTabs(event, wizardSteps, index, props.setWizardStep)}
             >
               <span>{index + 1}</span>
               {step}
@@ -48,7 +51,7 @@ export function ScanView(props: {
         </div>
 
         {props.wizardStep === 0 && (
-          <div className="form-grid">
+          <div id="wizard-panel-0" role="tabpanel" aria-labelledby="wizard-tab-0" className="form-grid">
             <Field label="Kubeconfig Path">
               <input aria-label="Kubeconfig path" value={props.scanForm.kubeconfigPath || ""} onChange={(event) => updateForm("kubeconfigPath", event.target.value)} />
             </Field>
@@ -73,7 +76,7 @@ export function ScanView(props: {
         )}
 
         {props.wizardStep === 1 && (
-          <div className="form-grid">
+          <div id="wizard-panel-1" role="tabpanel" aria-labelledby="wizard-tab-1" className="form-grid">
             <Field label="Namespaces (comma separated)">
               <input value={(props.scanForm.namespaces || []).join(", ")} onChange={(event) => updateForm("namespaces", splitList(event.target.value))} />
             </Field>
@@ -98,7 +101,7 @@ export function ScanView(props: {
         )}
 
         {props.wizardStep === 2 && (
-          <div className="form-grid">
+          <div id="wizard-panel-2" role="tabpanel" aria-labelledby="wizard-tab-2" className="form-grid">
             <Field label="Output Directory">
               <div className="inline-field">
                 <input value={props.scanForm.outputDir || ""} onChange={(event) => updateForm("outputDir", event.target.value)} />
@@ -124,7 +127,7 @@ export function ScanView(props: {
         )}
 
         {props.wizardStep === 3 && (
-          <div className="review-grid">
+          <div id="wizard-panel-3" role="tabpanel" aria-labelledby="wizard-tab-3" className="review-grid">
             <ReviewCard label="Kubeconfig" value={props.scanForm.kubeconfigPath || "default loading rules"} />
             <ReviewCard label="Context" value={props.scanForm.contextName || "default context"} />
             <ReviewCard label="Scope" value={(props.scanForm.namespaces || []).join(", ") || "all namespaces"} />

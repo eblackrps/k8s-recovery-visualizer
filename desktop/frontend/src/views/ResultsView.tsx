@@ -41,6 +41,8 @@ export function ResultsView(props: {
   const filteredFindings = (bundle.inventory.findings || []).filter((finding) =>
     props.findingFilter === "ALL" ? true : finding.severity === props.findingFilter,
   );
+  const activePanelId = `results-panel-${props.resultTab.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const activeTabId = `results-tab-${props.resultTab.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   return (
     <section className="panel results-panel">
@@ -65,8 +67,11 @@ export function ResultsView(props: {
           <button
             key={tab}
             type="button"
+            id={`results-tab-${tab.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
             role="tab"
             aria-selected={props.resultTab === tab}
+            aria-controls={`results-panel-${tab.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            tabIndex={props.resultTab === tab ? 0 : -1}
             className={`tab ${props.resultTab === tab ? "is-active" : ""}`}
             onClick={() => props.setResultTab(tab)}
             onKeyDown={(event) => handleRovingTabs(event, activeTabs, index, (next) => props.setResultTab(activeTabs[next]))}
@@ -76,57 +81,63 @@ export function ResultsView(props: {
         ))}
       </div>
 
-      {props.resultTab === "Summary" && <SummaryPanel bundle={bundle} workspace={props.workspace} />}
-      {props.resultTab === "Nodes" && <NodesPanel bundle={bundle} />}
-      {props.resultTab === "Workloads" && <WorkloadsPanel bundle={bundle} />}
-      {props.resultTab === "Storage" && <StoragePanel bundle={bundle} />}
-      {props.resultTab === "Networking" && <NetworkingPanel bundle={bundle} />}
-      {props.resultTab === "Config" && <ConfigPanel bundle={bundle} />}
-      {props.resultTab === "Images" && <ImagesPanel bundle={bundle} />}
-      {props.resultTab === "Backup" && <BackupPanel bundle={bundle} />}
-      {props.resultTab === "DR Score" && <ScorePanel bundle={bundle} />}
-      {props.resultTab === "Findings" && (
-        <div className="results-stack">
-          <div className="filter-row">
-            {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((filter) => (
-              <button key={filter} type="button" className={`chip-button ${props.findingFilter === filter ? "is-active" : ""}`} onClick={() => props.setFindingFilter(filter)}>
-                {filter}
-              </button>
-            ))}
+      <section id={activePanelId} role="tabpanel" aria-labelledby={activeTabId} className="results-panel-body">
+        {props.resultTab === "Summary" && <SummaryPanel bundle={bundle} workspace={props.workspace} />}
+        {props.resultTab === "Nodes" && <NodesPanel bundle={bundle} />}
+        {props.resultTab === "Workloads" && <WorkloadsPanel bundle={bundle} />}
+        {props.resultTab === "Storage" && <StoragePanel bundle={bundle} />}
+        {props.resultTab === "Networking" && <NetworkingPanel bundle={bundle} />}
+        {props.resultTab === "Config" && <ConfigPanel bundle={bundle} />}
+        {props.resultTab === "Images" && <ImagesPanel bundle={bundle} />}
+        {props.resultTab === "Backup" && <BackupPanel bundle={bundle} />}
+        {props.resultTab === "DR Score" && <ScorePanel bundle={bundle} />}
+        {props.resultTab === "Findings" && (
+          <div className="results-stack">
+            <div className="filter-row" role="group" aria-label="Finding severity filters">
+              {["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((filter) => (
+                <button key={filter} type="button" className={`chip-button ${props.findingFilter === filter ? "is-active" : ""}`} onClick={() => props.setFindingFilter(filter)} aria-pressed={props.findingFilter === filter}>
+                  {filter}
+                </button>
+              ))}
+            </div>
+            <DataTable
+              caption="Findings"
+              rows={filteredFindings as Array<Record<string, unknown>>}
+              columns={[
+                { key: "severity", label: "Severity" },
+                { key: "resourceId", label: "Resource" },
+                { key: "message", label: "Finding" },
+                { key: "recommendation", label: "Recommendation" },
+              ]}
+            />
           </div>
-          <DataTable
-            caption="Findings"
-            rows={filteredFindings as Array<Record<string, unknown>>}
-            columns={[
-              { key: "severity", label: "Severity" },
-              { key: "resourceId", label: "Resource" },
-              { key: "message", label: "Finding" },
-              { key: "recommendation", label: "Recommendation" },
-            ]}
-          />
-        </div>
-      )}
-      {props.resultTab === "Remediation" && (
-        <div className="stack-list">
-          {(bundle.inventory.remediationSteps || []).map((step, index) => (
-            <article key={`${step.title}-${index}`} className="remediation-card">
-              <div className="section-header">
-                <div>
-                  <p className="eyebrow">Priority {step.priority}</p>
-                  <h4>{step.title}</h4>
-                </div>
-                <span className="chip">{step.category}</span>
-              </div>
-              <p>{step.detail}</p>
-              {step.whyItMatters ? <p className="muted">Why it matters: {step.whyItMatters}</p> : null}
-              {step.validation?.length ? <p className="muted">Validate: {step.validation.join(" · ")}</p> : null}
-              {step.fixSteps?.length ? <p className="muted">Fix: {step.fixSteps.join(" · ")}</p> : null}
-              {step.commands?.length ? <code className="mono-block">{step.commands.join("\n")}</code> : null}
-            </article>
-          ))}
-        </div>
-      )}
-      {props.resultTab === "Compare" && bundle.comparison ? <ComparePanel bundle={bundle} /> : null}
+        )}
+        {props.resultTab === "Remediation" && (
+          <div className="stack-list">
+            {(bundle.inventory.remediationSteps || []).length ? (
+              (bundle.inventory.remediationSteps || []).map((step, index) => (
+                <article key={`${step.title}-${index}`} className="remediation-card">
+                  <div className="section-header">
+                    <div>
+                      <p className="eyebrow">Priority {step.priority}</p>
+                      <h4>{step.title}</h4>
+                    </div>
+                    <span className="chip">{step.category}</span>
+                  </div>
+                  <p>{step.detail}</p>
+                  {step.whyItMatters ? <p className="muted">Why it matters: {step.whyItMatters}</p> : null}
+                  {step.validation?.length ? <p className="muted">Validate: {step.validation.join(" · ")}</p> : null}
+                  {step.fixSteps?.length ? <p className="muted">Fix: {step.fixSteps.join(" · ")}</p> : null}
+                  {step.commands?.length ? <code className="mono-block">{step.commands.join("\n")}</code> : null}
+                </article>
+              ))
+            ) : (
+              <p className="muted">No remediation steps were generated for this bundle.</p>
+            )}
+          </div>
+        )}
+        {props.resultTab === "Compare" && bundle.comparison ? <ComparePanel bundle={bundle} /> : null}
+      </section>
     </section>
   );
 }

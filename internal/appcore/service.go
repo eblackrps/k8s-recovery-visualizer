@@ -65,6 +65,7 @@ func (s *Service) ListProjects(root string) ([]ProjectSummary, error) {
 				return nil
 			}
 			dir := filepath.Dir(path)
+			artifacts := detectArtifacts(dir)
 			key := filepath.Clean(dir)
 			summaries[key] = ProjectSummary{
 				Name:         filepath.Base(dir),
@@ -72,7 +73,7 @@ func (s *Service) ListProjects(root string) ([]ProjectSummary, error) {
 				Environment:  bundle.Metadata.Environment,
 				OutputDir:    dir,
 				LastScanPath: path,
-				ReportPath:   filepath.Join(dir, "recovery-report.html"),
+				ReportPath:   artifacts.HTMLReport,
 				Score:        bundle.Score.Overall.Final,
 				Maturity:     bundle.Score.Maturity,
 				TimestampUTC: bundle.Metadata.GeneratedAt,
@@ -127,21 +128,37 @@ func (s *Service) workspaceFromBundle(bundle model.Bundle, artifacts ArtifactPat
 }
 
 func detectArtifacts(outDir string) ArtifactPaths {
-	artifacts := ArtifactPaths{
-		OutputDir:      outDir,
-		BundleJSON:     filepath.Join(outDir, "recovery-scan.json"),
-		EnrichedJSON:   filepath.Join(outDir, "recovery-enriched.json"),
-		HTMLReport:     filepath.Join(outDir, "recovery-report.html"),
-		MarkdownReport: filepath.Join(outDir, "recovery-report.md"),
-		HistoryIndex:   filepath.Join(outDir, "history", "index.json"),
-	}
-	artifacts.SummaryHTML = existingArtifact(filepath.Join(outDir, "recovery-summary.html"))
-	artifacts.RunbookHTML = existingArtifact(filepath.Join(outDir, "recovery-runbook.html"))
-	artifacts.RedactedJSON = existingArtifact(filepath.Join(outDir, "recovery-scan-redacted.json"))
-	artifacts.RedactedHTML = existingArtifact(filepath.Join(outDir, "recovery-report-redacted.html"))
-	artifacts.CSVDir = existingDir(filepath.Join(outDir, "csv"))
-	artifacts.HistoryLatestHTML = existingArtifact(filepath.Join(outDir, "history", "latest", "recovery-report.html"))
+	layout := artifactLayout(outDir)
+	artifacts := ArtifactPaths{OutputDir: outDir}
+	artifacts.BundleJSON = existingArtifact(layout.BundleJSON)
+	artifacts.EnrichedJSON = existingArtifact(layout.EnrichedJSON)
+	artifacts.HTMLReport = existingArtifact(layout.HTMLReport)
+	artifacts.MarkdownReport = existingArtifact(layout.MarkdownReport)
+	artifacts.SummaryHTML = existingArtifact(layout.SummaryHTML)
+	artifacts.RunbookHTML = existingArtifact(layout.RunbookHTML)
+	artifacts.RedactedJSON = existingArtifact(layout.RedactedJSON)
+	artifacts.RedactedHTML = existingArtifact(layout.RedactedHTML)
+	artifacts.CSVDir = existingDir(layout.CSVDir)
+	artifacts.HistoryIndex = existingArtifact(layout.HistoryIndex)
+	artifacts.HistoryLatestHTML = existingArtifact(layout.HistoryLatestHTML)
 	return artifacts
+}
+
+func artifactLayout(outDir string) ArtifactPaths {
+	return ArtifactPaths{
+		OutputDir:         outDir,
+		BundleJSON:        filepath.Join(outDir, "recovery-scan.json"),
+		EnrichedJSON:      filepath.Join(outDir, "recovery-enriched.json"),
+		HTMLReport:        filepath.Join(outDir, "recovery-report.html"),
+		MarkdownReport:    filepath.Join(outDir, "recovery-report.md"),
+		SummaryHTML:       filepath.Join(outDir, "recovery-summary.html"),
+		RunbookHTML:       filepath.Join(outDir, "recovery-runbook.html"),
+		RedactedJSON:      filepath.Join(outDir, "recovery-scan-redacted.json"),
+		RedactedHTML:      filepath.Join(outDir, "recovery-report-redacted.html"),
+		CSVDir:            filepath.Join(outDir, "csv"),
+		HistoryIndex:      filepath.Join(outDir, "history", "index.json"),
+		HistoryLatestHTML: filepath.Join(outDir, "history", "latest", "recovery-report.html"),
+	}
 }
 
 func loadBundle(path string) (*model.Bundle, error) {
@@ -154,6 +171,18 @@ func loadBundle(path string) (*model.Bundle, error) {
 		return nil, err
 	}
 	return &bundle, nil
+}
+
+func cloneBundle(bundle *model.Bundle) (*model.Bundle, error) {
+	raw, err := json.Marshal(bundle)
+	if err != nil {
+		return nil, err
+	}
+	var out model.Bundle
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func existingArtifact(path string) string {

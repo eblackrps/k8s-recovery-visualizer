@@ -35,19 +35,26 @@ function initialView(): View {
   return "home";
 }
 
+const demoTimestamp = "2026-04-12T14:11:00Z";
+
+function isBrowserDemo() {
+  return typeof window !== "undefined" && !window.go?.main?.App;
+}
+
 function initialLiveEvents(): RunEvent[] {
   if (new URLSearchParams(window.location.search).get("view") !== "live") {
     return [];
   }
   return [
-    { type: "status", runId: "demo-live", timestamp: new Date().toISOString(), step: "preflight", level: "info", message: "Preflight checks complete.", percent: 0.12 },
-    { type: "status", runId: "demo-live", timestamp: new Date().toISOString(), step: "connect", level: "info", message: "Connecting to the Kubernetes API.", percent: 0.28 },
-    { type: "status", runId: "demo-live", timestamp: new Date().toISOString(), step: "Images", level: "info", message: "Collecting Images.", percent: 0.62 },
-    { type: "warning", runId: "demo-live", timestamp: new Date().toISOString(), step: "Secrets", level: "warn", message: "Secrets skipped.", percent: 0.72, warning: "forbidden: secrets access intentionally withheld" },
+    { type: "status", runId: "demo-live", timestamp: demoTimestamp, step: "preflight", level: "info", message: "Preflight checks complete.", percent: 0.12 },
+    { type: "status", runId: "demo-live", timestamp: demoTimestamp, step: "connect", level: "info", message: "Connecting to the Kubernetes API.", percent: 0.28 },
+    { type: "status", runId: "demo-live", timestamp: demoTimestamp, step: "Images", level: "info", message: "Collecting Images.", percent: 0.62 },
+    { type: "warning", runId: "demo-live", timestamp: demoTimestamp, step: "Secrets", level: "warn", message: "Secrets skipped.", percent: 0.72, warning: "forbidden: secrets access intentionally withheld" },
   ];
 }
 
 export default function App() {
+  const browserDemo = isBrowserDemo();
   const [view, setView] = useState<View>(initialView);
   const [wizardStep, setWizardStep] = useState(0);
   const [resultTab, setResultTab] = useState(new URLSearchParams(window.location.search).get("tab") || "Summary");
@@ -62,9 +69,7 @@ export default function App() {
     csvExport: true,
   });
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [workspace, setWorkspace] = useState<Workspace | null>(
-    new URLSearchParams(window.location.search).get("view") === "results" ? mockWorkspace : null,
-  );
+  const [workspace, setWorkspace] = useState<Workspace | null>(browserDemo ? mockWorkspace : null);
   const [preflight, setPreflight] = useState<PreflightReport | null>(null);
   const [events, setEvents] = useState<RunEvent[]>(initialLiveEvents());
   const [activeRunId, setActiveRunId] = useState<string | null>(
@@ -216,7 +221,9 @@ export default function App() {
       return;
     }
     const request: ExportRequest = {
-      outputDir: settings.defaultOutputDir || workspace?.artifacts.outputDir || "./out",
+      outputDir: workspace?.artifacts.outputDir || settings.defaultOutputDir || "./out",
+      report: kind === "report",
+      bundleJson: kind === "json",
       summary: kind === "summary",
       runbook: kind === "runbook",
       csvExport: kind === "csv",
@@ -246,10 +253,22 @@ export default function App() {
         </nav>
         <div className="sidebar-card">
           <p className="eyebrow">Current Posture</p>
-          <div className="hero-score-inline">
-            <strong>{bundle?.score.overall.final ?? 85}</strong>
-            <span className={`tone tone-${(bundle?.score.maturity || "gold").toLowerCase()}`}>{bundle?.score.maturity || "GOLD"}</span>
-          </div>
+          {bundle ? (
+            <div className="hero-score-inline">
+              <strong>{bundle.score.overall.final}</strong>
+              <span className={`tone tone-${bundle.score.maturity.toLowerCase()}`}>{bundle.score.maturity}</span>
+            </div>
+          ) : browserDemo ? (
+            <div className="hero-score-inline">
+              <strong>85</strong>
+              <span className="tone tone-gold">GOLD</span>
+            </div>
+          ) : (
+            <div className="hero-score-inline">
+              <strong>—</strong>
+              <span className="chip">No bundle loaded</span>
+            </div>
+          )}
           <p className="muted">Reports and GUI now share the same dark, offline-friendly token system.</p>
         </div>
       </aside>
@@ -261,8 +280,8 @@ export default function App() {
             <h2>{statusMessage}</h2>
           </div>
           <div className="topbar-actions">
-            <span className="chip">{bundle?.metadata.clusterName || "Demo Workspace"}</span>
-            <span className="chip">{bundle?.metadata.environment || "Production"}</span>
+            <span className="chip">{bundle?.metadata.clusterName || (browserDemo ? "Demo Workspace" : "No bundle loaded")}</span>
+            <span className="chip">{bundle?.metadata.environment || (browserDemo ? "Production" : "Ready")}</span>
             <button type="button" className="button secondary" onClick={() => handleOpenBundle()}>
               Open Existing Bundle
             </button>

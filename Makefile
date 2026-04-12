@@ -5,15 +5,17 @@ MODEL_PKG     := k8s-recovery-visualizer/internal/model
 LDFLAGS       := -s -w -X '$(MODEL_PKG).Version=$(VERSION)' -X '$(MODEL_PKG).BuildDate=$(BUILD_DATE)'
 GUI_DIR       := ./desktop
 FRONTEND_DIR  := $(GUI_DIR)/frontend
-GUI_OUTPUT    := k8s-recovery-visualizer
+GUI_OUTPUT_BASE := k8s-recovery-visualizer-desktop
 NPM           ?= npm
 PLAYWRIGHT    ?= npx playwright
 WAILS         ?= wails
+GOFMT_FILES   := $(shell git ls-files '*.go' ':!:desktop/frontend/*' ':!:vendor/*')
 
 ifeq ($(OS),Windows_NT)
   HOST_GOOS   := windows
   HOST_GOARCH := amd64
   HOST_BINARY := dist/scan.exe
+  GUI_OUTPUT  := $(GUI_OUTPUT_BASE).exe
 else
   UNAME_S := $(shell uname -s)
   ifeq ($(UNAME_S),Darwin)
@@ -25,6 +27,7 @@ else
     HOST_GOARCH := amd64
     HOST_BINARY := dist/scan-linux-amd64
   endif
+  GUI_OUTPUT := $(GUI_OUTPUT_BASE)
 endif
 
 ifeq ($(HOST_GOOS),windows)
@@ -35,7 +38,7 @@ endif
 
 .PHONY: build build-cli build-gui package-gui dev-gui frontend-install frontend-build frontend-test screenshots
 .PHONY: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows release-cli release
-.PHONY: test schema-validate schema-samples docker-build vet fmt smoke docs-check ci clean help
+.PHONY: test race schema-validate schema-samples docker-build vet fmt smoke docs-check ci clean help
 
 build: build-cli
 
@@ -82,16 +85,18 @@ build-windows:
 
 release-cli: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows
 	@echo ""
-	@echo "Release binaries:"
-	@ls -lh dist/scan-* 2>/dev/null || dir dist
+	@echo "Release binaries written to dist/"
 
 release: release-cli package-gui
 
 fmt:
-	gofmt -w $$(find . -name '*.go' -not -path './desktop/frontend/*' -not -path './vendor/*')
+	gofmt -w $(GOFMT_FILES)
 
 test:
 	go test ./...
+
+race:
+	go test -race ./...
 
 schema-validate:
 	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/recovery-scan.json
@@ -103,11 +108,17 @@ schema-samples:
 	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./schemas/examples/recovery-enriched-1.1.0.sample.json
 
 smoke: build-cli
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "if (Test-Path 'out\\smoke') { Remove-Item -LiteralPath 'out\\smoke' -Recurse -Force }; New-Item -ItemType Directory -Force -Path 'out\\smoke' | Out-Null; & '.\\$(HOST_BINARY)' --dry-run --summary --runbook --redact --csv --out .\\out\\smoke --min-score 0"
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/smoke/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/smoke/recovery-enriched.json
+else
 	rm -rf out/smoke
 	mkdir -p out/smoke
 	./$(HOST_BINARY) --dry-run --summary --runbook --redact --csv --out ./out/smoke --min-score 0
 	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/smoke/recovery-scan.json
 	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/smoke/recovery-enriched.json
+endif
 
 docker-build:
 	docker build -t k8vis .
@@ -118,10 +129,14 @@ vet:
 docs-check:
 	go run ./tools/docscheck
 
-ci: frontend-install frontend-build vet test frontend-test smoke schema-samples docs-check build-gui
+ci: frontend-install frontend-build vet test race frontend-test smoke schema-samples docs-check build-gui
 
 clean:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "foreach ($$path in @('dist','out\\smoke','desktop\\build\\bin','desktop\\frontend\\dist')) { if (Test-Path $$path) { Remove-Item -LiteralPath $$path -Recurse -Force } }"
+else
 	rm -rf dist/scan-* out/smoke desktop/build/bin desktop/frontend/dist/assets desktop/frontend/dist/index.html
+endif
 
 help:
 	@echo "Targets:"
@@ -137,6 +152,7 @@ help:
 	@echo "  release             Build CLI release binaries plus the current-host GUI package"
 	@echo "  fmt                 Run gofmt -w across Go sources"
 	@echo "  test                Run go test ./..."
+	@echo "  race                Run go test -race ./..."
 	@echo "  vet                 Run go vet ./..."
 	@echo "  smoke               Run the dry-run smoke flow and schema validation"
 	@echo "  schema-validate     Validate ./out artifacts against published schemas"

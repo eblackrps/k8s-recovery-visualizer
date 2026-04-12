@@ -314,6 +314,8 @@ export type ScanRequest = {
 
 export type ExportRequest = {
   outputDir: string;
+  report?: boolean;
+  bundleJson?: boolean;
   csvExport?: boolean;
   summary?: boolean;
   runbook?: boolean;

@@ -16,6 +16,7 @@ Run the full validation set:
 make fmt
 make vet
 make test
+make race
 make frontend-install
 make frontend-build
 make frontend-test
@@ -32,6 +33,7 @@ Confirm:
 - report palette still reflects the shared tokens in `internal/theme`
 - screenshot references in the docs resolve correctly
 - the desktop app opens existing bundles and refreshes exports
+- the release gate is at least as strict as CI before any tag is published
 
 ## Local Packaging
 

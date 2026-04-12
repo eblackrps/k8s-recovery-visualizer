@@ -93,16 +93,7 @@ func (s *Service) ExportBundle(path string, req ExportRequest) (ArtifactPaths, e
 	if req.OutputDir == "" {
 		req.OutputDir = filepath.Dir(path)
 	}
-	runReq := ScanRequest{
-		OutputDir: req.OutputDir,
-		CSVExport: req.CSVExport,
-		Summary:   req.Summary,
-		Runbook:   req.Runbook,
-		Redact:    req.Redact,
-		MinScore:  0,
-	}
-	_, _, artifacts, err := s.writeOutputs(bundle, runReq, nil, false)
-	return artifacts, err
+	return s.renderBundleArtifacts(bundle, req)
 }
 
 func prepareBundle(req ScanRequest, startedAt time.Time, scanID string) model.Bundle {
@@ -152,7 +143,6 @@ func runDryScan(bundle *model.Bundle, req ScanRequest) error {
 	bundle.Inventory.Backup.CoverageVerified = true
 	bundle.Inventory.Backup.CoverageStatus = model.BackupCoverageStatusVerified
 	bundle.Inventory.Backup.CoveredNamespaces = []string{"payments"}
-	finalizeBundle(bundle, req.Target)
 	return nil
 }
 
@@ -287,8 +277,8 @@ func (s *Service) writeOutputs(bundle *model.Bundle, req ScanRequest, sink Event
 	bundle.Scan.DurationSeconds = int(bundle.Scan.EndedAt.Sub(bundle.Scan.StartedAt).Seconds())
 	bundle.Checks = analyze.BuildChecks(bundle, req.MinScore)
 
-	artifacts := detectArtifacts(outDir)
-	if err := output.WriteJSON(artifacts.BundleJSON, bundle); err != nil {
+	layout := artifactLayout(outDir)
+	if err := output.WriteJSON(layout.BundleJSON, bundle); err != nil {
 		return "", 0, ArtifactPaths{}, fmt.Errorf("write json: %w", err)
 	}
 	if en, err := enrich.Run(enrich.Options{OutDir: outDir, LastNCount: 10, Profile: bundle.Profile}); err == nil {
@@ -309,44 +299,104 @@ func (s *Service) writeOutputs(bundle *model.Bundle, req ScanRequest, sink Event
 		bundle.TrendHistory = history.LoadRecent(outDir, 20)
 	}
 
-	if err := output.WriteReport(artifacts.HTMLReport, bundle); err != nil {
+	if err := output.WriteReport(layout.HTMLReport, bundle); err != nil {
 		return "", 0, ArtifactPaths{}, fmt.Errorf("write html report: %w", err)
 	}
 	if recordHistory {
 		_ = history.SnapshotLatestHTML(outDir)
 	}
+	artifacts := detectArtifacts(outDir)
 	emit(sink, RunEvent{Type: "artifact", RunID: bundle.Scan.ScanID, Step: "report", Level: "info", Message: "Report written.", Artifact: artifacts.HTMLReport, Percent: 0.9})
 
 	if req.CSVExport {
-		artifacts.CSVDir = filepath.Join(outDir, "csv")
 		if err := output.WriteCSV(outDir, bundle); err != nil {
 			return "", 0, ArtifactPaths{}, fmt.Errorf("write csv: %w", err)
 		}
 	}
 	if req.Summary {
-		artifacts.SummaryHTML = filepath.Join(outDir, "recovery-summary.html")
-		if err := output.WriteSummary(artifacts.SummaryHTML, bundle); err != nil {
+		if err := output.WriteSummary(layout.SummaryHTML, bundle); err != nil {
 			return "", 0, ArtifactPaths{}, fmt.Errorf("write summary: %w", err)
 		}
 	}
 	if req.Runbook {
-		artifacts.RunbookHTML = filepath.Join(outDir, "recovery-runbook.html")
-		if err := output.WriteRunbook(artifacts.RunbookHTML, bundle); err != nil {
+		if err := output.WriteRunbook(layout.RunbookHTML, bundle); err != nil {
 			return "", 0, ArtifactPaths{}, fmt.Errorf("write runbook: %w", err)
 		}
 	}
 	if req.Redact {
-		artifacts.RedactedJSON = filepath.Join(outDir, "recovery-scan-redacted.json")
-		artifacts.RedactedHTML = filepath.Join(outDir, "recovery-report-redacted.html")
-		if err := output.WriteRedactedJSON(artifacts.RedactedJSON, bundle); err != nil {
+		if err := output.WriteRedactedJSON(layout.RedactedJSON, bundle); err != nil {
 			return "", 0, ArtifactPaths{}, fmt.Errorf("write redacted json: %w", err)
 		}
-		if err := output.WriteRedactedReport(artifacts.RedactedHTML, bundle); err != nil {
+		if err := output.WriteRedactedReport(layout.RedactedHTML, bundle); err != nil {
 			return "", 0, ArtifactPaths{}, fmt.Errorf("write redacted report: %w", err)
 		}
 	}
 
-	return trendLabel, trendDelta, artifacts, nil
+	return trendLabel, trendDelta, detectArtifacts(outDir), nil
+}
+
+func (s *Service) renderBundleArtifacts(bundle *model.Bundle, req ExportRequest) (ArtifactPaths, error) {
+	if req.OutputDir == "" {
+		return ArtifactPaths{}, fmt.Errorf("output directory is required")
+	}
+	if !req.Report && !req.BundleJSON && !req.CSVExport && !req.Summary && !req.Runbook && !req.Redact {
+		return ArtifactPaths{}, fmt.Errorf("at least one export output must be selected")
+	}
+	rendered, err := cloneBundle(bundle)
+	if err != nil {
+		return ArtifactPaths{}, fmt.Errorf("clone bundle: %w", err)
+	}
+	if len(rendered.Checks) == 0 {
+		rendered.Checks = analyze.BuildChecks(rendered, 0)
+	}
+	if err := os.MkdirAll(req.OutputDir, 0o755); err != nil {
+		return ArtifactPaths{}, fmt.Errorf("create output directory: %w", err)
+	}
+
+	layout := artifactLayout(req.OutputDir)
+	needsBundleArtifacts := req.BundleJSON || req.Report
+	if needsBundleArtifacts {
+		if err := output.WriteJSON(layout.BundleJSON, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write json: %w", err)
+		}
+		if en, err := enrich.Run(enrich.Options{OutDir: req.OutputDir, LastNCount: 10, Profile: rendered.Profile}); err == nil {
+			if err := enrich.WriteArtifacts(req.OutputDir, en); err != nil {
+				return ArtifactPaths{}, fmt.Errorf("write enriched artifacts: %w", err)
+			}
+		} else {
+			return ArtifactPaths{}, fmt.Errorf("enrich outputs: %w", err)
+		}
+	}
+	if req.Report {
+		if err := output.WriteReport(layout.HTMLReport, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write html report: %w", err)
+		}
+	}
+	if req.CSVExport {
+		if err := output.WriteCSV(req.OutputDir, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write csv: %w", err)
+		}
+	}
+	if req.Summary {
+		if err := output.WriteSummary(layout.SummaryHTML, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write summary: %w", err)
+		}
+	}
+	if req.Runbook {
+		if err := output.WriteRunbook(layout.RunbookHTML, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write runbook: %w", err)
+		}
+	}
+	if req.Redact {
+		if err := output.WriteRedactedJSON(layout.RedactedJSON, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write redacted json: %w", err)
+		}
+		if err := output.WriteRedactedReport(layout.RedactedHTML, rendered); err != nil {
+			return ArtifactPaths{}, fmt.Errorf("write redacted report: %w", err)
+		}
+	}
+
+	return detectArtifacts(req.OutputDir), nil
 }
 
 func exitCode(b *model.Bundle, minScore int) int {
