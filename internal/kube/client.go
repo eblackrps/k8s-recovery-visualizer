@@ -50,6 +50,12 @@ func pickKubeconfigPath(explicitPath string) string {
 // It explicitly loads kubeconfig from file when a path is provided (or KUBECONFIG env is set),
 // so failures produce real parse errors instead of "no configuration provided".
 func LoadConfig(kubeconfigPath string) (*rest.Config, error) {
+	return LoadConfigWithContext(kubeconfigPath, "")
+}
+
+// LoadConfigWithContext returns a Kubernetes rest.Config with an optional
+// kubeconfig context override.
+func LoadConfigWithContext(kubeconfigPath, contextName string) (*rest.Config, error) {
 	chosen := pickKubeconfigPath(kubeconfigPath)
 
 	// 1) If we have a kubeconfig path (explicit or env), load it explicitly.
@@ -68,8 +74,12 @@ func LoadConfig(kubeconfigPath string) (*rest.Config, error) {
 		// Optional context override via env, since cmd/scan currently only passes kubeconfig path.
 		// (If you later add a -context flag to scan.exe, wire it in here.)
 		overrides := &clientcmd.ConfigOverrides{}
-		if ctx := strings.TrimSpace(os.Getenv("KUBE_CONTEXT")); ctx != "" {
-			overrides.CurrentContext = ctx
+		resolvedContext := strings.TrimSpace(contextName)
+		if resolvedContext == "" {
+			resolvedContext = strings.TrimSpace(os.Getenv("KUBE_CONTEXT"))
+		}
+		if resolvedContext != "" {
+			overrides.CurrentContext = resolvedContext
 		}
 
 		// Build the rest.Config from the loaded kubeconfig.
@@ -88,7 +98,11 @@ func LoadConfig(kubeconfigPath string) (*rest.Config, error) {
 
 	// 3) Final fallback: default loading rules (HOME/.kube/config etc.)
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
+	overrides := &clientcmd.ConfigOverrides{}
+	if ctx := strings.TrimSpace(contextName); ctx != "" {
+		overrides.CurrentContext = ctx
+	}
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("load kube config: default rules: %w", err)
 	}
@@ -105,7 +119,13 @@ func LoadConfig(kubeconfigPath string) (*rest.Config, error) {
 // Clearing CAFile/CAData is required so client-go does not re-verify the cert
 // using the embedded bundle after Insecure is set.
 func NewClient(kubeconfigPath string, insecure bool) (*kubernetes.Clientset, *rest.Config, error) {
-	cfg, err := LoadConfig(kubeconfigPath)
+	return NewClientWithContext(kubeconfigPath, "", insecure)
+}
+
+// NewClientWithContext creates a Kubernetes clientset with an optional
+// kubeconfig context override.
+func NewClientWithContext(kubeconfigPath, contextName string, insecure bool) (*kubernetes.Clientset, *rest.Config, error) {
+	cfg, err := LoadConfigWithContext(kubeconfigPath, contextName)
 	if err != nil {
 		return nil, nil, err
 	}

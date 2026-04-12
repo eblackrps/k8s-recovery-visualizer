@@ -11,11 +11,11 @@ x509: certificate signed by unknown authority
 use `--insecure` only for clusters you trust:
 
 ```bash
-./dist/scan-linux-amd64 --insecure --kubeconfig /path/to/config --out ./out
+go run ./cmd/scan --insecure --kubeconfig /path/to/config --out ./out
 ```
 
 ```powershell
-.\dist\scan-windows-amd64.exe --insecure --kubeconfig C:\path\to\config --out .\out
+go run ./cmd/scan --insecure --kubeconfig C:\path\to\config --out .\out
 ```
 
 ## Backup coverage shows `permission denied`
@@ -84,6 +84,28 @@ Get-ChildItem .\out\recovery-scan.json, .\out\recovery-enriched.json, .\out\reco
 ```
 
 If `recovery-report.html` is older than the latest scan, rerun the scan.
+
+## Desktop package build says `makensis not found`
+
+On Windows, `make package-gui` requires NSIS for the Wails installer step.
+
+What to do:
+
+1. Install NSIS locally.
+2. Re-run `make package-gui`.
+3. If you only need a local app binary, use `make build-gui` instead.
+
+The GitHub release workflow installs NSIS automatically on the Windows packaging runner.
+
+## Desktop app opens without recent projects
+
+The desktop home screen discovers bundles under the configured workspace root.
+
+Check:
+
+- the workspace root in Settings
+- that the folder contains `recovery-scan.json` or a generated report bundle
+- that the scan completed successfully and wrote outputs to disk
 
 ## Quick cluster access sanity checks
 

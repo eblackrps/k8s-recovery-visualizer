@@ -36,3 +36,14 @@ func TestParseArgsEnablesSecretMetadataCollection(t *testing.T) {
 		t.Fatal("IncludeSecretMetadata = false, want true")
 	}
 }
+
+func TestParseArgsParsesContextOverride(t *testing.T) {
+	var stderr bytes.Buffer
+	opts, err := ParseArgs([]string{"--context=prod-admin"}, &stderr)
+	if err != nil {
+		t.Fatalf("ParseArgs() error = %v", err)
+	}
+	if opts.ContextName != "prod-admin" {
+		t.Fatalf("ContextName = %q, want prod-admin", opts.ContextName)
+	}
+}

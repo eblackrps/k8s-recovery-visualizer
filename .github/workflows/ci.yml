@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  build-and-verify:
-    name: Build, vet, cross-compile, smoke test
+  verify:
+    name: Build, test, smoke, docs, screenshots, desktop
     runs-on: ubuntu-latest
 
     steps:
@@ -19,27 +19,59 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # ── 1. Compile every package ──────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev
+          mkdir -p "$RUNNER_TEMP/pkgconfig"
+          ln -sf "$(dpkg -L libwebkit2gtk-4.1-dev | grep '/webkit2gtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/webkit2gtk-4.0.pc"
+          ln -sf "$(dpkg -L libjavascriptcoregtk-4.1-dev | grep '/javascriptcoregtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/javascriptcoregtk-4.0.pc"
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
+
+      - name: Frontend tests
+        working-directory: desktop/frontend
+        run: npm test
+
+      - name: Install Playwright Chromium
+        working-directory: desktop/frontend
+        run: npx playwright install --with-deps chromium
+
       - name: go build ./...
         run: go build ./...
 
-      # ── 2. Static analysis ───────────────────────────────────────────────
       - name: go vet ./...
         run: go vet ./...
 
-      # ── 3. Unit tests ───────────────────────────────────────────────────
       - name: go test ./...
         run: go test ./...
 
+      - name: go test -race ./...
+        run: go test -race ./...
+
       - name: Regression tests -- backup coverage trust behavior and rendered artifacts
         run: >
-          go test ./cmd/scan ./internal/backup ./internal/restore ./internal/analyze ./internal/output
-          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified"
+          go test ./cmd/scan ./internal/appcore ./internal/backup ./internal/restore ./internal/analyze ./internal/output
+          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestSharedOutputCSSUsesSharedThemePalette|TestDryRunFinalizationMatchesSinglePass|TestExportBundleWritesOnlyRequestedArtifacts|TestExportBundleRequiresSelectedOutput"
 
-      # ── 4. Cross-compile release binaries with explicit GOOS/GOARCH ─────
-      #     This is the key regression guard: a bare 'go build' with GOOS set
-      #     in the environment can produce a Linux ELF named scan.exe.
-      #     Explicit flags here catch that class of mistake in CI.
       - name: Build Linux binary (GOOS=linux GOARCH=amd64)
         run: |
           mkdir -p dist
@@ -48,46 +80,28 @@ jobs:
       - name: Build Windows binary (GOOS=windows GOARCH=amd64)
         run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-windows-amd64.exe ./cmd/scan
 
-      # ── 5. Verify binary formats ─────────────────────────────────────────
-      - name: Verify scan-linux-amd64 is ELF
+      - name: Verify binary formats
         run: |
-          file dist/scan-linux-amd64 | grep -q "ELF 64-bit" || \
-            { echo "ERROR: scan-linux-amd64 is not a Linux ELF binary"; exit 1; }
+          file dist/scan-linux-amd64 | grep -q "ELF 64-bit" || { echo "ERROR: scan-linux-amd64 is not a Linux ELF binary"; exit 1; }
+          file dist/scan-windows-amd64.exe | grep -q "PE32+" || { echo "ERROR: scan-windows-amd64.exe is not a Windows PE32+ binary"; exit 1; }
 
-      - name: Verify scan-windows-amd64.exe is PE32+
-        run: |
-          file dist/scan-windows-amd64.exe | grep -q "PE32+" || \
-            { echo "ERROR: scan-windows-amd64.exe is not a Windows PE32+ binary"; exit 1; }
-
-      # ── 6. Dry-run smoke test ────────────────────────────────────────────
       - name: Smoke test -- dry-run
         run: |
           mkdir -p /tmp/smoke
-          # --min-score 0 ensures exit 0 even on a bare dry-run bundle
-          ./dist/scan-linux-amd64 --dry-run --out /tmp/smoke --min-score 0
+          ./dist/scan-linux-amd64 --dry-run --summary --runbook --redact --csv --out /tmp/smoke --min-score 0
 
       - name: Smoke test -- verify JSON output
         run: |
           JSON=/tmp/smoke/recovery-scan.json
-          # schemaVersion must be present and non-empty
-          grep -q '"schemaVersion"' "$JSON" || \
-            { echo "ERROR: missing schemaVersion in output JSON"; exit 1; }
-          # overall score must be present
-          grep -q '"overall"' "$JSON" || \
-            { echo "ERROR: missing overall score in output JSON"; exit 1; }
-          # findings array must be present (can be empty)
-          grep -q '"findings"' "$JSON" || \
-            { echo "ERROR: missing findings array in output JSON"; exit 1; }
-          # backup coverage status is part of the published contract
-          grep -q '"coverageStatus"' "$JSON" || \
-            { echo "ERROR: missing coverageStatus in output JSON"; exit 1; }
-          echo "JSON smoke test passed"
+          grep -q '"schemaVersion"' "$JSON" || { echo "ERROR: missing schemaVersion in output JSON"; exit 1; }
+          grep -q '"overall"' "$JSON" || { echo "ERROR: missing overall score in output JSON"; exit 1; }
+          grep -q '"findings"' "$JSON" || { echo "ERROR: missing findings array in output JSON"; exit 1; }
+          grep -q '"coverageStatus"' "$JSON" || { echo "ERROR: missing coverageStatus in output JSON"; exit 1; }
 
-      - name: Smoke test -- validate recovery-scan schema
-        run: go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input /tmp/smoke/recovery-scan.json
-
-      - name: Smoke test -- validate recovery-enriched schema
-        run: go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
+      - name: Smoke test -- validate emitted schemas
+        run: |
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input /tmp/smoke/recovery-scan.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
 
       - name: Validate committed schema samples
         run: |
@@ -98,26 +112,34 @@ jobs:
       - name: Validate committed trust semantics example
         run: |
           JSON=./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
-          grep -q '"coverageStatus": "unsupported"' "$JSON" || \
-            { echo "ERROR: committed unverified example must show unsupported coverage"; exit 1; }
-          grep -q '"conclusion": "unverified"' "$JSON" || \
-            { echo "ERROR: committed unverified example must show unverified assurance"; exit 1; }
-          grep -q '"id": "BACKUP_COVERAGE_UNVERIFIED"' "$JSON" || \
-            { echo "ERROR: committed unverified example must include the backup trust finding"; exit 1; }
+          grep -q '"coverageStatus": "unsupported"' "$JSON" || { echo "ERROR: committed unverified example must show unsupported coverage"; exit 1; }
+          grep -q '"conclusion": "unverified"' "$JSON" || { echo "ERROR: committed unverified example must show unverified assurance"; exit 1; }
+          grep -q '"id": "BACKUP_COVERAGE_UNVERIFIED"' "$JSON" || { echo "ERROR: committed unverified example must include the backup trust finding"; exit 1; }
 
       - name: Smoke test -- evaluate CI gate engine
         run: go run ./cmd/check --current /tmp/smoke/recovery-scan.json --min-score 0 --format json
 
-      - name: Smoke test -- verify HTML report was generated
+      - name: Smoke test -- verify report bundle and palette
         run: |
           HTML=/tmp/smoke/recovery-report.html
           test -f "$HTML" || { echo "ERROR: HTML report not generated"; exit 1; }
-          # All expected tab names must appear in the report
           for tab in Summary Nodes Workloads Storage Networking Config Images Backup "DR Score" Findings Remediation; do
-            grep -q "$tab" "$HTML" || \
-            { echo "ERROR: tab '$tab' missing from HTML report"; exit 1; }
+            grep -q "$tab" "$HTML" || { echo "ERROR: tab '$tab' missing from HTML report"; exit 1; }
           done
-          echo "HTML smoke test passed"
+          grep -q '#58a6ff' "$HTML" || { echo "ERROR: shared accent token missing from report"; exit 1; }
+          grep -q '#f85149' "$HTML" || { echo "ERROR: shared critical token missing from report"; exit 1; }
+          ! grep -q '#9a6bff' "$HTML" || { echo "ERROR: old report accent palette leaked into output"; exit 1; }
+
+      - name: Generate deterministic GUI screenshots
+        working-directory: desktop/frontend
+        run: npm run screenshots
+
+      - name: Validate docs links and screenshot references
+        run: go run ./tools/docscheck
+
+      - name: Build Wails desktop app
+        working-directory: desktop
+        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop
 
       - name: Smoke test -- container build
         run: docker build -t k8vis-smoke .

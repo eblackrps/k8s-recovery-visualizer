@@ -9,25 +9,26 @@ import (
 )
 
 type Options struct {
-	Kubeconfig  string
-	OutDir      string
-	DryRun      bool
-	CI          bool
-	MinScore    int
-	Timeout     time.Duration
-	CustomerID  string
-	Site        string
-	Cluster     string
-	Environment string
-	Target      string
-	CSVExport   bool
-	Namespaces  []string
-	CompareTo   string
-	Summary     bool
-	RedactOut   bool
-	ProfileName string
-	Runbook     bool
-	Insecure    bool
+	Kubeconfig            string
+	ContextName           string
+	OutDir                string
+	DryRun                bool
+	CI                    bool
+	MinScore              int
+	Timeout               time.Duration
+	CustomerID            string
+	Site                  string
+	Cluster               string
+	Environment           string
+	Target                string
+	CSVExport             bool
+	Namespaces            []string
+	CompareTo             string
+	Summary               bool
+	RedactOut             bool
+	ProfileName           string
+	Runbook               bool
+	Insecure              bool
 	IncludeSecretMetadata bool
 }
 
@@ -42,6 +43,7 @@ func ParseArgs(args []string, stderr io.Writer) (Options, error) {
 	)
 
 	fs.StringVar(&opts.Kubeconfig, "kubeconfig", "", "Path to kubeconfig")
+	fs.StringVar(&opts.ContextName, "context", "", "Optional kubeconfig context override")
 	fs.StringVar(&opts.OutDir, "out", "./out", "Output directory")
 	fs.BoolVar(&opts.DryRun, "dry-run", false, "Run without Kubernetes")
 	fs.BoolVar(&opts.CI, "ci", false, "CI mode (machine-readable output)")

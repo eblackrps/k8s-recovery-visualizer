@@ -5,16 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
-	"k8s-recovery-visualizer/internal/analyze"
-	"k8s-recovery-visualizer/internal/backup"
-	"k8s-recovery-visualizer/internal/kube"
-	"k8s-recovery-visualizer/internal/model"
-	"k8s-recovery-visualizer/internal/profile"
-	"k8s-recovery-visualizer/internal/remediation"
-	"k8s-recovery-visualizer/internal/restore"
-	"k8s.io/client-go/dynamic"
+	"k8s-recovery-visualizer/internal/appcore"
 )
 
 func Main(args []string) int {
@@ -23,115 +15,81 @@ func Main(args []string) int {
 		log.Printf("scan: %v", err)
 		return 2
 	}
-	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {
-		log.Printf("mkdir failed: %v", err)
-		return 1
-	}
-
-	bundle := prepareBundle(opts, time.Now().UTC(), model.NewUUID())
 	if !opts.CI {
-		fmt.Printf("Profile: %s\n", bundle.Profile)
+		fmt.Printf("Profile: %s\n", opts.ProfileName)
 	}
 
-	if opts.DryRun {
-		if err := runDryScan(&bundle, opts); err != nil {
-			log.Printf("dry-run failed: %v", err)
-			return 1
-		}
-	} else {
-		if opts.Insecure && !opts.CI {
-			fmt.Println("WARNING: --insecure is set - TLS certificate verification is disabled.")
-		}
-		if err := runLiveScan(&bundle, opts); err != nil {
-			log.Printf("scan failed: %v", err)
-			return 1
-		}
-	}
-
-	if err := applyComparison(&bundle, opts.CompareTo); err != nil {
-		log.Printf("compare: failed to load %s: %v (skipping)", opts.CompareTo, err)
-	}
-
-	trendLabel, trendDelta, err := WriteOutputs(&bundle, opts.OutDir, opts.CI, opts.MinScore, opts.CSVExport, opts.Summary, opts.RedactOut, opts.Runbook)
+	service := appcore.NewService()
+	result, err := service.Run(context.Background(), appcore.ScanRequest{
+		KubeconfigPath:        opts.Kubeconfig,
+		ContextName:           opts.ContextName,
+		OutputDir:             opts.OutDir,
+		DryRun:                opts.DryRun,
+		CI:                    opts.CI,
+		MinScore:              opts.MinScore,
+		TimeoutSeconds:        int(opts.Timeout.Seconds()),
+		CustomerID:            opts.CustomerID,
+		Site:                  opts.Site,
+		ClusterName:           opts.Cluster,
+		Environment:           opts.Environment,
+		Target:                opts.Target,
+		CSVExport:             opts.CSVExport,
+		Namespaces:            opts.Namespaces,
+		CompareTo:             opts.CompareTo,
+		Summary:               opts.Summary,
+		Redact:                opts.RedactOut,
+		ProfileName:           opts.ProfileName,
+		Runbook:               opts.Runbook,
+		Insecure:              opts.Insecure,
+		IncludeSecretMetadata: opts.IncludeSecretMetadata,
+	}, nil)
 	if err != nil {
-		log.Printf("write outputs failed: %v", err)
+		log.Printf("scan failed: %v", err)
 		return 1
 	}
+
 	if opts.CI {
-		PrintCISummary(&bundle, opts.MinScore, trendLabel, trendDelta)
-	}
-	return exitCode(&bundle, opts.MinScore, opts.CI)
-}
-
-func prepareBundle(opts Options, startedAt time.Time, scanID string) model.Bundle {
-	bundle := model.NewBundle(scanID, startedAt)
-	bundle.Metadata.CustomerID = opts.CustomerID
-	bundle.Metadata.Site = opts.Site
-	bundle.Metadata.ClusterName = opts.Cluster
-	bundle.Metadata.Environment = opts.Environment
-	bundle.Target = opts.Target
-	bundle.Profile = string(profile.Normalize(opts.ProfileName))
-	if len(opts.Namespaces) > 0 {
-		bundle.ScanNamespaces = append(bundle.ScanNamespaces, opts.Namespaces...)
-	}
-	return bundle
-}
-
-func runDryScan(bundle *model.Bundle, opts Options) error {
-	bundle.Inventory.Namespaces = []model.Namespace{
-		{ID: "ns:default", Name: "default"},
-		{ID: "ns:test", Name: "test"},
-	}
-	finalizeBundle(bundle, opts.Target)
-	return nil
-}
-
-func runLiveScan(bundle *model.Bundle, opts Options) error {
-	clientset, restCfg, err := kube.NewClient(opts.Kubeconfig, opts.Insecure)
-	if err != nil {
-		return fmt.Errorf("kube error: %w", err)
+		PrintCISummary(&result.Workspace.Bundle, opts.MinScore, result.TrendLabel, result.TrendDelta)
+		return result.ExitCode
 	}
 
-	dc, err := dynamic.NewForConfig(restCfg)
-	if err != nil {
-		return fmt.Errorf("dynamic client error: %w", err)
+	if opts.Insecure {
+		fmt.Println("WARNING: --insecure is set - TLS certificate verification is disabled.")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-	defer cancel()
-	bundle.Cluster.APIServer.Endpoint = restCfg.Host
-
-	if err := runCollectors(ctx, clientset, dc, bundle, opts); err != nil {
-		return err
-	}
-
-	backup.Detect(ctx, clientset, bundle)
-	finalizeBundle(bundle, opts.Target)
-	return nil
-}
-
-func finalizeBundle(bundle *model.Bundle, target string) {
-	sim := restore.Simulate(bundle)
-	bundle.Inventory.Backup.RestoreSim = &sim
-	backup.AssessAssurance(bundle)
-	analyze.Evaluate(bundle)
-	bundle.Inventory.RemediationSteps = remediation.Generate(bundle, target)
-}
-
-func exitCode(b *model.Bundle, minScore int, quiet bool) int {
-	score := b.Score.Overall.Final
-	if !quiet {
-		fmt.Println("Final Score:", score)
-		fmt.Println("DR Maturity:", b.Score.Maturity)
-	}
-	if score < minScore {
-		if !quiet {
-			fmt.Printf("DR Status: FAILED (score below %d)\n", minScore)
+	if result.TrendLabel != "" {
+		sign := ""
+		if result.TrendDelta > 0 {
+			sign = "+"
 		}
-		return 2
+		switch result.TrendLabel {
+		case "FIRST_RUN":
+			fmt.Println("Trend: FIRST RUN (no previous scan found)")
+		default:
+			fmt.Printf("Trend: %s (%s%d)\n", result.TrendLabel, sign, result.TrendDelta)
+		}
 	}
-	if !quiet {
+	fmt.Println("Final Score:", result.Workspace.Bundle.Score.Overall.Final)
+	fmt.Println("DR Maturity:", result.Workspace.Bundle.Score.Maturity)
+	if result.ExitCode == 2 {
+		fmt.Printf("DR Status: FAILED (score below %d)\n", opts.MinScore)
+	} else {
 		fmt.Println("DR Status: PASSED")
 	}
-	return 0
+	fmt.Println("Scan complete.")
+	fmt.Println("JSON:", result.Artifacts.BundleJSON)
+	fmt.Println("HTML Report:", result.Artifacts.HTMLReport)
+	fmt.Println("Enriched:", result.Artifacts.EnrichedJSON)
+	if result.Artifacts.SummaryHTML != "" {
+		fmt.Println("Executive Summary:", result.Artifacts.SummaryHTML)
+	}
+	if result.Artifacts.RunbookHTML != "" {
+		fmt.Println("DR Runbook:", result.Artifacts.RunbookHTML)
+	}
+	if result.Artifacts.CSVDir != "" {
+		fmt.Println("CSV exports:", result.Artifacts.CSVDir)
+	}
+	if result.Artifacts.RedactedJSON != "" || result.Artifacts.RedactedHTML != "" {
+		fmt.Println("Redacted exports:", result.Artifacts.RedactedJSON, result.Artifacts.RedactedHTML)
+	}
+	return result.ExitCode
 }

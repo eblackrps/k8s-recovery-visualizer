@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"k8s-recovery-visualizer/internal/analyze"
+	"k8s-recovery-visualizer/internal/appcore"
 	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/output"
 	"k8s-recovery-visualizer/internal/restore"
 )
 
@@ -41,7 +43,18 @@ func TestWritePersistsUnsupportedBackupCoverageArtifacts(t *testing.T) {
 	b.Inventory.Backup.RestoreSim = &sim
 	analyze.Evaluate(&b)
 
-	write(&b, outDir, true, 0, false, false, false, false)
+	sourcePath := filepath.Join(t.TempDir(), "bundle-source.json")
+	if err := output.WriteJSON(sourcePath, &b); err != nil {
+		t.Fatalf("WriteJSON(bundle-source.json) error = %v", err)
+	}
+
+	service := appcore.NewService()
+	if _, err := service.ExportBundle(sourcePath, appcore.ExportRequest{
+		OutputDir: outDir,
+		Report:    true,
+	}); err != nil {
+		t.Fatalf("ExportBundle() error = %v", err)
+	}
 
 	jsonBytes, err := os.ReadFile(filepath.Join(outDir, "recovery-scan.json"))
 	if err != nil {

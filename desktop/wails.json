@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "K8s Recovery Visualizer",
+  "outputfilename": "k8s-recovery-visualizer-desktop",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Eric Black",
+    "email": "132466006+eblackrps@users.noreply.github.com"
+  }
+}

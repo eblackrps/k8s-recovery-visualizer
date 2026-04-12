@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support guide
+    url: https://github.com/eblackrps/k8s-recovery-visualizer/blob/main/SUPPORT.md
+    about: Start here for troubleshooting and support guidance.
+  - name: Documentation index
+    url: https://github.com/eblackrps/k8s-recovery-visualizer/blob/main/docs/README.md
+    about: Browse operator, contributor, and release documentation.
+  - name: Security policy
+    url: https://github.com/eblackrps/k8s-recovery-visualizer/blob/main/SECURITY.md
+    about: Use this for private vulnerability disclosure guidance.

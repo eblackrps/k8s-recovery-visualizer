@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest a new capability, packaging improvement, or documentation enhancement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user or operator problem is not handled well today?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Primary surface
+      options:
+        - CLI
+        - Desktop app
+        - Reports and exports
+        - Release and packaging
+        - Documentation
+        - Multiple surfaces
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Who benefits and why
+      description: Explain who would use this and what changes operationally.

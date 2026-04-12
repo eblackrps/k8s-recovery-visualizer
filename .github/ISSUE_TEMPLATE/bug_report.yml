@@ -1,0 +1,76 @@
+name: Bug report
+description: Report a reproducible problem in the CLI, desktop app, reports, or release assets.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What release tag, commit, or binary version did you use?
+      placeholder: v1.5.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Where did you hit the problem?
+      options:
+        - CLI
+        - Desktop app
+        - Generated report or export
+        - Release asset or installer
+        - Documentation
+        - Multiple surfaces
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Kubernetes distribution, and anything else relevant.
+      placeholder: Windows 11, EKS 1.30, desktop app build from release assets
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Share the smallest set of steps needed to reproduce the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Logs, screenshots, or redacted artifacts
+      description: Paste relevant logs or attach screenshots and redacted bundles when safe.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I reviewed the README and troubleshooting docs first.
+          required: true
+        - label: I removed or redacted sensitive cluster details before posting.
+          required: true

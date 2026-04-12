@@ -1,0 +1,491 @@
+import type {
+  Bootstrap,
+  ExportRequest,
+  PreflightReport,
+  ProjectSummary,
+  RunEvent,
+  RunResult,
+  ScanRequest,
+  Settings,
+  Workspace,
+} from "./types";
+
+const bootstrap: Bootstrap = {
+  theme: {
+    palette: {
+      background: "#0d1117",
+      surface: "#161b22",
+      border: "#30363d",
+      text: "#c9d1d9",
+      muted: "#8b949e",
+      accent: "#58a6ff",
+      success: "#7ee787",
+      critical: "#f85149",
+      high: "#ffa657",
+      medium: "#f2cc60",
+    },
+    maturity: {
+      platinum: "#79c0ff",
+      gold: "#f2cc60",
+      silver: "#c9d1d9",
+      bronze: "#ffa657",
+    },
+    typography: {
+      body: `"Segoe UI Variable Text","Segoe UI","Trebuchet MS",sans-serif`,
+      title: `"Segoe UI Variable Display","Segoe UI","Trebuchet MS",sans-serif`,
+      mono: `"Consolas","SFMono-Regular","Liberation Mono",monospace`,
+    },
+    radius: {
+      xl: "30px",
+      lg: "24px",
+      md: "18px",
+      sm: "14px",
+    },
+  },
+};
+
+const demoTimestamp = "2026-04-12T14:11:00Z";
+
+const demoWorkspace: Workspace = {
+  source: "bundle",
+  loadedAt: "2026-04-12T16:00:00Z",
+  artifacts: {
+    outputDir: "./demo-out",
+    bundleJson: "./demo-out/recovery-scan.json",
+    enrichedJson: "./demo-out/recovery-enriched.json",
+    htmlReport: "./demo-out/recovery-report.html",
+    markdownReport: "./demo-out/recovery-report.md",
+    summaryHtml: "./demo-out/recovery-summary.html",
+    runbookHtml: "./demo-out/recovery-runbook.html",
+    redactedJson: "./demo-out/recovery-scan-redacted.json",
+    redactedHtml: "./demo-out/recovery-report-redacted.html",
+    csvDir: "./demo-out/csv",
+    historyIndex: "./demo-out/history/index.json",
+    loadedBundlePath: "./demo-out/recovery-scan.json",
+  },
+  history: {
+    trendLabel: "IMPROVING",
+    trendDelta: 6,
+    entries: [
+      { timestampUtc: "2026-04-01T14:11:00Z", overall: 74, maturity: "SILVER" },
+      { timestampUtc: "2026-04-05T14:11:00Z", overall: 79, maturity: "GOLD" },
+      { timestampUtc: "2026-04-12T14:11:00Z", overall: 85, maturity: "GOLD" },
+    ],
+  },
+  bundle: {
+    schemaVersion: "3.0.0",
+    target: "vm",
+    profile: "enterprise",
+    scanNamespaces: ["payments", "frontend", "platform"],
+    metadata: {
+      customerId: "acme-hospitality",
+      site: "us-east-1a",
+      clusterName: "prod-east",
+      environment: "production",
+      generatedAt: "2026-04-12T14:11:00Z",
+      toolVersion: "1.5.0",
+    },
+    tool: {
+      name: "k8s-recovery-visualizer",
+      version: "1.5.0",
+      buildDate: "2026-04-12",
+    },
+    scan: {
+      scanId: "scan-demo-001",
+      startedAt: "2026-04-12T14:09:42Z",
+      endedAt: "2026-04-12T14:11:00Z",
+      durationSeconds: 78,
+    },
+    cluster: {
+      apiServer: { endpoint: "https://prod-east.example.net:6443" },
+      platform: {
+        provider: "EKS",
+        k8sVersion: "1.30",
+        clusterUID: "cluster-demo-prod-east",
+      },
+    },
+    score: {
+      maturity: "GOLD",
+      overall: { final: 85 },
+      storage: { final: 88 },
+      workload: { final: 81 },
+      config: { final: 83 },
+      backup: { final: 86 },
+    },
+    trendHistory: [
+      { ts: "2026-04-01T14:11:00Z", score: 74, maturity: "SILVER" },
+      { ts: "2026-04-05T14:11:00Z", score: 79, maturity: "GOLD" },
+      { ts: "2026-04-12T14:11:00Z", score: 85, maturity: "GOLD" },
+    ],
+    collectorSkips: [
+      { name: "Secrets", reason: "forbidden: secrets access intentionally withheld", rbac: true },
+    ],
+    comparison: {
+      previousScannedAt: "2026-04-05T14:11:00Z",
+      previousScore: 79,
+      previousMaturity: "GOLD",
+      scoreDelta: 6,
+      namespacesAdded: ["frontend"],
+      namespacesRemoved: [],
+      workloadsAdded: ["frontend/web (Deployment)"],
+      workloadsRemoved: [],
+      pvcsAdded: ["payments/postgres-data"],
+      pvcsRemoved: [],
+      imagesAdded: ["ghcr.io/example/frontend:1.8.4"],
+      imagesRemoved: ["nginx:1.25"],
+      backupToolPrevious: "velero",
+      backupToolCurrent: "velero",
+      backupToolChanged: false,
+      findingsNew: [
+        {
+          id: "NP_MISSING_FRONTEND",
+          severity: "HIGH",
+          resourceId: "namespace/frontend",
+          message: "The frontend namespace lacks an egress-aware NetworkPolicy.",
+          recommendation: "Add namespace-default ingress and egress policies before the next DR drill.",
+        },
+      ],
+      findingsResolved: [
+        {
+          id: "ETCD_BACKUP",
+          severity: "CRITICAL",
+          resourceId: "cluster/prod-east",
+          message: "No etcd backup evidence was found.",
+          recommendation: "Keep the scheduled etcd snapshot job healthy.",
+        },
+      ],
+    },
+    inventory: {
+      namespaces: [
+        { id: "ns:payments", name: "payments", psaEnforce: "restricted" },
+        { id: "ns:frontend", name: "frontend", psaEnforce: "restricted" },
+        { id: "ns:platform", name: "platform", psaEnforce: "baseline" },
+      ],
+      nodes: [
+        { name: "ip-10-0-0-12", roles: ["worker"], ready: true, zone: "us-east-1a", kubeletVersion: "v1.30.1", osImage: "Amazon Linux 2023" },
+        { name: "ip-10-0-0-13", roles: ["worker"], ready: true, zone: "us-east-1b", kubeletVersion: "v1.30.1", osImage: "Amazon Linux 2023" },
+      ],
+      pods: [
+        { namespace: "payments", name: "postgres-0", containerCount: 1, hasRequests: true, hasLimits: true, privileged: false, hostNetwork: false, hostPID: false },
+        { namespace: "frontend", name: "web-7bc9d8", containerCount: 2, hasRequests: false, hasLimits: true, privileged: false, hostNetwork: false, hostPID: false },
+      ],
+      deployments: [
+        { namespace: "frontend", name: "web", replicas: 3, ready: 3, images: ["ghcr.io/example/frontend:1.8.4", "ghcr.io/example/sidecar:0.6.0"] },
+        { namespace: "platform", name: "grafana", replicas: 2, ready: 2, images: ["grafana/grafana:11.0.0"] },
+      ],
+      daemonSets: [
+        { namespace: "platform", name: "log-agent", desired: 2, ready: 2, images: ["public.ecr.aws/aws-observability/fluent-bit:2.1.9"] },
+      ],
+      jobs: [{ namespace: "platform", name: "schema-migration", completed: true }],
+      cronJobs: [{ namespace: "platform", name: "etcd-snapshot", schedule: "0 */4 * * *" }],
+      pvcs: [
+        { namespace: "payments", name: "postgres-data", storageClass: "gp3", requestedSize: "200Gi" },
+      ],
+      pvs: [
+        { name: "pvc-0f3a", claimRef: "payments/postgres-data", storageClass: "gp3", capacity: "200Gi", reclaimPolicy: "Retain", backend: "EBS" },
+      ],
+      storageClasses: [
+        { name: "gp3", provisioner: "ebs.csi.aws.com", reclaimPolicy: "Delete", volumeBindingMode: "WaitForFirstConsumer" },
+      ],
+      services: [
+        { namespace: "frontend", name: "web", type: "LoadBalancer", clusterIp: "172.20.12.8", externalIp: "34.228.10.10" },
+      ],
+      ingresses: [
+        { namespace: "frontend", name: "web", className: "nginx", tls: true, rules: [{ host: "app.example.com", backend: "web:443" }] },
+      ],
+      networkPolicies: [
+        { namespace: "payments", name: "default-deny", podSelector: "all", hasIngress: true, hasEgress: true },
+      ],
+      configMaps: [
+        { namespace: "platform", name: "grafana-dashboards", keyCount: 14 },
+      ],
+      secrets: [
+        { namespace: "payments", name: "db-credentials", type: "Opaque", keyCount: 2 },
+      ],
+      clusterRoles: [
+        { name: "ops-admin", custom: true, ruleCount: 17, hasWildcardVerb: true, hasSecretAccess: true },
+      ],
+      clusterRoleBindings: [
+        { name: "ops-admin-binding", roleName: "ops-admin", subjects: ["Group:platform-ops"] },
+      ],
+      resourceQuotas: [
+        { namespace: "frontend", name: "frontend-quota", hardPods: "30", hardCpu: "12" },
+      ],
+      hpas: [
+        { namespace: "frontend", name: "web", target: "Deployment/web", minReplicas: 2, maxReplicas: 8, currentReplicas: 3 },
+      ],
+      podDisruptionBudgets: [
+        { namespace: "frontend", name: "web", minAvailable: "2" },
+      ],
+      limitRanges: [
+        { namespace: "frontend", name: "defaults", type: "Container" },
+      ],
+      helmReleases: [
+        { namespace: "platform", name: "grafana", chart: "grafana", version: "7.3.4", appVersion: "11.0.0", status: "deployed" },
+      ],
+      images: [
+        { image: "ghcr.io/example/frontend:1.8.4", registry: "ghcr.io", isPublic: false, workloads: ["frontend/web"] },
+        { image: "postgres:16.4", registry: "docker.io", isPublic: true, workloads: ["payments/postgres"] },
+      ],
+      certificates: [
+        { namespace: "frontend", name: "web-tls", issuer: "letsencrypt-prod", secretName: "web-tls", ready: true, notAfter: "2026-05-23T10:00:00Z", daysToExpiry: 41 },
+      ],
+      findings: [
+        {
+          id: "NP_MISSING_FRONTEND",
+          severity: "HIGH",
+          resourceId: "namespace/frontend",
+          message: "The frontend namespace lacks an egress-aware NetworkPolicy.",
+          recommendation: "Add namespace-default ingress and egress policies before the next DR drill.",
+        },
+        {
+          id: "REQUESTS_MISSING",
+          severity: "MEDIUM",
+          resourceId: "frontend/web",
+          message: "Several frontend pods are missing CPU requests.",
+          recommendation: "Add sane CPU and memory requests for recovery predictability.",
+        },
+      ],
+      remediationSteps: [
+        {
+          priority: 1,
+          category: "Networking",
+          title: "Add default frontend NetworkPolicies",
+          detail: "The frontend namespace should deny-by-default and explicitly allow platform egress dependencies.",
+          whyItMatters: "Recovery tests often fail because rebuilt workloads can reach nothing or everything.",
+          drImpact: "Namespace rebuilds may expose services broadly or fail to reconnect to dependencies.",
+          validation: ["Run kubectl get networkpolicies -n frontend", "Confirm ingress and egress rules exist."],
+          fixSteps: ["Create a namespace default deny policy.", "Add explicit egress rules for DNS, database, and observability endpoints."],
+          commands: ["kubectl apply -n frontend -f frontend-networkpolicies.yaml"],
+        },
+        {
+          priority: 2,
+          category: "Workload",
+          title: "Backfill CPU requests for the frontend web deployment",
+          detail: "Recovery placement is less predictable when requests are omitted.",
+          validation: ["Inspect rendered Deployment resources after the fix."],
+          fixSteps: ["Set requests.cpu and requests.memory on the web containers."],
+        },
+      ],
+      backup: {
+        primaryTool: "velero",
+        coverageStatus: "verified",
+        coverageReason: "Schedules were parsed successfully.",
+        coverageVerified: true,
+        coveredNamespaces: ["payments", "frontend"],
+        uncoveredStatefulNamespaces: [],
+        offsiteCoveredNamespaces: ["payments", "frontend"],
+        offsiteMissingNamespaces: [],
+        hasOffsite: true,
+        policies: [
+          {
+            tool: "velero",
+            name: "prod-hourly",
+            includedNamespaces: ["payments", "frontend"],
+            schedule: "0 * * * *",
+            rpoHours: 1,
+            lastSuccessAt: "2026-04-12T13:00:00Z",
+            confidence: "confirmed",
+            hasOffsite: true,
+            retentionTtl: "720h0m0s",
+          },
+        ],
+        assurance: {
+          conclusion: "evidence_confirmed",
+          confidence: "high",
+          summary: "Coverage, restore simulation, and offsite evidence are aligned for the current scope.",
+          signals: [
+            { id: "coverage", status: "verified", confidence: "high", summary: "Velero schedules cover stateful namespaces." },
+            { id: "offsite", status: "verified", confidence: "high", summary: "All covered namespaces have offsite evidence." },
+          ],
+        },
+        restoreSim: {
+          namespaces: [
+            { namespace: "payments", coverageKnown: true, hasCoverage: true, rpoHours: 1, pvcSizeGb: 200, blockers: [], warnings: [] },
+          ],
+          totalPvcsGb: 200,
+          coveredPvcsGb: 200,
+          uncoveredNamespaces: [],
+        },
+      },
+    },
+  },
+};
+
+const demoProjects: ProjectSummary[] = [
+  {
+    name: "prod-east",
+    clusterName: "prod-east",
+    environment: "production",
+    outputDir: "./demo-out",
+    lastScanPath: "./demo-out/recovery-scan.json",
+    reportPath: "./demo-out/recovery-report.html",
+    score: 85,
+    maturity: "GOLD",
+    timestampUtc: "2026-04-12T14:11:00Z",
+  },
+  {
+    name: "staging-west",
+    clusterName: "staging-west",
+    environment: "staging",
+    outputDir: "./staging-out",
+    lastScanPath: "./staging-out/recovery-scan.json",
+    reportPath: "./staging-out/recovery-report.html",
+    score: 72,
+    maturity: "SILVER",
+    timestampUtc: "2026-04-11T09:04:00Z",
+  },
+];
+
+const demoPreflight = (request: ScanRequest): PreflightReport => ({
+  canRun: true,
+  degraded: Boolean(request.includeSecretMetadata),
+  server: request.dryRun ? "" : "https://prod-east.example.net:6443",
+  contextName: request.contextName || "prod-east-admin",
+  scope: request.namespaces?.length ? request.namespaces.join(", ") : "all namespaces",
+  checks: [
+    { id: "config", title: "Kubernetes credentials", status: "pass", required: true, detail: request.dryRun ? "Dry-run mode skips cluster auth." : "Kubeconfig loaded successfully." },
+    { id: "api", title: "API server reachability", status: request.dryRun ? "pass" : "pass", required: true, detail: request.dryRun ? "No API server contact needed." : "Cluster API is reachable." },
+    { id: "pods", title: "Read workloads", status: "pass", required: true, detail: "List access confirmed for pods and workload controllers." },
+    { id: "storage", title: "Read storage inventory", status: "pass", required: true, detail: "PVC and PV inventory access confirmed." },
+    {
+      id: "secrets",
+      title: "Secret metadata collection",
+      status: request.includeSecretMetadata ? "warn" : "pass",
+      required: false,
+      detail: request.includeSecretMetadata
+        ? "Secret metadata is enabled. Granting this access increases scanner visibility into sensitive resources."
+        : "Secret metadata remains opt-in and disabled by default.",
+      hint: "Only enable this if you intentionally want Secret type and key-count metadata included.",
+    },
+  ],
+  warnings: request.includeSecretMetadata ? ["Secret metadata collection is more invasive than the default RBAC profile."] : [],
+});
+
+const listeners = new Set<(event: RunEvent) => void>();
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function emit(event: RunEvent) {
+  for (const listener of listeners) {
+    listener(event);
+  }
+}
+
+function currentSettings(): Settings {
+  const raw = globalThis.localStorage?.getItem("k8vis:settings");
+  if (raw) {
+    return JSON.parse(raw) as Settings;
+  }
+  return {
+    workspaceRoot: ".",
+    defaultOutputDir: "./out",
+    defaultProfile: "enterprise",
+    includeSecretMetadata: false,
+    summary: true,
+    runbook: true,
+    redact: false,
+    csvExport: true,
+  };
+}
+
+export const mockBackend = {
+  async GetBootstrap(): Promise<Bootstrap> {
+    return clone(bootstrap);
+  },
+  async GetSettings(): Promise<Settings> {
+    return clone(currentSettings());
+  },
+  async SaveSettings(settings: Settings): Promise<void> {
+    globalThis.localStorage?.setItem("k8vis:settings", JSON.stringify(settings));
+  },
+  async ListProjects(): Promise<ProjectSummary[]> {
+    return clone(demoProjects);
+  },
+  async RunPreflight(request: ScanRequest): Promise<PreflightReport> {
+    return clone(demoPreflight(request));
+  },
+  async RunScan(request: ScanRequest): Promise<RunResult> {
+    const runId = request.runId || `mock-run-${Date.now()}`;
+    const checkpoints: Array<[number, string, string]> = [
+      [0.08, "preflight", "Preflight checks complete."],
+      [0.18, "connect", "Connecting to the Kubernetes API."],
+      [0.31, "Namespaces", "Collecting Namespaces."],
+      [0.46, "StatefulSets", "Collecting StatefulSets."],
+      [0.61, "Images", "Collecting Images."],
+      [0.74, "analysis", "Analyzing inventory and generating remediation guidance."],
+      [0.88, "artifacts", "Writing offline report bundle."],
+      [1, "complete", "Scan complete."],
+    ];
+    for (const [percent, step, message] of checkpoints) {
+      emit({
+        type: step === "complete" ? "complete" : "status",
+        runId,
+        timestamp: demoTimestamp,
+        step,
+        level: "info",
+        message,
+        percent,
+        artifact: step === "complete" ? demoWorkspace.artifacts.htmlReport : undefined,
+      });
+      await new Promise((resolve) => setTimeout(resolve, step === "complete" ? 120 : 160));
+    }
+    const workspace = clone(demoWorkspace);
+    workspace.bundle.metadata.generatedAt = demoTimestamp;
+    return {
+      runId,
+      exitCode: 0,
+      trendLabel: "IMPROVING",
+      trendDelta: 6,
+      artifacts: workspace.artifacts,
+      workspace,
+      preflight: demoPreflight(request),
+    };
+  },
+  async CancelRun(): Promise<void> {
+    emit({
+      type: "warning",
+      runId: "mock-run",
+      timestamp: demoTimestamp,
+      step: "cancel",
+      level: "warn",
+      message: "Cancellation requested.",
+      warning: "The mock backend acknowledges the cancel request immediately.",
+    });
+  },
+  async OpenBundle(): Promise<Workspace> {
+    return clone(demoWorkspace);
+  },
+  async ExportBundle(path: string, request: ExportRequest) {
+    const outputDir = request.outputDir || demoWorkspace.artifacts.outputDir;
+    return {
+      outputDir,
+      bundleJson: request.bundleJson || request.report ? `${outputDir}/recovery-scan.json` : undefined,
+      enrichedJson: request.bundleJson || request.report ? `${outputDir}/recovery-enriched.json` : undefined,
+      htmlReport: request.report ? `${outputDir}/recovery-report.html` : undefined,
+      markdownReport: request.bundleJson || request.report ? `${outputDir}/recovery-report.md` : undefined,
+      summaryHtml: request.summary ? `${outputDir}/recovery-summary.html` : undefined,
+      runbookHtml: request.runbook ? `${outputDir}/recovery-runbook.html` : undefined,
+      redactedJson: request.redact ? `${outputDir}/recovery-scan-redacted.json` : undefined,
+      redactedHtml: request.redact ? `${outputDir}/recovery-report-redacted.html` : undefined,
+      csvDir: request.csvExport ? `${outputDir}/csv` : undefined,
+      historyIndex: request.bundleJson || request.report ? `${outputDir}/history/index.json` : undefined,
+      loadedBundlePath: path || demoWorkspace.artifacts.loadedBundlePath,
+    };
+  },
+  async PickBundleFile(): Promise<string> {
+    return demoWorkspace.artifacts.loadedBundlePath || "./demo-out/recovery-scan.json";
+  },
+  async PickOutputDirectory(): Promise<string> {
+    return "./demo-out";
+  },
+  onScanEvent(listener: (event: RunEvent) => void) {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+  demoWorkspace,
+};
