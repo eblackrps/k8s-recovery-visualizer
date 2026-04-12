@@ -1,186 +1,126 @@
 # k8s-recovery-visualizer
 
 [![CI](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/ci.yml)
-[![Release](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/release.yml/badge.svg)](https://github.com/eblackrps/k8s-recovery-visualizer/actions/workflows/release.yml)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](https://github.com/eblackrps/k8s-recovery-visualizer/blob/main/go.mod)
 [![Latest Release](https://img.shields.io/github/v/release/eblackrps/k8s-recovery-visualizer)](https://github.com/eblackrps/k8s-recovery-visualizer/releases)
+[![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` inventories a Kubernetes cluster, scores disaster recovery readiness across weighted domains, and produces offline-friendly artifacts for audits, remediation planning, compare/diff reviews, and CI/CD policy gates.
+`k8s-recovery-visualizer` is a Kubernetes disaster recovery assessment tool for platform teams, SREs, consultants, and audit-driven operators. It combines a Go CLI for automation and CI policy gates with a Wails desktop app for guided scans, live progress, bundle review, history, and exports. Both surfaces run on the same shared Go service layer and produce offline-friendly reports, versioned JSON contracts, compare/diff views, and remediation guidance.
 
-`v1.4.0` keeps the supported Go CLI intact while adding a production-oriented Wails desktop app powered by the same shared Go service layer and the same visual language as the generated reports.
+<p align="center">
+  <img alt="Desktop dashboard" src="images/gui-dashboard.png" width="49%" />
+  <img alt="Offline HTML report summary" src="images/report-summary.png" width="49%" />
+</p>
 
-## Screenshot Gallery
+## What You Get
 
-Report surfaces:
+- A supported Go CLI for scripted scans, CI/CD gates, and air-gapped workflows
+- A desktop app with Home, Projects, New Scan, Live Run, Results, and Settings views
+- Offline HTML reports, executive summaries, runbooks, JSON bundles, CSV exports, and redacted artifacts
+- Conservative backup evidence scoring, compare/history workflows, and schema-validated output contracts
 
-![Report summary](images/report-summary.png)
-![DR score report](images/report-dr-score.png)
-![Sample report](images/sample-report.png)
+## Install Options
 
-Desktop surfaces:
+| Option | Best for | How |
+| --- | --- | --- |
+| GitHub Releases | Operators and evaluators | Download the matching CLI binary or desktop package from [Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) |
+| Build the CLI locally | Contributors and air-gapped environments | `make build` |
+| Run the desktop app in dev mode | UI iteration and local evaluation | `make frontend-install && make dev-gui` |
+| Build the desktop app locally | Packaging validation | `make frontend-install && make build-gui` |
 
-![GUI dashboard](images/gui-dashboard.png)
-![GUI scan wizard](images/gui-scan-wizard.png)
-![GUI live run](images/gui-live-run.png)
-![GUI findings](images/gui-results-findings.png)
-![GUI compare](images/gui-compare.png)
+## Quickstart
 
-## What's New In v1.4.0
+### CLI
 
-- Added a shared backend service layer in `internal/appcore` so the CLI and GUI execute the same scan, preflight, compare, export, and workspace-loading flow.
-- Added a Wails v2 desktop app in `desktop/` with React + TypeScript screens for Home, Projects, New Scan, Live Run, Results, and Settings.
-- Centralized report and desktop theme tokens in `internal/theme`, preserving the existing report palette and feel.
-- Added a guided scan wizard, RBAC/preflight assistant, live progress events, structured warnings, cancel support, and an open-existing-bundle workflow.
-- Added a results workspace that mirrors the report tabs: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare.
-- Added deterministic frontend fixtures plus automated GUI screenshot generation for release docs.
-- Expanded release readiness with changelog, contributing guide, GUI docs, screenshot docs, release notes guidance, cross-host Make targets, and stronger CI/release automation.
-
-## CLI Quickstart
-
-Prerequisites:
-
-- Go `1.25+`
-- Kubernetes credentials for the cluster or namespace scope you want to inspect
-
-Build the CLI:
+Run a deterministic dry run:
 
 ```bash
-make build
+go run ./cmd/scan --dry-run --summary --runbook --out ./out --min-score 0
 ```
 
-Run a dry-run scan:
+Run a live scan with a named context and profile:
 
 ```bash
-./dist/scan-linux-amd64 --dry-run --summary --runbook --out ./out --min-score 0
+go run ./cmd/scan --context prod-east-admin --profile enterprise --summary --runbook --out ./out
 ```
 
-Run a live cluster-wide scan:
+Evaluate the generated bundle in CI:
 
 ```bash
-./dist/scan-linux-amd64 --profile enterprise --summary --runbook --out ./out
+go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
 ```
 
-Run a namespace-scoped scan:
+If you prefer prebuilt binaries, use the release asset for your platform. `make build` writes a host-specific binary into `dist/`.
 
-```bash
-./dist/scan-linux-amd64 --namespace payments,frontend --context prod-east-admin --out ./out
-```
+### Desktop
 
-Compare against a previous bundle:
-
-```bash
-./dist/scan-linux-amd64 --compare ./previous/recovery-scan.json --out ./out
-```
-
-On Windows, use `dist/scan.exe` after `make build`.
-
-## Desktop Quickstart
-
-Install frontend dependencies:
+Install frontend dependencies and start the desktop app in dev mode:
 
 ```bash
 make frontend-install
-```
-
-Run the desktop app in dev mode:
-
-```bash
 make dev-gui
 ```
 
-Build the desktop app for the current host:
+Build the current-host desktop app:
 
 ```bash
 make build-gui
 ```
 
-The desktop app uses the same shared Go backend as the CLI. It does not shell out to `cmd/scan` during normal runs.
+The desktop app can scan a live cluster or open an existing output bundle without cluster access.
 
-## Desktop Workflow
+## CLI And Desktop At A Glance
 
-- `Home / Projects`: recent output bundles discovered from the workspace root.
-- `New Scan`: guided wizard for kubeconfig/context, namespace scope, profile, baseline compare path, output location, redaction, summary/runbook, CSV export, and dry-run.
-- `Live Run`: progress, structured scan events, warning surfacing, and cancel support.
-- `Results`: a tabbed workspace aligned to the offline HTML report model.
-- `Settings`: workspace defaults plus a simple “Open existing bundle” path for inspecting prior scans without live cluster access.
+| Surface | Best for | Strengths |
+| --- | --- | --- |
+| CLI (`cmd/scan`) | CI/CD, repeatable ops workflows, scripting | Stable flags, schema-validated bundles, easy automation, policy gating with `cmd/check` |
+| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, export controls, accessible tabbed workspace |
 
-More detail: [docs/GUI.md](docs/GUI.md)
+## Output Artifacts
 
-## Generated Outputs
+| Artifact | Purpose |
+| --- | --- |
+| `recovery-scan.json` | Primary machine-readable DR bundle |
+| `recovery-enriched.json` | Enriched bundle used for history, compare, and follow-on tooling |
+| `recovery-report.html` | Offline tabbed HTML report |
+| `recovery-report.md` | Markdown export of the report |
+| `recovery-summary.html` | Optional executive summary |
+| `recovery-runbook.html` | Optional customer-facing DR runbook |
+| `csv/` | Optional CSV exports for spreadsheet or downstream analysis |
+| `*-redacted.*` | Optional share-safe exports with masked identifiers |
 
-The scan pipeline writes:
+## Who This Tool Is For
 
-- `recovery-scan.json`
-- `recovery-enriched.json`
-- `recovery-report.html`
-- `recovery-report.md`
-- optional summary, runbook, CSV, and redacted artifacts
-
-All HTML outputs remain self-contained and offline-friendly.
-
-## JSON Contracts
-
-Published schemas remain unchanged in `v1.4.0`:
-
-- Scan bundle: [`schemas/recovery-scan-3.0.0.schema.json`](schemas/recovery-scan-3.0.0.schema.json)
-- Enriched bundle: [`schemas/recovery-enriched-1.1.0.schema.json`](schemas/recovery-enriched-1.1.0.schema.json)
-
-Compatibility policy:
-
-- additive fields require a schema minor version bump
-- removals, renames, or new required fields require a schema major version bump
-- CI validates emitted bundles and committed samples against the published schemas
-
-More detail: [docs/SCHEMAS.md](docs/SCHEMAS.md)
-
-## Trust Model
-
-Backup and restore conclusions are intentionally conservative:
-
-- backup detection is not treated as verified recoverability
-- namespace-scoped scans are useful, but less complete than cluster-wide scans
-- passing scores are not a substitute for real restore drills with workload owners
-
-RBAC and degraded-mode behavior: [docs/RBAC.md](docs/RBAC.md)
-
-## Build, Test, And Validation
-
-Common targets:
-
-- `make fmt`
-- `make vet`
-- `make test`
-- `make race`
-- `make frontend-build`
-- `make frontend-test`
-- `make screenshots`
-- `make smoke`
-- `make schema-samples`
-- `make docs-check`
-- `make ci`
-
-Release packaging guidance: [docs/RELEASE.md](docs/RELEASE.md)
+- Platform and SRE teams who need a repeatable DR readiness baseline
+- Consultants and MSPs who need offline deliverables for customer reviews
+- Security, audit, and resilience owners who want evidence-backed reporting instead of optimistic backup claims
+- CI/CD owners who want release gates based on real recovery posture signals
 
 ## Documentation
 
-- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Start here: [docs/README.md](docs/README.md)
+- CLI usage: [docs/CLI.md](docs/CLI.md)
 - Desktop app: [docs/GUI.md](docs/GUI.md)
-- Screenshot generation: [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
-- Release workflow: [docs/RELEASE.md](docs/RELEASE.md)
-- Capability matrix: [docs/CAPABILITY-MATRIX.md](docs/CAPABILITY-MATRIX.md)
-- RBAC: [docs/RBAC.md](docs/RBAC.md)
-- Schemas: [docs/SCHEMAS.md](docs/SCHEMAS.md)
-- Support matrix: [docs/SUPPORT-MATRIX.md](docs/SUPPORT-MATRIX.md)
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Development: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- Security: [SECURITY.md](SECURITY.md)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- RBAC guidance: [docs/RBAC.md](docs/RBAC.md)
+- Schemas and compatibility: [docs/SCHEMAS.md](docs/SCHEMAS.md)
+- Screenshots: [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
+- Release process: [docs/RELEASE.md](docs/RELEASE.md)
 
-## Repository Notes
+## Trust And Compatibility
 
 - The supported CLI implementation remains [`cmd/scan`](cmd/scan).
-- The scan entrypoint stays intentionally thin and routes through [`internal/scanapp`](internal/scanapp).
-- Shared application logic for both CLI and desktop now lives in [`internal/appcore`](internal/appcore).
-- Shared design tokens for reports and the desktop UI now live in [`internal/theme`](internal/theme).
-- Retired legacy writers and duplicate scan helpers are archived out of the build; the maintained report path is [`internal/output/report.go`](internal/output/report.go) and the maintained shared scan path is [`internal/appcore`](internal/appcore).
-- The original PowerShell workflow remains archived in [`legacy/powershell`](legacy/powershell).
+- The desktop app uses the same shared backend in [`internal/appcore`](internal/appcore) and does not shell out to the CLI for normal runs.
+- Published schema versions remain [`3.0.0`](schemas/recovery-scan-3.0.0.schema.json) for `recovery-scan.json` and [`1.1.0`](schemas/recovery-enriched-1.1.0.schema.json) for `recovery-enriched.json`.
+- Generated HTML outputs stay self-contained and offline-friendly.
+- Backup detection is not treated as proof of recoverability. Unsupported or permission-limited tooling is surfaced explicitly in both JSON and HTML outputs.
+
+## Community
+
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Support: [SUPPORT.md](SUPPORT.md)
+- Security: [SECURITY.md](SECURITY.md)
+- Code of Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- License: [LICENSE](LICENSE)

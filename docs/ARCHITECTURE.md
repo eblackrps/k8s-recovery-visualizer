@@ -1,6 +1,6 @@
 # Architecture
 
-`k8s-recovery-visualizer` is now organized around a shared application core so the CLI and desktop app execute the same scan and artifact pipeline.
+`k8s-recovery-visualizer` is organized around a shared application core so the CLI and desktop app execute the same scan, export, and bundle-loading pipeline.
 
 ## Layers
 
@@ -87,7 +87,7 @@
 - `recovery-scan.json` schema: [`../schemas/recovery-scan-3.0.0.schema.json`](../schemas/recovery-scan-3.0.0.schema.json)
 - `recovery-enriched.json` schema: [`../schemas/recovery-enriched-1.1.0.schema.json`](../schemas/recovery-enriched-1.1.0.schema.json)
 
-`v1.4.0` preserves both published schema versions.
+The current release line preserves both published schema versions.
 
 ## Design Choices
 

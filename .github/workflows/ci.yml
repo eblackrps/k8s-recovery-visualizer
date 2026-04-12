@@ -65,8 +65,8 @@ jobs:
 
       - name: Regression tests -- backup coverage trust behavior and rendered artifacts
         run: >
-          go test ./cmd/scan ./internal/backup ./internal/restore ./internal/analyze ./internal/output
-          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestSharedOutputCSSUsesSharedThemePalette"
+          go test ./cmd/scan ./internal/appcore ./internal/backup ./internal/restore ./internal/analyze ./internal/output
+          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestSharedOutputCSSUsesSharedThemePalette|TestDryRunFinalizationMatchesSinglePass|TestExportBundleWritesOnlyRequestedArtifacts|TestExportBundleRequiresSelectedOutput"
 
       - name: Build Linux binary (GOOS=linux GOARCH=amd64)
         run: |

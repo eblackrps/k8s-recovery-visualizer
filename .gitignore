@@ -19,6 +19,7 @@ workload-report.json
 /build/
 /release/
 /desktop/build/bin/
+/desktop/build/windows/installer/tmp/
 /desktop/frontend/node_modules/
 /desktop/frontend/dist/*
 !/desktop/frontend/dist/.gitkeep

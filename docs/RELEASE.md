@@ -1,12 +1,13 @@
 # Release Guide
 
-`v1.4.0` ships both CLI and desktop assets while keeping schema compatibility intact.
+Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`.
 
 ## Versioning
 
-- prefer semver tags such as `v1.4.0`
-- keep `internal/model.Version` on the next `-dev` value between releases
+- use semver tags such as `v1.5.0`
+- keep source-level version references aligned with the release you are cutting
 - bump schema versions only when the JSON contract changes
+- only use a minor or major release when the user-visible surface justifies it
 
 ## Pre-Release Checklist
 
@@ -14,6 +15,7 @@ Run the full validation set:
 
 ```bash
 make fmt
+go build ./...
 make vet
 make test
 make race
@@ -34,6 +36,7 @@ Confirm:
 - screenshot references in the docs resolve correctly
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
+- README, screenshots, and release notes all match the actual shipped artifacts
 
 ## Local Packaging
 
@@ -54,6 +57,17 @@ Cross-platform CLI binaries:
 ```bash
 make release-cli
 ```
+
+Windows packaging uses NSIS. If `make package-gui` fails locally with `makensis not found`, install NSIS before retrying.
+
+## GitHub Release Flow
+
+1. Update the changelog, README, screenshots, and public docs.
+2. Merge the release branch to `main`.
+3. Create and push the release tag.
+4. Let [`.github/workflows/release.yml`](../.github/workflows/release.yml) rebuild and publish the release assets.
+5. Verify the GitHub release title, notes, checksums, SBOM, and desktop packages after the workflow completes.
+6. Update repository metadata such as description, topics, homepage, and social preview if needed.
 
 ## GitHub Release Workflow
 
@@ -78,4 +92,4 @@ Expected release outputs include:
 - SPDX SBOM
 - GitHub release notes
 
-For contributor workflow details, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+For contributor workflow details, see [../CONTRIBUTING.md](../CONTRIBUTING.md).

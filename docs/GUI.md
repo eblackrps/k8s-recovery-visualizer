@@ -1,25 +1,26 @@
 # Desktop App
 
-The desktop app lives in [`desktop/`](../desktop) and uses Wails v2 for the shell plus React + TypeScript for the frontend.
+The desktop app lives in [`desktop/`](../desktop) and uses Wails v2 for the shell plus React + TypeScript for the frontend. It shares the same Go execution path as the CLI, so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
 
-## Goals
+## What The Desktop App Is For
 
-- preserve the supported CLI workflow
-- reuse the same Go scan pipeline instead of shelling out
-- keep the same palette and overall feel as the generated reports
-- make prior bundles explorable without cluster access
-- keep report exports offline-friendly
+Use the desktop app when you want:
 
-## Screens
+- a guided scan wizard instead of CLI flags
+- a preflight and RBAC check before running
+- live progress, structured logs, warning surfacing, and cancel support
+- a results workspace that mirrors the report tabs
+- easy inspection of existing bundles without needing live cluster access
 
-- `Home`: score summary, recent history, and quick actions
-- `Projects`: discovered scan bundles under the configured workspace root
-- `New Scan`: guided wizard for access, scope, outputs, and review
-- `Live Run`: progress, structured logs, warnings, and cancel support
-- `Results`: report-aligned workspace with Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
-- `Settings`: workspace defaults and open-existing-bundle flow
+## Main Screens
 
-## Backend Contract
+- `Home / Projects`: recent bundles, quick actions, history, and workspace discovery
+- `New Scan`: wizard for kubeconfig/context, namespace scope, profile, compare baseline, outputs, redaction, summary/runbook, and dry-run settings
+- `Live Run`: progress events, warnings, structured logs, and cancel
+- `Results`: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
+- `Settings`: workspace defaults plus an open-existing-bundle path
+
+## Shared Backend Contract
 
 The Wails backend binds typed methods from `desktop/app.go` and delegates real work to `internal/appcore`.
 
@@ -37,12 +38,22 @@ Key methods:
 
 Live run updates are emitted as the `scan:event` Wails event.
 
+## Exports And Bundle Workflows
+
+The desktop app can:
+
+- open an existing bundle directory without cluster access
+- export only the requested outputs instead of rewriting everything blindly
+- refresh HTML, Markdown, summary, runbook, CSV, redacted, and JSON artifacts from a loaded bundle
+- preserve the same theme and offline-friendly output format as the CLI-generated reports
+
 ## Accessibility And Navigation
 
 - wizard controls use explicit labels
-- primary navigation and tabs expose semantic labeling plus tab/tabpanel wiring
-- keyboard arrow navigation is supported for tab rows, with `Home` and `End` shortcuts on tablists
-- the UI keeps contrast aligned with the shared report palette
+- primary navigation and tab rows expose semantic tab/tabpanel wiring
+- tablists support keyboard arrow navigation plus `Home` and `End`
+- focus-visible states are styled intentionally instead of relying on browser defaults
+- filter buttons expose state with accessible pressed semantics
 
 ## Development
 
@@ -58,13 +69,13 @@ Run dev mode:
 make dev-gui
 ```
 
-Build the current host app:
+Build the current-host app:
 
 ```bash
 make build-gui
 ```
 
-Frontend tests:
+Run frontend tests:
 
 ```bash
 make frontend-test
@@ -76,7 +87,7 @@ The frontend supports a deterministic mock backend for tests, local previews, an
 
 - screenshots are generated from the fixture-backed browser build
 - the fixture includes history, comparison data, findings, remediation steps, and backup evidence
-- fixture timestamps, locale, and timezone are fixed so the screenshot set stays reproducible
-- this keeps the screenshot set stable without requiring cluster access
+- fixture timestamps, locale, timezone, and motion settings are fixed so the screenshot set stays reproducible
+- no live cluster access is required for the screenshot workflow
 
 Screenshot workflow: [SCREENSHOTS.md](SCREENSHOTS.md)

@@ -2,37 +2,46 @@
 
 ## Supported Versions
 
-This project is maintained on a rolling basis.
+This project is maintained on a rolling release basis.
 
-- The most recent tagged release is the supported release line for operators.
-- `main` is supported on a best-effort basis for contributors and early adopters.
-- Older tags may continue to work, but they should not be treated as a supported security baseline.
+| Version | Status |
+| --- | --- |
+| Latest tagged release | Supported |
+| `main` | Best effort for contributors and evaluators |
+| Older tags | Not a supported security baseline |
 
-## Reporting a Vulnerability
+## Reporting A Vulnerability
 
 Do not open a public GitHub issue for a security problem.
 
-Please report vulnerabilities privately by using GitHub's private vulnerability reporting for this repository when available, or by contacting the repository owner directly through GitHub.
+Please use GitHub's private vulnerability reporting for this repository. If private reporting is unavailable, contact the maintainer privately through GitHub and mark the report as security-sensitive.
 
-Include:
+Please include:
 
-- affected version or commit
+- affected version, tag, or commit
 - impact summary
 - reproduction steps or proof of concept
 - whether the issue exposes cluster data, credentials, or report artifacts
+- whether the issue affects the CLI, desktop app, generated artifacts, or release pipeline
+
+We aim to acknowledge reports promptly and keep follow-up communication private until a fix or mitigation is ready.
 
 ## Scope Notes
 
-This tool reads Kubernetes metadata and may emit operationally sensitive names, endpoints, or storage locations in its artifacts.
+This tool reads Kubernetes metadata and may emit operationally sensitive names, endpoints, storage locations, and backup context in its artifacts.
 
 Before sharing scan output outside your team:
 
 - prefer `--redact` for exported reports
 - review `recovery-scan.json` and `recovery-enriched.json` for environment-specific identifiers
 - use least-privilege RBAC from [`deploy/rbac`](deploy/rbac) where possible
+- avoid enabling Secret metadata collection unless the security tradeoff is explicitly approved
 
 ## Security Posture
 
 - The scanner is designed to be read-only against the Kubernetes API.
-- Release assets are built with checksums and SBOM generation in GitHub Actions.
 - Backup conclusions are intentionally conservative and do not claim recoverability without evidence.
+- Release assets are built with checksums and SBOM generation in GitHub Actions.
+- Desktop and report outputs are designed to stay offline-friendly and CDN-independent.
+
+For general help, use [SUPPORT.md](SUPPORT.md). For contributor workflow details, see [CONTRIBUTING.md](CONTRIBUTING.md).

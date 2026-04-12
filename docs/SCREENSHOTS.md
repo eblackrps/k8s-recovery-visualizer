@@ -1,6 +1,6 @@
 # Screenshot Workflow
 
-The repository keeps the original report screenshots and adds deterministic GUI screenshots beside them in `images/`.
+The repository keeps the original report screenshots in place and adds deterministic GUI screenshots beside them in `images/`.
 
 ## Report Screenshots Kept In Place
 
@@ -15,6 +15,8 @@ The repository keeps the original report screenshots and adds deterministic GUI 
 - `images/gui-live-run.png`
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`
+
+These files are the supported screenshot set for the README, docs, and GitHub release presentation.
 
 ## Generate The GUI Screenshots
 

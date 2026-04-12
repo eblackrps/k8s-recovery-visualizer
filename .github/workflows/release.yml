@@ -269,11 +269,11 @@ jobs:
           $ldflags = "-s -w -X 'k8s-recovery-visualizer/internal/model.Version=$($env:VERSION.TrimStart('v'))' -X 'k8s-recovery-visualizer/internal/model.BuildDate=$buildDate'"
           wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o k8s-recovery-visualizer-desktop.exe -ldflags $ldflags
 
-      - name: Collect Windows desktop output
+      - name: Archive Windows desktop output
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Get-ChildItem desktop\build\bin | Copy-Item -Destination release -Recurse -Force
+          Compress-Archive -Path desktop\build\bin\* -DestinationPath release\k8s-recovery-visualizer-desktop-windows-amd64.zip -Force
 
       - uses: actions/upload-artifact@v4
         with:
@@ -417,7 +417,16 @@ jobs:
           pattern = re.compile(rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)", re.M | re.S)
           match = pattern.search(changelog)
           notes = match.group(0).strip() if match else f"## [{version}]\n\nRelease notes unavailable."
-          pathlib.Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          footer = """
+
+## Release Assets
+
+- CLI binaries for Linux, macOS, and Windows
+- Desktop packages for Linux, macOS, and Windows
+- `checksums.txt`
+- `k8s-recovery-visualizer.spdx.json`
+"""
+          pathlib.Path("release-notes.md").write_text(notes + footer + "\n", encoding="utf-8")
           PY
 
       - name: Publish GitHub release

@@ -2,73 +2,58 @@
 
 Thanks for helping improve `k8s-recovery-visualizer`.
 
-## Development Setup
+Please read these first:
 
-Prerequisites:
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
-- Go `1.25+`
-- Node.js `20+`
-- Wails v2 CLI
-- Kubernetes credentials if you want to run live scans
-
-Install the frontend dependencies:
-
-```bash
-make frontend-install
-```
-
-## Common Commands
-
-- `make build`
-- `make build-gui`
-- `make dev-gui`
-- `make test`
-- `make frontend-test`
-- `make smoke`
-- `make docs-check`
-- `make ci`
-
-## Contribution Rules
+## Contribution Priorities
 
 - Keep the CLI in `cmd/scan` working and backward compatible.
 - Keep `internal/scanapp` thin.
-- Prefer shared Go functionality in `internal/appcore` over GUI-only execution paths.
+- Prefer shared functionality in `internal/appcore` over GUI-only execution paths.
 - Do not break published JSON schemas without versioning and documentation updates.
 - Keep generated reports offline-friendly.
-- Keep the report and desktop palette aligned through `internal/theme`.
-- Preserve existing report screenshots in `images/`.
+- Route palette changes through `internal/theme`.
+- Preserve the supported screenshot set under `images/`.
 
-## Before Opening A PR
-
-Run:
+## Validation Before Opening A PR
 
 ```bash
 make fmt
+go build ./...
 make vet
 make test
+make race
 make frontend-build
 make frontend-test
 make smoke
 make schema-samples
 make docs-check
+make build-gui
 ```
 
-If you change the desktop UI, refresh the fixture screenshots:
+If you changed the desktop UI, README visuals, or screenshot documentation:
 
 ```bash
 make screenshots
 ```
 
-## Schema Changes
+## Schema And Output Changes
 
-If a contribution changes emitted JSON:
+If your contribution changes emitted JSON or generated artifacts:
 
-- update the relevant schema file
-- update committed schema examples
-- document the version bump in `CHANGELOG.md`
-- explain compatibility impact in the PR
+- update the relevant schema files when required
+- update committed schema examples when required
+- document the compatibility impact in `CHANGELOG.md`
+- explain the upgrade or migration impact in the PR
 
-## Theme Changes
+## Pull Request Expectations
 
-Report and GUI colors should be updated through `internal/theme`.
-Avoid hard-coding a new parallel palette in the frontend or report writers.
+- keep PRs focused and reviewable
+- include validation results
+- include screenshots when user-facing UI changes
+- update README or docs when workflows, assets, or terminology change
+
+Need help first? Start with [SUPPORT.md](SUPPORT.md).
