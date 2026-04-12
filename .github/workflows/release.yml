@@ -417,15 +417,13 @@ jobs:
           pattern = re.compile(rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)", re.M | re.S)
           match = pattern.search(changelog)
           notes = match.group(0).strip() if match else f"## [{version}]\n\nRelease notes unavailable."
-          footer = """
-
-## Release Assets
-
-- CLI binaries for Linux, macOS, and Windows
-- Desktop packages for Linux, macOS, and Windows
-- `checksums.txt`
-- `k8s-recovery-visualizer.spdx.json`
-"""
+          footer = (
+              "\n\n## Release Assets\n\n"
+              "- CLI binaries for Linux, macOS, and Windows\n"
+              "- Desktop packages for Linux, macOS, and Windows\n"
+              "- `checksums.txt`\n"
+              "- `k8s-recovery-visualizer.spdx.json`\n"
+          )
           pathlib.Path("release-notes.md").write_text(notes + footer + "\n", encoding="utf-8")
           PY
 
