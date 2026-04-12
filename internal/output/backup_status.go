@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"k8s-recovery-visualizer/internal/model"
+	"k8s-recovery-visualizer/internal/theme"
 )
 
 func backupCoverageStatusText(inv model.BackupInventory) string {
@@ -86,19 +87,19 @@ func backupAssuranceConclusionText(assurance *model.BackupAssurance) string {
 
 func backupAssuranceColor(assurance *model.BackupAssurance) string {
 	if assurance == nil {
-		return "#8b949e"
+		return theme.Default().Palette.Muted
 	}
 	switch assurance.Conclusion {
 	case model.BackupAssuranceEvidenceConfirmed:
-		return "#7ee787"
+		return theme.Default().Palette.Success
 	case model.BackupAssuranceEvidenceInferred:
-		return "#f2cc60"
+		return theme.Default().Palette.Medium
 	case model.BackupAssuranceCoverageGap, model.BackupAssuranceUnverified:
-		return "#ffa657"
+		return theme.Default().Palette.High
 	case model.BackupAssuranceAtRisk:
-		return "#f85149"
+		return theme.Default().Palette.Critical
 	default:
-		return "#8b949e"
+		return theme.Default().Palette.Muted
 	}
 }
 

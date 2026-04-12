@@ -1,6 +1,10 @@
 package output
 
-import "fmt"
+import (
+	"fmt"
+
+	"k8s-recovery-visualizer/internal/theme"
+)
 
 func reportDocumentStart(title, bodyClass, extraCSS string) string {
 	return fmt.Sprintf(`<!DOCTYPE html><html lang="en"><head>
@@ -17,71 +21,24 @@ func reportDocumentEnd() string {
 }
 
 func maturityAccent(maturity string) string {
-	switch maturity {
-	case "PLATINUM":
-		return "#c4b5fd"
-	case "GOLD":
-		return "#f2cc60"
-	case "SILVER":
-		return "#d8d2ea"
-	case "BRONZE":
-		return "#e6a37a"
-	default:
-		return "#d8d2ea"
-	}
+	return theme.MaturityColor(maturity)
 }
 
 func scoreAccent(score int) string {
-	switch {
-	case score < 50:
-		return "#fb7185"
-	case score < 75:
-		return "#f59e0b"
-	default:
-		return "#4ade80"
-	}
+	return theme.ScoreColor(score)
 }
 
 func sharedOutputCSS() string {
-	return `
-:root{
-  color-scheme:dark;
-  --bg:#120f1d;
-  --bg-elevated:#19142a;
-  --panel:rgba(31,24,54,0.88);
-  --panel-strong:rgba(43,34,74,0.96);
-  --line:rgba(190,172,255,0.16);
-  --line-strong:rgba(212,198,255,0.28);
-  --text:#f5f1ff;
-  --muted:#c8bfdc;
-  --muted-strong:#e1d9f2;
-  --accent:#a78bfa;
-  --accent-strong:#8b5cf6;
-  --accent-soft:#c4b5fd;
-  --glow:rgba(139,92,246,0.22);
-  --success:#4ade80;
-  --warning:#f59e0b;
-  --danger:#fb7185;
-  --radius-xl:30px;
-  --radius-lg:24px;
-  --radius-md:18px;
-  --radius-sm:14px;
-  --shadow:0 28px 60px rgba(5,2,12,0.34);
-  --shadow-soft:0 18px 38px rgba(5,2,12,0.24);
-  --mono:"Consolas","SFMono-Regular","Liberation Mono",monospace;
-  --body:"Segoe UI Variable Text","Segoe UI","Trebuchet MS",sans-serif;
-  --title:"Segoe UI Variable Display","Segoe UI","Trebuchet MS",sans-serif;
-}
-
+	return theme.Default().CSSVariables() + `
 *{box-sizing:border-box}
 
 html,body{
   margin:0;
   min-height:100%;
   background:
-    radial-gradient(circle at top left, rgba(167,139,250,0.16), transparent 32%),
-    radial-gradient(circle at top right, rgba(196,181,253,0.1), transparent 24%),
-    linear-gradient(180deg, #171126 0%, var(--bg) 32%, #100d19 100%);
+    radial-gradient(circle at top left, rgba(88,166,255,0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(126,231,135,0.08), transparent 24%),
+    linear-gradient(180deg, rgba(13,17,23,0.92) 0%, var(--bg) 32%, #010409 100%);
   color:var(--text);
   font-family:var(--body);
 }
@@ -153,9 +110,9 @@ pre{
   margin-top:0.8rem;
   padding:0.95rem 1rem;
   border-radius:18px;
-  border:1px solid rgba(190,172,255,0.14);
-  background:rgba(15,12,26,0.82);
-  color:#f2ebff;
+  border:1px solid rgba(48,54,61,0.55);
+  background:rgba(1,4,9,0.84);
+  color:var(--text);
   overflow-x:auto;
   white-space:pre-wrap;
   font-family:var(--mono);
@@ -233,13 +190,13 @@ tbody tr:focus-within td{
 .page-glow-left{
   top:-10rem;
   left:-6rem;
-  background:rgba(139,92,246,0.22);
+  background:rgba(88,166,255,0.16);
 }
 
 .page-glow-right{
   top:9rem;
   right:-8rem;
-  background:rgba(196,181,253,0.16);
+  background:rgba(126,231,135,0.12);
 }
 
 .layout{
@@ -604,7 +561,7 @@ tbody tr:focus-within td{
 }
 
 .c-HIGH,.sev-HIGH{
-  color:#ffb86c;
+  color:var(--warning-high);
   font-weight:700;
 }
 
@@ -700,7 +657,7 @@ tbody tr:focus-within td{
 
 .fbtn.fc{border-color:rgba(251,113,133,0.26);color:var(--danger)}
 .fbtn.fc.active{background:rgba(251,113,133,0.14)}
-.fbtn.fh{border-color:rgba(255,184,108,0.26);color:#ffb86c}
+.fbtn.fh{border-color:rgba(255,184,108,0.26);color:var(--warning-high)}
 .fbtn.fh.active{background:rgba(255,184,108,0.12)}
 .fbtn.fm{border-color:rgba(245,158,11,0.26);color:var(--warning)}
 .fbtn.fm.active{background:rgba(245,158,11,0.12)}
@@ -948,7 +905,7 @@ tbody tr:focus-within td{
 
   html,body{
     background:#fff !important;
-    color:#1f1932 !important;
+    color:#24292f !important;
   }
 
   body{
@@ -975,8 +932,8 @@ tbody tr:focus-within td{
   table,
   pre{
     background:#fff !important;
-    color:#1f1932 !important;
-    border-color:#d8d0ea !important;
+    color:#24292f !important;
+    border-color:#d0d7de !important;
     box-shadow:none !important;
     backdrop-filter:none !important;
     -webkit-backdrop-filter:none !important;
@@ -990,11 +947,11 @@ tbody tr:focus-within td{
   .filter-bar span,
   .sbox .l,
   .rem-section-title{
-    color:#62597c !important;
+    color:#57606a !important;
   }
 
   a{
-    color:#4a347a !important;
+    color:#0969da !important;
   }
 
   .badge,
@@ -1003,18 +960,18 @@ tbody tr:focus-within td{
   .print-btn,
   .fbtn{
     background:#fff !important;
-    color:#1f1932 !important;
-    border-color:#cbbfe1 !important;
+    color:#24292f !important;
+    border-color:#d0d7de !important;
   }
 
   th,
   td{
-    color:#1f1932 !important;
-    border-color:#e3dbf1 !important;
+    color:#24292f !important;
+    border-color:#d8dee4 !important;
   }
 
   th{
-    background:#f5f1fc !important;
+    background:#f6f8fa !important;
   }
 }
 `

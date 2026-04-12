@@ -10,7 +10,9 @@ import (
 	"k8s-recovery-visualizer/internal/model"
 )
 
-// WriteHTML writes a compact legacy-compatible HTML report to path.
+// WriteHTML writes the compact legacy-compatible HTML report.
+// It is preserved for downstream consumers that still depend on the legacy
+// surface, but it now shares the centralized report theme tokens from design.go.
 func WriteHTML(path string, b *model.Bundle) error {
 	var buf bytes.Buffer
 	buildLegacyHTML(&buf, b)
@@ -143,9 +145,9 @@ func buildLegacyHTML(buf *bytes.Buffer, b *model.Bundle) {
 	}
 	wf(`<section class="card"><span class="section-tag">Findings</span><h2 style="margin-top:0.4rem">Severity distribution</h2>
 <div class="badge-row" style="margin-top:0.9rem">
-<span class="chip" style="border-color:#fb7185;color:#fb7185">CRITICAL: %d</span>
-<span class="chip" style="border-color:#ffb86c;color:#ffb86c">HIGH: %d</span>
-<span class="chip" style="border-color:#f59e0b;color:#f59e0b">MEDIUM: %d</span>
+<span class="chip" style="border-color:var(--danger);color:var(--danger)">CRITICAL: %d</span>
+<span class="chip" style="border-color:var(--warning-high);color:var(--warning-high)">HIGH: %d</span>
+<span class="chip" style="border-color:var(--warning-medium);color:var(--warning-medium)">MEDIUM: %d</span>
 <span class="chip">LOW/INFO: %d</span>
 </div>
 <p class="subtle" style="margin-top:0.9rem">This compact report preserves the core score, maturity, and findings surfaces without relying on any external assets.</p>

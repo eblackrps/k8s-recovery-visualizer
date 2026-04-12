@@ -91,7 +91,7 @@ func buildSummary(buf *bytes.Buffer, b *model.Bundle) {
 		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
 		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
-		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#c4b5fd">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
+		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:var(--accent)">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
 	}
 	w(`</div>`)
@@ -197,9 +197,9 @@ func buildSummary(buf *bytes.Buffer, b *model.Bundle) {
 
 	wf(`<section class="card"><span class="section-tag">Findings Summary</span><h2 style="margin-top:0.4rem">Severity distribution</h2>
 <div class="badge-row" style="margin-top:0.9rem">
-<span class="chip" style="border-color:#fb7185;color:#fb7185">CRITICAL: %d</span>
-<span class="chip" style="border-color:#ffb86c;color:#ffb86c">HIGH: %d</span>
-<span class="chip" style="border-color:#f59e0b;color:#f59e0b">MEDIUM: %d</span>
+<span class="chip" style="border-color:var(--danger);color:var(--danger)">CRITICAL: %d</span>
+<span class="chip" style="border-color:var(--warning-high);color:var(--warning-high)">HIGH: %d</span>
+<span class="chip" style="border-color:var(--warning-medium);color:var(--warning-medium)">MEDIUM: %d</span>
 <span class="chip">LOW/INFO: %d</span>
 </div>
 <p class="subtle" style="margin-top:0.9rem">This summary keeps the highest-risk items front and center while preserving the underlying trust and assurance semantics.</p>

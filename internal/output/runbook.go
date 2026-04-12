@@ -96,7 +96,7 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 		{"Config", domainWeightLabel("config"), b.Score.Config.Final},
 		{"Backup / Recovery", domainWeightLabel("backup"), b.Score.Backup.Final},
 	} {
-		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:#c4b5fd">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
+		wf(`<div class="sbox"><div class="v">%d</div><div class="l">%s <span style="color:var(--accent)">%s</span></div><div class="bar"><div class="fill" style="width:%d%%"></div></div></div>`,
 			d.score, e(d.label), e(d.weight), d.score)
 	}
 	w(`</div>`)
@@ -168,7 +168,7 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 	}
 	offsiteStr := `<span class="bad">No</span>`
 	if !inv.CoverageVerified && inv.PrimaryTool != "none" && inv.PrimaryTool != "" {
-		offsiteStr = `<span style="color:#b8860b">Unknown</span>`
+		offsiteStr = `<span style="color:var(--warning-medium)">Unknown</span>`
 	} else if inv.HasOffsite {
 		offsiteStr = `<span class="ok">Yes</span>`
 	}
@@ -193,7 +193,7 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 			if inv.CoverageVerified {
 				return `<span class="ok">Yes</span>`
 			}
-			return `<span style="color:#b8860b">No</span>`
+			return `<span style="color:var(--warning-medium)">No</span>`
 		}(),
 		e(backupCoverageStatusText(inv)),
 		e(backupCoverageReasonText(inv)),
@@ -316,7 +316,7 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 		for _, ns := range sim.Namespaces {
 			covCell := `<span class="bad">none</span>`
 			if !ns.CoverageKnown {
-				covCell = `<span style="color:#b8860b">unverified</span>`
+				covCell = `<span style="color:var(--warning-medium)">unverified</span>`
 			} else if ns.HasCoverage {
 				covCell = `<span class="ok">covered</span>`
 			}
@@ -368,9 +368,9 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 			}
 		}
 		wf(`<p style="margin-bottom:8px">
-<span class="chip" style="border-color:#b91c1c;color:#b91c1c">CRITICAL: %d</span>
-<span class="chip" style="border-color:#c2410c;color:#c2410c">HIGH: %d</span>
-<span class="chip" style="border-color:#854d0e;color:#854d0e">MEDIUM: %d</span>
+<span class="chip" style="border-color:var(--danger);color:var(--danger)">CRITICAL: %d</span>
+<span class="chip" style="border-color:var(--warning-high);color:var(--warning-high)">HIGH: %d</span>
+<span class="chip" style="border-color:var(--warning-medium);color:var(--warning-medium)">MEDIUM: %d</span>
 <span class="chip">LOW/INFO: %d</span>
 </p>`, crit, high, med, low)
 		w(`<table><thead><tr><th>Severity</th><th>Resource</th><th>Finding</th><th>Recommendation</th></tr></thead><tbody>`)
@@ -392,7 +392,7 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 			3: "Priority 3 — Optional",
 		}
 		priClass := map[int]string{1: "c-CRITICAL", 2: "c-HIGH", 3: "c-LOW"}
-		chipBorder := map[int]string{1: "#b91c1c", 2: "#c2410c", 3: "#888"}
+		chipBorder := map[int]string{1: "var(--danger)", 2: "var(--warning-high)", 3: "var(--muted)"}
 		curPri := -1
 		for _, step := range b.Inventory.RemediationSteps {
 			if step.Priority != curPri {

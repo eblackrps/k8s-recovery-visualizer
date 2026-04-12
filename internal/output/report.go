@@ -236,10 +236,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		label, color string
 		count        int
 	}{
-		{"CRITICAL", "#f85149", crit},
-		{"HIGH", "#ffa657", high},
-		{"MEDIUM", "#f2cc60", med},
-		{"LOW / INFO", "#c8bfdc", low},
+		{"CRITICAL", "var(--danger)", crit},
+		{"HIGH", "var(--warning-high)", high},
+		{"MEDIUM", "var(--warning-medium)", med},
+		{"LOW / INFO", "var(--muted)", low},
 	} {
 		wf(`<tr><td style="color:%s;width:80px;padding:3px 0">%s</td><td style="padding:3px 8px">%s</td><td style="padding:3px 0;color:%s">%d</td></tr>`,
 			row.color, row.label, sevBar(row.count, sevMax, row.color), row.color, row.count)
@@ -258,10 +258,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 	}
 	if skipped > 0 {
-		w(`<div class="card" style="border-color:#f2cc60">`)
-		wf(`<h2 style="color:#f2cc60">Scan Coverage — %d/%d collectors skipped</h2>`, skipped, totalCollectors)
+		w(`<div class="card" style="border-color:var(--warning-medium)">`)
+		wf(`<h2 style="color:var(--warning-medium)">Scan Coverage — %d/%d collectors skipped</h2>`, skipped, totalCollectors)
 		if rbacSkips > 0 {
-			wf(`<p style="color:#c8bfdc;font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
+			wf(`<p style="color:var(--muted);font-size:.86em;margin-bottom:8px">%d skip(s) appear to be RBAC / permissions errors. Grant the service account read access to the listed resources to improve coverage.</p>`, rbacSkips)
 		}
 		w(`<table style="margin-top:4px"><thead><tr>`)
 		for _, h := range []string{"Collector", "Reason", "RBAC?"} {
@@ -271,20 +271,20 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		for _, sk := range b.CollectorSkips {
 			rbacCell := `<span class="bad">✗ No</span>`
 			if sk.RBAC {
-				rbacCell = `<span style="color:#f2cc60">⚠ Yes</span>`
+				rbacCell = `<span style="color:var(--warning-medium)">⚠ Yes</span>`
 			}
 			// Truncate long reasons for display
 			reason := sk.Reason
 			if len(reason) > 120 {
 				reason = reason[:117] + "..."
 			}
-			wf(`<tr><td>%s</td><td style="color:#c8bfdc;font-size:.84em">%s</td><td>%s</td></tr>`,
+			wf(`<tr><td>%s</td><td style="color:var(--muted);font-size:.84em">%s</td><td>%s</td></tr>`,
 				e(sk.Name), e(reason), rbacCell)
 		}
 		w(`</tbody></table></div>`)
 	} else {
 		wf(`<div class="card" style="border-color:rgba(190,172,255,0.16)"><h2>Scan Coverage</h2>
-<p style="color:#7ee787;font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
+<p style="color:var(--success);font-size:.86em">All %d collectors completed successfully — full inventory captured.</p></div>`, totalCollectors)
 	}
 
 	// ── Round 10c: Score Trend sparkline ──────────────────────────────────
@@ -293,13 +293,13 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		const svgW, svgH = 500, 90
 		last := b.TrendHistory[n-1]
 		prev := b.TrendHistory[n-2]
-		trendColor := "#c4b5fd"
+		trendColor := "var(--accent)"
 		trendLabel := "STABLE"
 		if last.Overall > prev.Overall {
-			trendColor = "#7ee787"
+			trendColor = "var(--success)"
 			trendLabel = "IMPROVING"
 		} else if last.Overall < prev.Overall {
-			trendColor = "#f85149"
+			trendColor = "var(--danger)"
 			trendLabel = "DECLINING"
 		}
 
@@ -326,8 +326,8 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if ref.v == 75 {
 				dash = "2,6"
 			}
-			wf(`<line x1="30" y1="%.1f" x2="%d" y2="%.1f" stroke="#21262d" stroke-dasharray="%s" stroke-width="1"/>`, ry, svgW-5, ry, dash)
-			wf(`<text x="0" y="%.1f" fill="#c8bfdc" font-size="9" dominant-baseline="middle">%s</text>`, ry, ref.lbl)
+			wf(`<line x1="30" y1="%.1f" x2="%d" y2="%.1f" stroke="var(--line)" stroke-dasharray="%s" stroke-width="1"/>`, ry, svgW-5, ry, dash)
+			wf(`<text x="0" y="%.1f" fill="var(--muted)" font-size="9" dominant-baseline="middle">%s</text>`, ry, ref.lbl)
 		}
 		wf(`<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="%s" stop-opacity="0.25"/><stop offset="1" stop-color="%s" stop-opacity="0"/></linearGradient></defs>`,
 			trendColor, trendColor)
@@ -347,7 +347,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			wf(`<circle cx="%.1f" cy="%.1f" r="%s" fill="%s"/>`, d.cx, d.cy, r, trendColor)
 		}
 		w(`</svg>`)
-		wf(`<div style="color:#c8bfdc;font-size:.83em;margin-top:4px">Last <strong style="color:#f5f1ff">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
+		wf(`<div style="color:var(--muted);font-size:.83em;margin-top:4px">Last <strong style="color:var(--text)">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
 			n, trendColor, last.Overall, e(last.Maturity))
 		w(`</div>`)
 	}
@@ -406,24 +406,24 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 				hostNS++
 			}
 		}
-		reqColor := "#7ee787"
+		reqColor := "var(--success)"
 		if noReq > 0 {
-			reqColor = "#ffa657"
+			reqColor = "var(--warning-high)"
 		}
-		limColor := "#7ee787"
+		limColor := "var(--success)"
 		if noLim > 0 {
-			limColor = "#f2cc60"
+			limColor = "var(--warning-medium)"
 		}
-		privColor := "#7ee787"
+		privColor := "var(--success)"
 		if priv > 0 {
-			privColor = "#f85149"
+			privColor = "var(--danger)"
 		}
-		hostColor := "#7ee787"
+		hostColor := "var(--success)"
 		if hostNS > 0 {
-			hostColor = "#ffa657"
+			hostColor = "var(--warning-high)"
 		}
 		wf(`<div class="card"><h2>Resource Governance &amp; Pod Security</h2>
-<p style="color:#c8bfdc;font-size:.84em;margin-bottom:10px">kube-system pods are excluded from governance checks.</p>
+<p style="color:var(--muted);font-size:.84em;margin-bottom:10px">kube-system pods are excluded from governance checks.</p>
 <div class="grid">
 <div class="sbox"><div class="v">%d</div><div class="l">Total Pods</div></div>
 <div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">Missing Requests</div></div>
@@ -449,11 +449,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 				if !pod.HasLimits {
 					limCell = `<span class="c-MEDIUM">✗</span>`
 				}
-				privCell := `<span style="color:#c8bfdc">—</span>`
+				privCell := `<span style="color:var(--muted)">—</span>`
 				if pod.Privileged {
 					privCell = `<span class="bad">yes</span>`
 				}
-				hnCell := `<span style="color:#c8bfdc">—</span>`
+				hnCell := `<span style="color:var(--muted)">—</span>`
 				if pod.HostNetwork || pod.HostPID {
 					parts := []string{}
 					if pod.HostNetwork {
@@ -494,7 +494,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			e(sts.Namespace), e(sts.Name), sts.Replicas, pvcBadge)
 	}
 	for _, j := range b.Inventory.Jobs {
-		done := `<span style="color:#c8bfdc">active</span>`
+		done := `<span style="color:var(--muted)">active</span>`
 		if j.Completed {
 			done = `<span class="ok">done</span>`
 		}
@@ -574,7 +574,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 		w(`<h3>VolumeSnapshot Coverage</h3>`)
 		if len(b.Inventory.VolumeSnapshotClasses) == 0 {
-			w(`<div class="empty" style="color:#ffa657">No VolumeSnapshotClasses found — CSI snapshot infrastructure not configured.</div>`)
+			w(`<div class="empty" style="color:var(--warning-high)">No VolumeSnapshotClasses found — CSI snapshot infrastructure not configured.</div>`)
 		} else {
 			// Snapshot class table
 			w(`<table id="t-vsc" style="margin-bottom:12px"><thead><tr>`)
@@ -583,9 +583,9 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			}
 			w(`</tr></thead><tbody>`)
 			for _, vsc := range b.Inventory.VolumeSnapshotClasses {
-				dpColor := "#7ee787"
+				dpColor := "var(--success)"
 				if vsc.DeletionPolicy == "Delete" {
-					dpColor = "#ffa657"
+					dpColor = "var(--warning-high)"
 				}
 				wf(`<tr><td>%s</td><td>%s</td><td style="color:%s">%s</td></tr>`,
 					e(vsc.Name), e(vsc.Driver), dpColor, e(vsc.DeletionPolicy))
@@ -650,11 +650,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		totalNS := len(b.Inventory.Namespaces)
 		coveredNS := len(npNamespaces)
 
-		npColor := "#7ee787"
+		npColor := "var(--success)"
 		if coveredNS < totalNS/2 {
-			npColor = "#f85149"
+			npColor = "var(--danger)"
 		} else if coveredNS < totalNS {
-			npColor = "#ffa657"
+			npColor = "var(--warning-high)"
 		}
 
 		// Count total ingress rules
@@ -690,7 +690,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 					npCell = `<span class="ok">✓</span>`
 				}
 				if len(ing.Rules) == 0 {
-					wf(`<tr><td>%s</td><td>%s</td><td colspan="2"><span style="color:#c8bfdc">no rules</span></td><td>%s</td><td>%s</td></tr>`,
+					wf(`<tr><td>%s</td><td>%s</td><td colspan="2"><span style="color:var(--muted)">no rules</span></td><td>%s</td><td>%s</td></tr>`,
 						e(ing.Name), e(ing.Namespace), tlsStr, npCell)
 					continue
 				}
@@ -732,11 +732,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			}
 
 			for _, ns := range b.Inventory.Namespaces {
-				ingCell := `<span style="color:#c8bfdc">—</span>`
+				ingCell := `<span style="color:var(--muted)">—</span>`
 				if nsHasIngress[ns.Name] {
 					ingCell = `<span class="c-HIGH">exposed</span>`
 				}
-				lbCell := `<span style="color:#c8bfdc">—</span>`
+				lbCell := `<span style="color:var(--muted)">—</span>`
 				if nsHasLB[ns.Name] {
 					lbCell = `<span class="c-HIGH">exposed</span>`
 				}
@@ -810,11 +810,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		w(`</tr></thead><tbody>`)
 		for _, hr := range b.Inventory.HelmReleases {
-			sc := "#c8bfdc"
+			sc := "var(--muted)"
 			if hr.Status == "deployed" {
-				sc = "#7ee787"
+				sc = "var(--success)"
 			} else if hr.Status == "failed" {
-				sc = "#f85149"
+				sc = "var(--danger)"
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td style="color:%s">%s</td></tr>`,
 				e(hr.Namespace), e(hr.Name), e(hr.Chart), e(hr.Version), sc, e(hr.Status))
@@ -835,11 +835,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if !c.Ready {
 				rdStr = `<span class="bad">✗</span>`
 			}
-			dc := "#7ee787"
+			dc := "var(--success)"
 			if c.DaysToExpiry < 30 {
-				dc = "#f85149"
+				dc = "var(--danger)"
 			} else if c.DaysToExpiry < 60 {
-				dc = "#ffa657"
+				dc = "var(--warning-high)"
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td style="color:%s">%d</td></tr>`,
 				e(c.Namespace), e(c.Name), e(c.Issuer), rdStr, e(c.NotAfter), dc, c.DaysToExpiry)
@@ -904,7 +904,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	// ── Round 14: LimitRange enforcement ─────────────────────────────────
 	w(`<h3>LimitRange Enforcement</h3>`)
 	if len(b.Inventory.LimitRanges) == 0 {
-		w(`<div class="empty" style="color:#ffa657">No LimitRanges found — namespaces have no default resource constraints.</div>`)
+		w(`<div class="empty" style="color:var(--warning-high)">No LimitRanges found — namespaces have no default resource constraints.</div>`)
 	} else {
 		w(`<table id="t-lr"><thead><tr>`)
 		for _, h := range []string{"Namespace", "Name", "Type", "Max CPU", "Max Memory", "Default CPU", "Default Memory"} {
@@ -913,12 +913,12 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		w(`</tr></thead><tbody>`)
 		for _, lr := range b.Inventory.LimitRanges {
 			if len(lr.Items) == 0 {
-				wf(`<tr><td>%s</td><td>%s</td><td colspan="5"><span style="color:#c8bfdc">no items</span></td></tr>`,
+				wf(`<tr><td>%s</td><td>%s</td><td colspan="5"><span style="color:var(--muted)">no items</span></td></tr>`,
 					e(lr.Namespace), e(lr.Name))
 				continue
 			}
 			for _, item := range lr.Items {
-				dash := `<span style="color:#c8bfdc">—</span>`
+				dash := `<span style="color:var(--muted)">—</span>`
 				maxCPU, maxMem, defCPU, defMem := dash, dash, dash, dash
 				if item.MaxCPU != "" {
 					maxCPU = e(item.MaxCPU)
@@ -941,7 +941,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 	// ── Round 14: PSA label coverage ─────────────────────────────────────
 	w(`<h3>Pod Security Admission (PSA) Coverage</h3>`)
-	w(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">Namespaces should carry <code>pod-security.kubernetes.io/enforce</code> labels to activate PSA admission control. System namespaces are excluded.</p>`)
+	w(`<p style="color:var(--muted);font-size:.84em;margin-bottom:8px">Namespaces should carry <code>pod-security.kubernetes.io/enforce</code> labels to activate PSA admission control. System namespaces are excluded.</p>`)
 	if len(b.Inventory.Namespaces) == 0 {
 		w(`<div class="empty">No namespace data collected.</div>`)
 	} else {
@@ -954,7 +954,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if ns.Name == "kube-system" || ns.Name == "kube-public" || ns.Name == "kube-node-lease" {
 				continue
 			}
-			dash := `<span style="color:#c8bfdc">—</span>`
+			dash := `<span style="color:var(--muted)">—</span>`
 			enf := dash
 			if ns.PSAEnforce != "" {
 				enf = fmt.Sprintf(`<span class="chip p">%s</span>`, e(ns.PSAEnforce))
@@ -971,7 +971,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if ns.PSAEnforce != "" {
 				statusCell = `<span class="ok">✓</span>`
 			} else if ns.PSAWarn != "" || ns.PSAAudit != "" {
-				statusCell = `<span style="color:#ffa657">warn/audit only</span>`
+				statusCell = `<span style="color:var(--warning-high)">warn/audit only</span>`
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 				e(ns.Name), enf, wrn, aud, statusCell)
@@ -996,23 +996,23 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		w(`</tr></thead><tbody>`)
 		for _, cr := range customRoles {
-			wcCell := `<span style="color:#c8bfdc">—</span>`
+			wcCell := `<span style="color:var(--muted)">—</span>`
 			if cr.HasWildcardVerb {
 				wcCell = `<span class="bad">yes</span>`
 			}
-			saCell := `<span style="color:#c8bfdc">—</span>`
+			saCell := `<span style="color:var(--muted)">—</span>`
 			if cr.HasSecretAccess {
 				saCell = `<span class="c-HIGH">yes</span>`
 			}
-			esCell := `<span style="color:#c8bfdc">—</span>`
+			esCell := `<span style="color:var(--muted)">—</span>`
 			if cr.HasEscalatePriv {
 				esCell = `<span class="c-HIGH">yes</span>`
 			}
-			riskLabel, riskColor := "clean", "#7ee787"
+			riskLabel, riskColor := "clean", "var(--success)"
 			if cr.HasWildcardVerb {
-				riskLabel, riskColor = "CRITICAL", "#f85149"
+				riskLabel, riskColor = "CRITICAL", "var(--danger)"
 			} else if cr.HasSecretAccess || cr.HasEscalatePriv {
-				riskLabel, riskColor = "HIGH", "#ffa657"
+				riskLabel, riskColor = "HIGH", "var(--warning-high)"
 			}
 			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, riskLabel)
 			wf(`<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
@@ -1041,7 +1041,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 
 		w(`<h3>RBAC: ClusterRoleBinding Subject Audit</h3>`)
-		w(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">Shows who holds cluster-level permissions. System-to-system bindings (both role and all subjects prefixed with <code>system:</code>) are hidden for clarity.</p>`)
+		w(`<p style="color:var(--muted);font-size:.84em;margin-bottom:8px">Shows who holds cluster-level permissions. System-to-system bindings (both role and all subjects prefixed with <code>system:</code>) are hidden for clarity.</p>`)
 		w(`<table id="t-crbs"><thead><tr>`)
 		for _, h := range []string{"Binding", "Role", "Subjects", "Risk"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -1071,12 +1071,12 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			}
 
 			riskColor := map[string]string{
-				"CRITICAL": "#f85149", "HIGH": "#ffa657", "MEDIUM": "#f2cc60", "LOW": "#c8bfdc",
+				"CRITICAL": "var(--danger)", "HIGH": "var(--warning-high)", "MEDIUM": "var(--warning-medium)", "LOW": "var(--muted)",
 			}[risk]
 			riskCell := fmt.Sprintf(`<span style="color:%s;font-weight:700">%s</span>`, riskColor, risk)
 			subjCell := e(strings.Join(crb.Subjects, ", "))
 			if len(crb.Subjects) == 0 {
-				subjCell = `<span style="color:#c8bfdc">—</span>`
+				subjCell = `<span style="color:var(--muted)">—</span>`
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td style="font-size:.82em">%s</td><td>%s</td></tr>`,
 				e(crb.Name), e(crb.RoleName), subjCell, riskCell)
@@ -1127,7 +1127,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 				detectedCell = `<span class="chip p">yes</span>`
 			}
 			inspectionStatus := `<span class="chip n">not inspected</span>`
-			inspectionDetail := `<span style="color:#c8bfdc">—</span>`
+			inspectionDetail := `<span style="color:var(--muted)">—</span>`
 			if t.Detected {
 				switch t.PolicyInspectionStatus {
 				case model.BackupCoverageStatusVerified:
@@ -1156,10 +1156,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	if backupInv.PrimaryTool == "none" || backupInv.PrimaryTool == "" {
 		w(`<div class="empty">No backup tool detected — no policies to display.</div>`)
 	} else if !backupInv.CoverageVerified {
-		wf(`<div class="empty" style="color:#f2cc60">%s detected, but policy coverage could not be verified (%s). %s</div>`,
+		wf(`<div class="empty" style="color:var(--warning-medium)">%s detected, but policy coverage could not be verified (%s). %s</div>`,
 			e(backupInv.PrimaryTool), e(backupCoverageStatusText(backupInv)), e(backupCoverageReasonText(backupInv)))
 	} else if len(backupInv.Policies) == 0 {
-		wf(`<div class="empty" style="color:#ffa657">%s detected but no policies or schedules found. Create backup schedules to establish coverage.</div>`,
+		wf(`<div class="empty" style="color:var(--warning-high)">%s detected but no policies or schedules found. Create backup schedules to establish coverage.</div>`,
 			e(backupInv.PrimaryTool))
 	} else {
 		offsiteCount := 0
@@ -1168,10 +1168,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 				offsiteCount++
 			}
 		}
-		wf(`<p style="color:#c8bfdc;font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
+		wf(`<p style="color:var(--muted);font-size:.84em;margin-bottom:8px">%d policies found &mdash; %d with offsite/export &mdash; coverage sources: %s</p>`,
 			len(backupInv.Policies), offsiteCount, e(strings.Join(backupInv.CoverageSourceTools, ", ")))
 		if len(backupInv.OffsiteMissingNS) > 0 {
-			wf(`<p style="color:#ffa657;font-size:.84em;margin-bottom:8px">Offsite evidence is missing for covered namespaces: %s</p>`,
+			wf(`<p style="color:var(--warning-high);font-size:.84em;margin-bottom:8px">Offsite evidence is missing for covered namespaces: %s</p>`,
 				e(strings.Join(backupInv.OffsiteMissingNS, ", ")))
 		}
 		w(`<table id="t-policies"><thead><tr>`)
@@ -1216,9 +1216,9 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		w(`<div class="empty">Backup assurance was not calculated.</div>`)
 	} else {
 		color := backupAssuranceColor(backupInv.Assurance)
-		wf(`<p style="margin-bottom:8px"><strong style="color:%s">%s</strong> &nbsp; <span style="color:#c8bfdc">confidence: %s</span></p>`,
+		wf(`<p style="margin-bottom:8px"><strong style="color:%s">%s</strong> &nbsp; <span style="color:var(--muted)">confidence: %s</span></p>`,
 			color, e(backupAssuranceConclusionText(backupInv.Assurance)), e(string(backupInv.Assurance.Confidence)))
-		wf(`<p style="color:#c8bfdc;font-size:.85em;margin-bottom:10px">%s</p>`, e(backupInv.Assurance.Summary))
+		wf(`<p style="color:var(--muted);font-size:.85em;margin-bottom:10px">%s</p>`, e(backupInv.Assurance.Summary))
 		if len(backupInv.Assurance.Signals) > 0 {
 			w(`<table id="t-assurance"><thead><tr>`)
 			for _, h := range []string{"Signal", "Status", "Confidence", "Summary", "Detail"} {
@@ -1226,14 +1226,14 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			}
 			w(`</tr></thead><tbody>`)
 			for _, signal := range backupInv.Assurance.Signals {
-				statusColor := "#c8bfdc"
+				statusColor := "var(--muted)"
 				switch signal.Status {
 				case "confirmed":
-					statusColor = "#7ee787"
+					statusColor = "var(--success)"
 				case "warning", "unverified":
-					statusColor = "#f2cc60"
+					statusColor = "var(--warning-medium)"
 				case "missing":
-					statusColor = "#f85149"
+					statusColor = "var(--danger)"
 				}
 				detail := "—"
 				if signal.Detail != "" {
@@ -1252,7 +1252,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 	if sim := backupInv.RestoreSim; sim == nil {
 		w(`<div class="empty">Restore simulation not available (dry-run mode or no cluster data).</div>`)
 	} else if len(sim.Namespaces) == 0 {
-		w(`<div class="empty" style="color:#7ee787">No stateful namespaces found — nothing to simulate.</div>`)
+		w(`<div class="empty" style="color:var(--success)">No stateful namespaces found — nothing to simulate.</div>`)
 	} else {
 		unknownCount := 0
 		for _, ns := range sim.Namespaces {
@@ -1267,15 +1267,15 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		coverageVolumeText := fmt.Sprintf("%.0f%%", covPct)
 		coverageCountLabel := "Uncovered"
 		coverageCount := len(sim.UncoveredNS)
-		coverageCountColor := "#7ee787"
+		coverageCountColor := "var(--success)"
 		if coverageCount > 0 {
-			coverageCountColor = "#f85149"
+			coverageCountColor = "var(--danger)"
 		}
 		if unknownCount > 0 {
 			coverageVolumeText = "unknown"
 			coverageCountLabel = "Unverified"
 			coverageCount = unknownCount
-			coverageCountColor = "#f2cc60"
+			coverageCountColor = "var(--warning-medium)"
 		}
 		wf(`<div class="grid" style="margin-bottom:12px">
 <div class="sbox"><div class="v">%d</div><div class="l">Namespaces</div></div>
@@ -1301,20 +1301,20 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			} else if ns.HasCoverage {
 				covCell = `<span class="chip p">covered</span>`
 			}
-			rpoCell := `<span style="color:#c8bfdc">unknown</span>`
+			rpoCell := `<span style="color:var(--muted)">unknown</span>`
 			if ns.RPOHours >= 0 {
-				color := "#7ee787"
+				color := "var(--success)"
 				if ns.RPOHours > 24 {
-					color = "#ffa657"
+					color = "var(--warning-high)"
 				}
 				rpoCell = fmt.Sprintf(`<span style="color:%s">%d</span>`, color, ns.RPOHours)
 			}
 			sizeCell := fmt.Sprintf("%.1f", ns.PVCSizeGB)
-			blockersCell := `<span style="color:#c8bfdc">—</span>`
+			blockersCell := `<span style="color:var(--muted)">—</span>`
 			if len(ns.Blockers) > 0 {
 				blockersCell = fmt.Sprintf(`<span class="c-CRITICAL">%s</span>`, e(strings.Join(ns.Blockers, "; ")))
 			}
-			warningsCell := `<span style="color:#c8bfdc">—</span>`
+			warningsCell := `<span style="color:var(--muted)">—</span>`
 			if len(ns.Warnings) > 0 {
 				warningsCell = fmt.Sprintf(`<span class="c-MEDIUM">%s</span>`, e(strings.Join(ns.Warnings, "; ")))
 			}
@@ -1341,11 +1341,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		wf(`<p><span class="ok">✓</span> <strong>etcd backup detected</strong> — source: <em>%s</em></p>`, e(sourceLabel))
 		if eb.Detail != "" {
-			wf(`<p style="color:#c8bfdc;font-size:.84em">%s</p>`, e(eb.Detail))
+			wf(`<p style="color:var(--muted);font-size:.84em">%s</p>`, e(eb.Detail))
 		}
 	} else {
-		w(`<p><span class="bad">✗</span> <strong style="color:#f85149">No etcd backup evidence found</strong></p>`)
-		w(`<p style="color:#c8bfdc;font-size:.84em">etcd holds all cluster state. Without a backup, the cluster cannot be recovered after catastrophic failure. Configure periodic <code>etcdctl snapshot save</code> via a CronJob, or migrate to a managed K8s service.</p>`)
+		w(`<p><span class="bad">✗</span> <strong style="color:var(--danger)">No etcd backup evidence found</strong></p>`)
+		w(`<p style="color:var(--muted);font-size:.84em">etcd holds all cluster state. Without a backup, the cluster cannot be recovered after catastrophic failure. Configure periodic <code>etcdctl snapshot save</code> via a CronJob, or migrate to a managed K8s service.</p>`)
 	}
 	w(`</div>`) // etcd backup card
 
@@ -1369,11 +1369,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		{"Backup / Recovery", b.Score.Backup.Final, domainWeightLabel("backup")},
 		{"Overall", b.Score.Overall.Final, "100%"},
 	} {
-		c := "#7ee787"
+		c := "var(--success)"
 		if d.s < 50 {
-			c = "#f85149"
+			c = "var(--danger)"
 		} else if d.s < 75 {
-			c = "#ffa657"
+			c = "var(--warning-high)"
 		}
 		wf(`<tr><td>%s</td><td style="color:%s;font-weight:700">%d</td><td>100</td><td>%s</td></tr>`,
 			e(d.n), c, d.s, e(d.w))
@@ -1392,22 +1392,22 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		{"Airgap Restrictions", "airgap"},
 	}
 	w(`<div class="card" style="margin-top:16px"><h2>Active Scoring Profile: `)
-	wf(`<span style="color:#c4b5fd">%s</span></h2>`, e(activeProfile))
+	wf(`<span style="color:var(--accent)">%s</span></h2>`, e(activeProfile))
 	hasCustom := len(pWeights) > 0
 	if !hasCustom {
-		w(`<p style="color:#c8bfdc;font-size:.86em">Standard profile — all domain weights at baseline (1.0×). Use <code>--profile enterprise|dev|airgap</code> to adjust penalty emphasis.</p>`)
+		w(`<p style="color:var(--muted);font-size:.86em">Standard profile — all domain weights at baseline (1.0×). Use <code>--profile enterprise|dev|airgap</code> to adjust penalty emphasis.</p>`)
 	} else {
-		w(`<p style="color:#c8bfdc;font-size:.86em;margin-bottom:8px">Penalty multipliers applied to relevant scoring rules:</p>`)
+		w(`<p style="color:var(--muted);font-size:.86em;margin-bottom:8px">Penalty multipliers applied to relevant scoring rules:</p>`)
 		w(`<table style="width:auto"><thead><tr><th>Category</th><th>Multiplier</th><th>Effect</th></tr></thead><tbody>`)
 		for _, r := range wRows {
 			if mul, ok := pWeights[r.key]; ok {
 				effect := "increased penalty"
-				effectColor := "#ffa657"
+				effectColor := "var(--warning-high)"
 				if mul < 1.0 {
 					effect = "reduced penalty"
-					effectColor = "#7ee787"
+					effectColor = "var(--success)"
 				}
-				wf(`<tr><td>%s</td><td style="color:#f5f1ff;font-weight:700">%.2f×</td><td style="color:%s">%s</td></tr>`,
+				wf(`<tr><td>%s</td><td style="color:var(--text);font-weight:700">%.2f×</td><td style="color:%s">%s</td></tr>`,
 					e(r.label), mul, effectColor, effect)
 			}
 		}
@@ -1496,10 +1496,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			label, color string
 			count        int
 		}{
-			{"CRITICAL", "#f85149", fCrit},
-			{"HIGH", "#ffa657", fHigh},
-			{"MEDIUM", "#f2cc60", fMed},
-			{"LOW/INFO", "#c8bfdc", fLow},
+			{"CRITICAL", "var(--danger)", fCrit},
+			{"HIGH", "var(--warning-high)", fHigh},
+			{"MEDIUM", "var(--warning-medium)", fMed},
+			{"LOW/INFO", "var(--muted)", fLow},
 		} {
 			y := float64(row)*18 + 8
 			bw := barW(sev.count, fMax)
@@ -1525,11 +1525,11 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		w(`</tr></thead><tbody id="findings2-tbody">`)
 		for _, f := range b.Inventory.Findings {
-			actionCell := `<span style="color:#c8bfdc;font-size:.82em">—</span>`
+			actionCell := `<span style="color:var(--muted);font-size:.82em">—</span>`
 			if remI, ok := remIdx[f.ID]; ok {
 				actionCell = fmt.Sprintf(`<a href="#" onclick="showRemStep(%d);return false;" style="color:var(--accent-soft);font-size:.82em;white-space:nowrap">-> Remediation #%d</a>`, remI, remI+1)
 			}
-			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:#c8bfdc;font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:var(--muted);font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
 				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ID), e(f.ResourceID), e(f.Message), e(f.Recommendation), actionCell)
 		}
 		w(`</tbody></table>`)
@@ -1571,19 +1571,19 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 		// Score delta card
 		deltaSign := ""
-		deltaColor := "#c8bfdc"
+		deltaColor := "var(--muted)"
 		if c.ScoreDelta > 0 {
 			deltaSign = "+"
-			deltaColor = "#7ee787"
+			deltaColor = "var(--success)"
 		} else if c.ScoreDelta < 0 {
-			deltaColor = "#f85149"
+			deltaColor = "var(--danger)"
 		}
 		wf(`<div class="card">
 <div class="grid">
 <div class="sbox"><div class="v" style="color:%s">%s%d</div><div class="l">Score Delta</div></div>
 <div class="sbox"><div class="v">%d</div><div class="l">Previous Score</div></div>
 <div class="sbox"><div class="v">%d</div><div class="l">Current Score</div></div>
-<div class="sbox"><div class="v" style="color:#c8bfdc;font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
+<div class="sbox"><div class="v" style="color:var(--muted);font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
 </div></div>`,
 			deltaColor, deltaSign, c.ScoreDelta,
 			c.PreviousScore, b.Score.Overall.Final,
@@ -1591,8 +1591,8 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 		// Backup tool change
 		if c.BackupToolChanged {
-			wf(`<div class="card" style="border-color:#f2cc60"><h2 style="color:#f2cc60">Backup Tool Changed</h2>
-<p style="color:#c8bfdc;font-size:.86em;margin-top:4px">%s → <strong style="color:#f5f1ff">%s</strong></p></div>`,
+			wf(`<div class="card" style="border-color:var(--warning-medium)"><h2 style="color:var(--warning-medium)">Backup Tool Changed</h2>
+<p style="color:var(--muted);font-size:.86em;margin-top:4px">%s → <strong style="color:var(--text)">%s</strong></p></div>`,
 				e(c.BackupToolPrevious), e(c.BackupToolCurrent))
 		}
 
@@ -1617,10 +1617,10 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			addedCell := fmt.Sprintf(`<span class="ok">+%d</span>`, len(row.added))
 			removedCell := fmt.Sprintf(`<span class="bad">-%d</span>`, len(row.removed))
 			if len(row.added) == 0 {
-				addedCell = `<span style="color:#c8bfdc">—</span>`
+				addedCell = `<span style="color:var(--muted)">—</span>`
 			}
 			if len(row.removed) == 0 {
-				removedCell = `<span style="color:#c8bfdc">—</span>`
+				removedCell = `<span style="color:var(--muted)">—</span>`
 			}
 			wf(`<tr><td>%s</td><td>%s</td><td>%s</td></tr>`, e(row.label), addedCell, removedCell)
 		}
@@ -1628,7 +1628,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 		// New findings (regressions)
 		if len(c.FindingsNew) > 0 {
-			w(`<div class="card" style="border-color:#f85149"><h2 style="color:#f85149">New Findings (regressions)</h2>`)
+			w(`<div class="card" style="border-color:var(--danger)"><h2 style="color:var(--danger)">New Findings (regressions)</h2>`)
 			w(`<table><thead><tr>`)
 			for _, h := range []string{"Severity", "Resource", "Message"} {
 				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
@@ -1643,7 +1643,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 
 		// Resolved findings (improvements)
 		if len(c.FindingsResolved) > 0 {
-			w(`<div class="card" style="border-color:#7ee787"><h2 style="color:#7ee787">Resolved Findings (improvements)</h2>`)
+			w(`<div class="card" style="border-color:var(--success)"><h2 style="color:var(--success)">Resolved Findings (improvements)</h2>`)
 			w(`<table><thead><tr>`)
 			for _, h := range []string{"Severity", "Resource", "Message"} {
 				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
