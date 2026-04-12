@@ -18,6 +18,13 @@ Customer-facing runbook:
 
 ![Runbook overview](images/recovery-runbook-overview.png)
 
+## What's New (v1.4.5)
+
+- Redesigned the HTML report, summary, and runbook surfaces with a cohesive purple/lavender design system.
+- Added polished hero/metric layouts, modern tables, and structured remediation panels while preserving all report semantics.
+- Updated the README with fresh screenshots of the new report surfaces.
+- Aligned the legacy HTML writer with the new visual system.
+
 The repo now prioritizes trust over optimism:
 
 - backup detection is not treated as verified recoverability
