@@ -4,10 +4,12 @@ Use this index to find the right starting point for operating, evaluating, or co
 
 ## Start Here
 
-- Repository overview and public release posture: [../README.md](../README.md)
-- CLI usage and source-build guidance: [CLI.md](CLI.md)
-- Desktop app workflow and supported desktop platforms: [GUI.md](GUI.md)
-- Architecture and shared-core design: [ARCHITECTURE.md](ARCHITECTURE.md)
+| If you need to... | Start here |
+| --- | --- |
+| Understand what ships publicly | [../README.md](../README.md) |
+| Use the CLI from source | [CLI.md](CLI.md) |
+| Use or evaluate the desktop app | [GUI.md](GUI.md) |
+| Understand the shared architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ## Operator Guides
 
@@ -21,6 +23,7 @@ Use this index to find the right starting point for operating, evaluating, or co
 
 - Development environment and validation workflow: [DEVELOPMENT.md](DEVELOPMENT.md)
 - Contribution expectations: [../CONTRIBUTING.md](../CONTRIBUTING.md)
+- Screenshot refresh workflow: [SCREENSHOTS.md](SCREENSHOTS.md)
 - Security reporting: [../SECURITY.md](../SECURITY.md)
 - Community expectations: [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)
 

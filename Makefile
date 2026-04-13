@@ -188,6 +188,6 @@ help:
 	@echo "  schema-validate     Validate ./out artifacts against published schemas"
 	@echo "  schema-samples      Validate committed schema examples"
 	@echo "  docs-check          Validate local Markdown links and screenshot references"
-	@echo "  docker-build        Build the container image locally"
+	@echo "  docker-build        Build the legacy local CLI container image (not a published release artifact)"
 	@echo "  ci                  Run the local validation stack"
 	@echo "  clean               Remove generated build artifacts"

@@ -4,7 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+- Refreshed the main README and supporting docs so the public desktop-only release posture, CLI source-build story, and support language read consistently across the repo.
+- Replaced older report-era README screenshots with the maintained deterministic desktop screenshot set and removed deprecated screenshot references.
 
 ## [1.6.1] - 2026-04-13
 

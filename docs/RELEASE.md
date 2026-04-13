@@ -4,10 +4,10 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- use semver tags such as `v1.6.1`
-- keep source-level version references aligned with the release you are cutting
-- bump schema versions only when the JSON contract changes
-- use a minor or major release only when the user-visible surface justifies it
+- Use semver tags such as `v1.6.1`.
+- Keep source-level version references aligned with the release you are cutting.
+- Bump schema versions only when the JSON contract changes.
+- Use a minor or major release only when the user-visible surface justifies it.
 
 ## Public Release Scope
 
@@ -51,6 +51,7 @@ Also confirm:
 - Linux desktop packaging is validated before release
 - Windows desktop packaging is validated before release
 - screenshot references in the docs resolve correctly
+- the main README only uses the maintained desktop screenshot set from `images/gui-*.png`
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
 - README, screenshots, changelog, and release notes all match the actual shipped artifacts
@@ -114,5 +115,7 @@ Expected release outputs:
 - `k8s-recovery-visualizer-desktop-windows-amd64.zip`
 - `checksums.txt`
 - `k8s-recovery-visualizer.spdx.json`
+
+Deprecated screenshot files should not be reintroduced into the main README or release-facing docs when refreshing the gallery.
 
 For contributor workflow details, see [../CONTRIBUTING.md](../CONTRIBUTING.md).

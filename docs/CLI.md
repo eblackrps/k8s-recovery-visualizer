@@ -20,7 +20,7 @@ Build the contributor cross-platform CLI set into `dist/`:
 make build-cli-cross
 ```
 
-Or run directly from source:
+Or run directly from source without producing a release-style binary first:
 
 ```bash
 go run ./cmd/scan --dry-run --summary --runbook --out ./out --min-score 0
@@ -107,5 +107,6 @@ All HTML outputs remain self-contained and offline-friendly.
 - CLI flags remain backward compatible in the current release line.
 - Published JSON schemas remain the contract boundary for downstream tooling.
 - Namespace-scoped scans are supported, but intentionally degrade some cluster-wide findings and backup evidence.
+- Public GitHub releases no longer advertise or ship CLI binaries, so operational docs should point users to source builds instead.
 
 For schemas, see [SCHEMAS.md](SCHEMAS.md). For RBAC guidance, see [RBAC.md](RBAC.md).

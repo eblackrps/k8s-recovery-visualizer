@@ -86,6 +86,13 @@ make build-gui
 
 If you changed the desktop UI or README screenshots, keep the generated images under `images/` in sync with the app state.
 
+## Docs And Screenshot Hygiene
+
+- Keep the main [../README.md](../README.md) aligned with the actual public release scope and supported assets.
+- Refresh screenshots with `make screenshots` instead of editing or exporting ad hoc images by hand.
+- Treat the maintained screenshot inventory in [SCREENSHOTS.md](SCREENSHOTS.md) as the source of truth for public docs.
+- Remove deprecated screenshots from docs and README references when the maintained gallery changes.
+
 ## Working Rules
 
 - Keep the CLI in `cmd/scan` and `cmd/check` working and backward compatible.
@@ -95,6 +102,7 @@ If you changed the desktop UI or README screenshots, keep the generated images u
 - Keep reports offline-friendly.
 - Route palette and styling changes through `internal/theme`.
 - Keep public release messaging aligned with the actual shipped artifacts.
+- Keep docs and support messaging aligned with the maintained screenshot set and desktop-only public release posture.
 
 ## Testing Notes
 

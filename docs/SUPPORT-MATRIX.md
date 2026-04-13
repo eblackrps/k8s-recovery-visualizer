@@ -12,6 +12,8 @@ This project is conservative about support claims. The matrix below describes co
 | Prebuilt CLI binaries | Deprecated public release | CLI is supported via `make build`, `make build-cli-cross`, and `go run` |
 | GHCR container image | Deprecated public release | No public container image is published |
 
+The public release promise is intentionally narrower than the full source tree. The repository still contains contributor paths, source-build tooling, and compatibility assets that are not advertised as public release artifacts.
+
 ## Kubernetes API Expectations
 
 | Area | Current reality |
