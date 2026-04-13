@@ -31,10 +31,13 @@ export function ReviewCard(props: { label: string; value: string }) {
 }
 
 export function MetricCard(props: { label: string; value: string | number; tone?: "accent" | "success" | "critical" | "high" }) {
+  const valueText = String(props.value);
+  const compactValue = valueText.length > 8 || valueText.includes(" ");
+
   return (
-    <div className={`metric-card ${props.tone || ""}`}>
+    <div className={`metric-card ${props.tone || ""} ${compactValue ? "compact-value" : ""}`}>
       <span>{props.label}</span>
-      <strong>{props.value}</strong>
+      <strong>{valueText}</strong>
     </div>
   );
 }
@@ -57,6 +60,17 @@ export function DataTable(props: {
   rows: Array<Record<string, unknown>>;
   columns: Array<{ key: string; label: string; render?: (value: unknown, row: Record<string, unknown>) => ReactNode }>;
 }) {
+  if (!props.rows.length) {
+    return (
+      <section className="table-empty-state" aria-label={props.caption}>
+        <div className="section-header compact">
+          <h4>{props.caption}</h4>
+        </div>
+        <p className="muted">No data for this section.</p>
+      </section>
+    );
+  }
+
   return (
     <div className="table-shell">
       <table>
@@ -69,21 +83,13 @@ export function DataTable(props: {
           </tr>
         </thead>
         <tbody>
-          {props.rows.length ? (
-            props.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {props.columns.map((column) => (
-                  <td key={column.key}>{column.render ? column.render(row[column.key], row) : stringifyValue(row[column.key])}</td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={props.columns.length} className="empty-cell">
-                No data for this section.
-              </td>
+          {props.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {props.columns.map((column) => (
+                <td key={column.key}>{column.render ? column.render(row[column.key], row) : stringifyValue(row[column.key])}</td>
+              ))}
             </tr>
-          )}
+          ))}
         </tbody>
       </table>
     </div>
@@ -148,6 +154,15 @@ export function applyTheme(theme: {
   radius: Record<string, string>;
 }) {
   const root = document.documentElement;
+  const background = theme.palette.background;
+  const surface = theme.palette.surface;
+  const text = theme.palette.text;
+  const accent = theme.palette.accent;
+  const success = theme.palette.success;
+  const critical = theme.palette.critical;
+  const high = theme.palette.high;
+  const medium = theme.palette.medium;
+
   root.style.setProperty("--bg", theme.palette.background);
   root.style.setProperty("--surface", theme.palette.surface);
   root.style.setProperty("--border", theme.palette.border);
@@ -169,6 +184,43 @@ export function applyTheme(theme: {
   root.style.setProperty("--radius-lg", theme.radius.lg);
   root.style.setProperty("--radius-md", theme.radius.md);
   root.style.setProperty("--radius-sm", theme.radius.sm);
+  root.style.setProperty("--surface-raised", withAlpha(surface, 0.94));
+  root.style.setProperty("--panel", withAlpha(surface, 0.88));
+  root.style.setProperty("--panel-strong", withAlpha(surface, 0.96));
+  root.style.setProperty("--bg-deep", withAlpha(background, 0.98));
+  root.style.setProperty("--line", theme.palette.border);
+  root.style.setProperty("--line-soft", withAlpha(theme.palette.border, 0.45));
+  root.style.setProperty("--muted-strong", withAlpha(text, 0.92));
+  root.style.setProperty("--accent-soft", withAlpha(accent, 0.82));
+  root.style.setProperty("--accent-strong", withAlpha(accent, 0.55));
+  root.style.setProperty("--accent-faint", withAlpha(accent, 0.14));
+  root.style.setProperty("--accent-surface", withAlpha(accent, 0.22));
+  root.style.setProperty("--success-faint", withAlpha(success, 0.16));
+  root.style.setProperty("--danger", critical);
+  root.style.setProperty("--danger-faint", withAlpha(critical, 0.16));
+  root.style.setProperty("--warning-high", high);
+  root.style.setProperty("--warning-high-faint", withAlpha(high, 0.16));
+  root.style.setProperty("--warning", medium);
+  root.style.setProperty("--warning-medium", medium);
+  root.style.setProperty("--warning-medium-faint", withAlpha(medium, 0.16));
+  root.style.setProperty("--glow", withAlpha(accent, 0.28));
+  root.style.setProperty("--shadow", "0 28px 60px rgba(1,4,9,0.45)");
+  root.style.setProperty("--shadow-soft", "0 18px 38px rgba(1,4,9,0.3)");
+}
+
+function withAlpha(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "").trim();
+  if (normalized.length !== 6) {
+    return hex;
+  }
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  if ([red, green, blue].some((value) => Number.isNaN(value))) {
+    return hex;
+  }
+  const clamped = Math.max(0, Math.min(1, alpha));
+  return `rgba(${red}, ${green}, ${blue}, ${clamped.toFixed(2)})`;
 }
 
 export function splitList(value: string) {

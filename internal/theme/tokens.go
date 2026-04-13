@@ -83,6 +83,10 @@ func Default() Tokens {
 	return defaultTokens
 }
 
+func Desktop() Tokens {
+	return defaultTokens
+}
+
 func (t Tokens) Marshal() []byte {
 	raw, _ := json.Marshal(t)
 	return raw

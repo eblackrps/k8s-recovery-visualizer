@@ -5,7 +5,7 @@ MODEL_PKG     := k8s-recovery-visualizer/internal/model
 LDFLAGS       := -s -w -X '$(MODEL_PKG).Version=$(VERSION)' -X '$(MODEL_PKG).BuildDate=$(BUILD_DATE)'
 GUI_DIR       := ./desktop
 FRONTEND_DIR  := $(GUI_DIR)/frontend
-GUI_OUTPUT_BASE := k8s-recovery-visualizer-desktop
+GUI_OUTPUT_BASE := K8V
 NPM           ?= npm
 PLAYWRIGHT    ?= npx playwright
 WAILS         ?= wails
@@ -32,8 +32,10 @@ endif
 
 ifeq ($(HOST_GOOS),windows)
   GUI_PACKAGE_FLAGS ?= -nsis
+  GUI_BUILD_FLAGS ?= -clean -skipbindings -s
 else
   GUI_PACKAGE_FLAGS ?=
+  GUI_BUILD_FLAGS ?= -clean -nopackage -skipbindings -s
 endif
 
 .PHONY: build build-cli build-gui package-gui dev-gui frontend-install frontend-build frontend-test screenshots
@@ -63,7 +65,7 @@ dev-gui:
 	cd $(GUI_DIR) && $(WAILS) dev
 
 build-gui: frontend-build
-	cd $(GUI_DIR) && $(WAILS) build -clean -nopackage -skipbindings -s -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
+	cd $(GUI_DIR) && $(WAILS) build $(GUI_BUILD_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
 
 package-gui: frontend-build
 	cd $(GUI_DIR) && $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"

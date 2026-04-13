@@ -30,6 +30,14 @@ Run the desktop app in dev mode:
 make dev-gui
 ```
 
+Build the desktop app with:
+
+```bash
+make build-gui
+```
+
+Do not run `go build` directly inside `desktop/`. Wails desktop builds require `wails build` or the matching Make target so the correct build tags and packaging steps are applied.
+
 ## Repo Map
 
 - `cmd/scan`: supported CLI entrypoint

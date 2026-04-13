@@ -67,6 +67,8 @@ Build the current-host desktop app:
 make build-gui
 ```
 
+Do not run `go build` directly inside `desktop/`. Wails desktop binaries must be produced with `make build-gui`, `make package-gui`, or `wails build`.
+
 The desktop app can scan a live cluster or open an existing output bundle without cluster access.
 
 ## CLI And Desktop At A Glance

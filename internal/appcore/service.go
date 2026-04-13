@@ -28,10 +28,11 @@ func NewService() *Service {
 }
 
 func (s *Service) Bootstrap() Bootstrap {
-	return Bootstrap{Theme: theme.Default()}
+	return Bootstrap{Theme: theme.Desktop()}
 }
 
 func (s *Service) LoadWorkspace(path string) (Workspace, error) {
+	path = absolutePath(path)
 	bundle, err := loadBundle(path)
 	if err != nil {
 		return Workspace{}, err
@@ -47,6 +48,7 @@ func (s *Service) ListProjects(root string) ([]ProjectSummary, error) {
 	if root == "" {
 		root = "."
 	}
+	root = absolutePath(root)
 	summaries := map[string]ProjectSummary{}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -215,4 +217,14 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func absolutePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	if absolute, err := filepath.Abs(path); err == nil {
+		return filepath.Clean(absolute)
+	}
+	return filepath.Clean(path)
 }

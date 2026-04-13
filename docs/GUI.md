@@ -75,6 +75,8 @@ Build the current-host app:
 make build-gui
 ```
 
+Do not use `go build` directly in [`desktop/`](../desktop). Wails requires its own build path, and a plain Go build will produce a binary that exits with a build-tags error dialog instead of launching the app.
+
 Run frontend tests:
 
 ```bash
