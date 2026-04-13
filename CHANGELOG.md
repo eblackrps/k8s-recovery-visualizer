@@ -4,10 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- No unreleased changes yet.
+
+## [1.6.1] - 2026-04-13
+
+Patch follow-up for `v1.6.0`: this release ships the post-release review fixes by moving GitHub Actions fully onto Node 24 and tightening the desktop runtime so scan and preflight work only from the app lifecycle context.
+
 ### Fixed
 
 - Switched GitHub Actions workflow execution fully onto Node 24, including forcing JavaScript actions onto the Node 24 runner path so CI and release jobs no longer emit Node 20 deprecation warnings.
 - Tightened the desktop runtime so preflight and scan entrypoints fail fast when the Wails lifecycle context is unavailable instead of silently falling back to a detached background context.
+- Added focused desktop tests that lock in the missing-lifecycle failure path.
+
+### Docs
+
+- Added a repo-root `.nvmrc` and aligned contributor/development guidance around Node 24 and the reproducible frontend install path.
 
 ## [1.6.0] - 2026-04-13
 

@@ -4,7 +4,7 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- use semver tags such as `v1.6.0`
+- use semver tags such as `v1.6.1`
 - keep source-level version references aligned with the release you are cutting
 - bump schema versions only when the JSON contract changes
 - use a minor or major release only when the user-visible surface justifies it
