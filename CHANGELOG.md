@@ -29,6 +29,14 @@ Release candidate changes for the next minor line focus on operator actionabilit
 - Restored usable `cmd/check --help` output so the current gate set can be audited directly from the terminal instead of failing with a bare help error.
 - Hardened the release workflow so tagged releases validate the exact four supported assets and prune stale uploaded assets before publishing, preventing stale release-surface drift on reruns.
 
+## [1.7.1] - 2026-04-13
+
+Hotfix release to address Windows launch failures on Win11 by switching the packaged desktop build to the legacy WebView2 loader.
+
+### Fixed
+
+- Built the Windows desktop package with the legacy WebView2 loader tag to improve launch reliability on Windows 11 machines where the new loader silently failed.
+
 ## [1.6.1] - 2026-04-13
 
 Patch follow-up for `v1.6.0`: this release ships the post-release review fixes by moving GitHub Actions fully onto Node 24 and tightening the desktop runtime so scan and preflight work only from the app lifecycle context.

@@ -243,7 +243,7 @@ jobs:
         run: |
           $buildDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
           $ldflags = "-s -w -X 'k8s-recovery-visualizer/internal/model.Version=$($env:VERSION.TrimStart('v'))' -X 'k8s-recovery-visualizer/internal/model.BuildDate=$buildDate'"
-          wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe -ldflags $ldflags
+          wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe -ldflags $ldflags -tags native_webview2loader
 
       - name: Archive Windows desktop output
         shell: pwsh

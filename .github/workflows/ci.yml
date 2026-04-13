@@ -231,7 +231,7 @@ jobs:
       - name: Build Windows desktop package
         shell: pwsh
         working-directory: desktop
-        run: wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe
+        run: wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe -tags native_webview2loader
 
       - name: Archive Windows desktop package
         shell: pwsh
