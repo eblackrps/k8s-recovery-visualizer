@@ -26,6 +26,7 @@ go build ./...
 make vet
 make test
 make race
+make frontend-install
 make frontend-build
 make frontend-test
 make smoke

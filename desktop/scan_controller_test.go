@@ -98,6 +98,29 @@ func TestShutdownCancelsActiveRuns(t *testing.T) {
 	}
 }
 
+func TestRunPreflightRequiresLifecycleContext(t *testing.T) {
+	app := NewApp()
+	app.service = &blockingDesktopService{started: make(chan string, 1)}
+
+	_, err := app.RunPreflight(appcore.ScanRequest{})
+	if !errors.Is(err, errLifecycleContextUnavailable) {
+		t.Fatalf("RunPreflight() error = %v, want %v", err, errLifecycleContextUnavailable)
+	}
+}
+
+func TestRunScanRequiresLifecycleContext(t *testing.T) {
+	app := NewApp()
+	app.service = &blockingDesktopService{started: make(chan string, 1)}
+
+	_, err := app.RunScan(appcore.ScanRequest{RunID: "run-no-lifecycle"})
+	if !errors.Is(err, errLifecycleContextUnavailable) {
+		t.Fatalf("RunScan() error = %v, want %v", err, errLifecycleContextUnavailable)
+	}
+	if got := activeRunCount(app); got != 0 {
+		t.Fatalf("activeRunCount() = %d, want 0", got)
+	}
+}
+
 func activeRunCount(app *App) int {
 	app.mu.Lock()
 	defer app.mu.Unlock()

@@ -5,7 +5,7 @@ This project ships a source-first Go CLI and a Wails desktop app, packaged in-pr
 ## Prerequisites
 
 - Go `1.25+`
-- Node.js `22` recommended
+- Node.js `24` recommended (`.nvmrc` is provided at the repo root)
 - Wails v2 CLI
 - Playwright Chromium for screenshot generation
 - NSIS if you want to package the Windows desktop app locally
