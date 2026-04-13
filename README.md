@@ -23,15 +23,14 @@ Public GitHub releases publish exactly four files:
 - `checksums.txt`
 - `k8s-recovery-visualizer.spdx.json`
 
-Supported public release platforms:
+Current supported public release platforms:
 
 | Platform | Status | Notes |
 | --- | --- | --- |
 | Linux desktop amd64 | Supported | Public tarball release artifact |
 | Windows desktop amd64 | Supported | Public zip release artifact |
-| macOS desktop package | Deprecated public release | Source builds may still work, but no public package is published |
-| Prebuilt CLI binaries | Deprecated public release | Build from source with `make build`, `make build-cli-cross`, or `go run` |
-| GHCR container image | Deprecated public release | No public container image is published |
+
+Deprecated release surfaces and contributor-only build paths are documented in [docs/SUPPORT-MATRIX.md](docs/SUPPORT-MATRIX.md).
 
 ## Choose Your Path
 
