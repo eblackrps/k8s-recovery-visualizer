@@ -6,10 +6,10 @@
 		"0000": {
 			"ProductVersion": "{{.Info.ProductVersion}}",
 			"CompanyName": "Eric Black",
-			"FileDescription": "K8s Recovery Visualizer desktop workspace",
+			"FileDescription": "K8V desktop workspace",
 			"LegalCopyright": "Copyright (c) Eric Black",
-			"ProductName": "K8s Recovery Visualizer",
-			"Comments": "Offline-friendly Kubernetes disaster recovery assessments for operators and platform teams."
+			"ProductName": "K8V",
+			"Comments": "K8V is the desktop workspace for offline-friendly Kubernetes disaster recovery assessments."
 		}
 	}
 }

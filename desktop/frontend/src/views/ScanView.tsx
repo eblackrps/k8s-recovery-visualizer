@@ -23,8 +23,8 @@ export function ScanView(props: {
       <section className="panel">
         <div className="section-header">
           <div>
-            <p className="eyebrow">Guided Scan Wizard</p>
-            <h3>Access, scope, output, then run</h3>
+            <p className="eyebrow">New Scan</p>
+            <h3>Guided scan setup</h3>
           </div>
           <button type="button" className="button secondary" onClick={props.onPreflight} disabled={props.busy}>
             Run Preflight
@@ -44,8 +44,8 @@ export function ScanView(props: {
               onClick={() => props.setWizardStep(index)}
               onKeyDown={(event) => handleRovingTabs(event, wizardSteps, index, props.setWizardStep)}
             >
-              <span>{index + 1}</span>
-              {step}
+              <span className="step-index" aria-hidden="true">{index + 1}</span>
+              <span className="step-label">{step}</span>
             </button>
           ))}
         </div>
@@ -105,7 +105,7 @@ export function ScanView(props: {
             <Field label="Output Directory">
               <div className="inline-field">
                 <input value={props.scanForm.outputDir || ""} onChange={(event) => updateForm("outputDir", event.target.value)} />
-                <button type="button" className="button secondary" onClick={props.onBrowseOutput}>
+                <button type="button" className="button secondary" onClick={props.onBrowseOutput} disabled={props.busy}>
                   Browse
                 </button>
               </div>
@@ -153,8 +153,8 @@ export function ScanView(props: {
       <section className="panel">
         <div className="section-header">
           <div>
-            <p className="eyebrow">RBAC Assistant</p>
-            <h3>Explain degraded mode before you run</h3>
+            <p className="eyebrow">Preflight</p>
+            <h3>Access validation and degraded mode</h3>
           </div>
         </div>
         {props.preflight ? (

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,13 @@ import (
 )
 
 const scanEventName = "scan:event"
+
+const (
+	preferredWindowWidth  = 1240
+	preferredWindowHeight = 720
+	minimumWindowWidth    = 960
+	minimumWindowHeight   = 620
+)
 
 type Settings struct {
 	WorkspaceRoot         string `json:"workspaceRoot"`
@@ -49,6 +57,10 @@ func (a *App) startup(ctx context.Context) {
 	if settings, err := loadSettings(); err == nil {
 		a.settings = settings
 	}
+}
+
+func (a *App) domReady(ctx context.Context) {
+	a.fitWindowToScreen(ctx)
 }
 
 func (a *App) GetBootstrap() appcore.Bootstrap {
@@ -109,6 +121,22 @@ func (a *App) CancelRun(runID string) error {
 }
 
 func (a *App) OpenBundle(path string) (appcore.Workspace, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return appcore.Workspace{}, fmt.Errorf("bundle path is required")
+	}
+	if !filepath.IsAbs(path) {
+		base := a.settings.WorkspaceRoot
+		if base == "" {
+			if cwd, err := os.Getwd(); err == nil {
+				base = cwd
+			}
+		}
+		path = filepath.Join(base, path)
+	}
+	if absolutePath, err := filepath.Abs(path); err == nil {
+		path = absolutePath
+	}
 	return a.service.LoadWorkspace(path)
 }
 
@@ -267,4 +295,60 @@ func mergeSettings(defaults, overrides Settings) Settings {
 	defaults.Redact = overrides.Redact
 	defaults.CSVExport = overrides.CSVExport
 	return defaults
+}
+
+func (a *App) fitWindowToScreen(ctx context.Context) {
+	screens, err := runtime.ScreenGetAll(ctx)
+	if err != nil || len(screens) == 0 {
+		runtime.WindowSetSize(ctx, preferredWindowWidth, preferredWindowHeight)
+		runtime.WindowCenter(ctx)
+		return
+	}
+
+	screen := screens[0]
+	for _, candidate := range screens {
+		if candidate.IsCurrent {
+			screen = candidate
+			break
+		}
+		if candidate.IsPrimary {
+			screen = candidate
+		}
+	}
+
+	width := fitWindowDimension(screen.Size.Width, preferredWindowWidth, 96, 720)
+	height := fitWindowDimension(screen.Size.Height, preferredWindowHeight, 128, 540)
+
+	runtime.WindowSetMinSize(ctx, minInt(width, minimumWindowWidth), minInt(height, minimumWindowHeight))
+	runtime.WindowSetSize(ctx, width, height)
+	runtime.WindowCenter(ctx)
+}
+
+func fitWindowDimension(screenSize, preferred, reserved, floor int) int {
+	if screenSize <= 0 {
+		return preferred
+	}
+
+	target := minInt(preferred, screenSize-reserved)
+	if target < floor {
+		target = maxInt(screenSize-48, floor)
+	}
+	if target > screenSize {
+		target = screenSize
+	}
+	return maxInt(target, 360)
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

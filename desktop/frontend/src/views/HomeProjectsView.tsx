@@ -1,35 +1,63 @@
 import type { ProjectSummary, Workspace } from "../lib/types";
-import { DataTable, MetricCard, TrendRail } from "../components/ui";
+import { Card, DataTable, KeyValueGrid, MetricCard, TrendRail } from "../components/ui";
 
 export function HomeView(props: {
   workspace: Workspace | null;
   projects: ProjectSummary[];
+  busy: boolean;
   onViewProjects: () => void;
-  onOpenBundle: (path?: string) => void;
+  onPickBundle: () => void;
+  onOpenProject: (path: string) => void;
 }) {
   const bundle = props.workspace?.bundle;
+  const historyEntries = props.workspace?.history.entries || [];
+  const latestHistory = historyEntries[historyEntries.length - 1];
   return (
     <section className="page-grid home-grid">
-      <section className="panel hero-panel">
-        <p className="eyebrow">Release-Ready Desktop</p>
-        <h3>One scan engine, two surfaces, zero shell-outs.</h3>
-        <p className="lead">
-          The desktop app sits on the same Go service layer as the CLI, keeps report exports offline-friendly,
-          and preserves the existing report information architecture.
-        </p>
+      <section className="panel">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Dashboard</p>
+            <h3>Current recovery posture</h3>
+          </div>
+        </div>
         <div className="metric-grid">
           <MetricCard label="Overall Score" value={bundle ? bundle.score.overall.final : "—"} tone="accent" />
           <MetricCard label="Namespaces" value={(bundle?.inventory.namespaces || []).length} />
           <MetricCard label="Findings" value={(bundle?.inventory.findings || []).length} tone="high" />
           <MetricCard label="History Points" value={props.workspace?.history.entries.length ?? 0} />
         </div>
+        <div className="summary-two-up">
+          <Card title="Bundle">
+            <KeyValueGrid
+              items={[
+                ["Cluster", bundle?.metadata.clusterName || "No bundle loaded"],
+                ["Environment", bundle?.metadata.environment || "Unknown"],
+                ["Profile", bundle?.profile || "standard"],
+                ["Provider", bundle?.cluster.platform?.provider || "Unknown"],
+                ["Generated", bundle?.metadata.generatedAt || "Not available"],
+              ]}
+            />
+          </Card>
+          <Card title="Recovery Signals">
+            <KeyValueGrid
+              items={[
+                ["Backup Tool", bundle?.inventory.backup?.primaryTool || "none"],
+                ["Backup Coverage", bundle?.inventory.backup?.coverageStatus || "unknown"],
+                ["Trend", props.workspace?.history.trendLabel || "No trend"],
+                ["Delta", `${(props.workspace?.history.trendDelta || 0) > 0 ? "+" : ""}${props.workspace?.history.trendDelta || 0}`],
+                ["Current Maturity", bundle?.score.maturity || latestHistory?.maturity || "Unknown"],
+              ]}
+            />
+          </Card>
+        </div>
       </section>
 
       <section className="panel">
         <div className="section-header">
           <div>
-            <p className="eyebrow">Projects</p>
-            <h3>Recent assessment bundles</h3>
+            <p className="eyebrow">Bundles</p>
+            <h3>Recent assessment outputs</h3>
           </div>
           <button type="button" className="button secondary" onClick={props.onViewProjects}>
             Open Projects
@@ -42,7 +70,8 @@ export function HomeView(props: {
                 type="button"
                 key={project.lastScanPath}
                 className="project-card"
-                onClick={() => props.onOpenBundle(project.lastScanPath)}
+                onClick={() => props.onOpenProject(project.lastScanPath)}
+                disabled={props.busy}
               >
                 <div>
                   <strong>{project.clusterName || project.name}</strong>
@@ -64,7 +93,7 @@ export function HomeView(props: {
         <div className="section-header">
           <div>
             <p className="eyebrow">History</p>
-            <h3>Trend and compare dashboard</h3>
+            <h3>Trend and compare</h3>
           </div>
         </div>
         <TrendRail entries={props.workspace?.history.entries || []} />
@@ -74,7 +103,7 @@ export function HomeView(props: {
             {props.workspace?.history.trendDelta || 0}
           </strong>
           <p className="muted">
-            New findings and resolved regressions stay visible in the same Compare model used by the HTML report.
+            Compare uses the same score deltas, findings changes, and baseline model as the generated report bundle.
           </p>
         </div>
       </section>
@@ -82,15 +111,19 @@ export function HomeView(props: {
   );
 }
 
-export function ProjectsView(props: { projects: ProjectSummary[]; onOpenBundle: (path?: string) => void }) {
+export function ProjectsView(props: {
+  projects: ProjectSummary[];
+  busy: boolean;
+  onPickBundle: () => void;
+}) {
   return (
     <section className="panel">
       <div className="section-header">
         <div>
           <p className="eyebrow">Projects</p>
-          <h3>Bundle history across outputs</h3>
+          <h3>Bundle history</h3>
         </div>
-        <button type="button" className="button secondary" onClick={() => props.onOpenBundle()}>
+        <button type="button" className="button secondary" onClick={props.onPickBundle} disabled={props.busy}>
           Open Bundle
         </button>
       </div>

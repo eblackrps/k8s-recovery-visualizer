@@ -9,17 +9,24 @@ export function LiveView(props: {
 }) {
   const warnings = props.events.filter((event) => event.type === "warning");
   const reverseEvents = props.events.slice().reverse();
+  const canCancel = Boolean(props.activeRunId);
 
   return (
     <section className="page-grid live-grid">
       <section className="panel">
         <div className="section-header">
           <div>
-            <p className="eyebrow">Live Run</p>
-            <h3>Structured events and progress</h3>
+            <p className="eyebrow">Run Progress</p>
+            <h3>Collector events and progress</h3>
           </div>
-          <button type="button" className="button danger" onClick={props.onCancel} disabled={!props.activeRunId}>
-            Cancel Run
+          <button
+            type="button"
+            className="button danger"
+            onClick={props.onCancel}
+            disabled={!canCancel}
+            title={canCancel ? "Stop the active collection run." : "No active run is available to cancel."}
+          >
+            {canCancel ? "Cancel Run" : "Cancel Unavailable"}
           </button>
         </div>
         <div className="progress-card">
@@ -49,7 +56,7 @@ export function LiveView(props: {
         <div className="section-header">
           <div>
             <p className="eyebrow">Warnings</p>
-            <h3>Skipped collectors and surfaced caveats</h3>
+            <h3>Skipped collectors and access caveats</h3>
           </div>
         </div>
         <div className="inline-metrics">

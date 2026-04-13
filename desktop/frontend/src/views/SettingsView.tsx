@@ -3,6 +3,7 @@ import { Field } from "../components/ui";
 
 export function SettingsView(props: {
   settings: Settings;
+  busy: boolean;
   setSettings: (settings: Settings) => void;
   openBundlePath: string;
   setOpenBundlePath: (value: string) => void;
@@ -16,9 +17,9 @@ export function SettingsView(props: {
         <div className="section-header">
           <div>
             <p className="eyebrow">Settings</p>
-            <h3>Desktop defaults</h3>
+            <h3>Workspace defaults</h3>
           </div>
-          <button type="button" className="button primary" onClick={props.onSave}>
+          <button type="button" className="button primary" onClick={props.onSave} disabled={props.busy}>
             Save Settings
           </button>
         </div>
@@ -56,7 +57,7 @@ export function SettingsView(props: {
         </div>
         <div className="inline-field">
           <input value={props.openBundlePath} onChange={(event) => props.setOpenBundlePath(event.target.value)} aria-label="Existing bundle path" />
-          <button type="button" className="button secondary" onClick={props.onOpenBundle}>
+          <button type="button" className="button secondary" onClick={props.onOpenBundle} disabled={props.busy}>
             Open
           </button>
         </div>

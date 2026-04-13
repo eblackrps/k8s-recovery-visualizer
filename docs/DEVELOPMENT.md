@@ -1,6 +1,6 @@
 # Development Guide
 
-This project ships a supported Go CLI and a Wails desktop app backed by the same shared Go service layer. The most useful contributor workflow is to keep both surfaces healthy together.
+This project ships a supported Go CLI and a Wails desktop app, packaged as `K8V`, backed by the same shared Go service layer. The most useful contributor workflow is to keep both surfaces healthy together.
 
 ## Prerequisites
 
@@ -29,6 +29,14 @@ Run the desktop app in dev mode:
 ```bash
 make dev-gui
 ```
+
+Build the desktop app with:
+
+```bash
+make build-gui
+```
+
+Do not run `go build` directly inside `desktop/`. Wails desktop builds require `wails build` or the matching Make target so the correct build tags and packaging steps are applied.
 
 ## Repo Map
 
