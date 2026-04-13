@@ -1,5 +1,6 @@
 import { mockBackend } from "./mock";
 import type {
+  AppAlert,
   ArtifactPaths,
   Bootstrap,
   ExportRequest,
@@ -46,6 +47,7 @@ async function invoke<T>(method: string, ...args: unknown[]): Promise<T> {
 export const backend = {
   getBootstrap: () => invoke<Bootstrap>("GetBootstrap"),
   getSettings: () => invoke<Settings>("GetSettings"),
+  getStartupAlerts: () => invoke<AppAlert[]>("GetStartupAlerts"),
   saveSettings: (settings: Settings) => invoke<void>("SaveSettings", settings),
   listProjects: (root?: string) => invoke<ProjectSummary[]>("ListProjects", root ?? ""),
   runPreflight: (request: ScanRequest) => invoke<PreflightReport>("RunPreflight", request),

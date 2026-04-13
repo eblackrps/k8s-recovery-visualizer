@@ -2,6 +2,8 @@ package appcore
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -49,8 +51,19 @@ func (s *Service) ListProjects(root string) ([]ProjectSummary, error) {
 		root = "."
 	}
 	root = absolutePath(root)
+	info, err := os.Stat(root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []ProjectSummary{}, nil
+		}
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("project root %s is not a directory", root)
+	}
+
 	summaries := map[string]ProjectSummary{}
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+	err = filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}

@@ -61,6 +61,7 @@ export function SettingsView(props: {
             Open
           </button>
         </div>
+        <p className="muted">Open a recovery-scan.json bundle, a bundle directory, or a .zip / .tar.gz / .tgz archive.</p>
       </section>
     </section>
   );

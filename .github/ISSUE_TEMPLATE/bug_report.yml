@@ -9,7 +9,7 @@ body:
     attributes:
       label: Version
       description: What release tag, commit, or binary version did you use?
-      placeholder: v1.5.2
+      placeholder: v1.6.0
     validations:
       required: true
 

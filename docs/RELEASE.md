@@ -4,10 +4,27 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- use semver tags such as `v1.5.2`
+- use semver tags such as `v1.6.0`
 - keep source-level version references aligned with the release you are cutting
 - bump schema versions only when the JSON contract changes
-- only use a minor or major release when the user-visible surface justifies it
+- use a minor or major release only when the user-visible surface justifies it
+
+## Public Release Scope
+
+This release line publishes exactly four GitHub release assets:
+
+- `k8s-recovery-visualizer-desktop-linux-amd64.tar.gz`
+- `k8s-recovery-visualizer-desktop-windows-amd64.zip`
+- `checksums.txt`
+- `k8s-recovery-visualizer.spdx.json`
+
+Deprecated public release artifacts:
+
+- prebuilt CLI binaries
+- macOS desktop package
+- GHCR container image
+
+The CLI remains supported for source builds, CI, smoke tests, and contributor workflows.
 
 ## Pre-Release Checklist
 
@@ -29,16 +46,17 @@ make docs-check
 make build-gui
 ```
 
-Confirm:
+Also confirm:
 
-- CLI dry-run output still matches the published schemas
-- report palette still reflects the shared tokens in `internal/theme`
+- Linux desktop packaging is validated before release
+- Windows desktop packaging is validated before release
 - screenshot references in the docs resolve correctly
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
-- README, screenshots, and release notes all match the actual shipped artifacts
+- README, screenshots, changelog, and release notes all match the actual shipped artifacts
+- no public-release docs or workflow paths still imply CLI binaries, macOS packages, or GHCR container publishing
 
-## Local Packaging
+## Local Build Notes
 
 Current-host desktop build:
 
@@ -52,10 +70,16 @@ Current-host desktop package:
 make package-gui
 ```
 
-Cross-platform CLI binaries:
+Host CLI source build:
 
 ```bash
-make release-cli
+make build
+```
+
+Contributor cross-platform CLI build:
+
+```bash
+make build-cli-cross
 ```
 
 Windows packaging uses NSIS. If `make package-gui` fails locally with `makensis not found`, install NSIS before retrying.
@@ -65,9 +89,9 @@ Windows packaging uses NSIS. If `make package-gui` fails locally with `makensis 
 1. Update the changelog, README, screenshots, and public docs.
 2. Merge the release branch to `main`.
 3. Create and push the release tag.
-4. Let [`.github/workflows/release.yml`](../.github/workflows/release.yml) rebuild and publish the release assets.
-5. Verify the GitHub release title, notes, checksums, SBOM, and desktop packages after the workflow completes.
-6. Update repository metadata such as description, topics, homepage, and social preview if needed.
+4. Let [`.github/workflows/release.yml`](../.github/workflows/release.yml) rebuild and publish the supported desktop assets.
+5. Verify the GitHub release title, notes, checksums, SBOM, and asset list after the workflow completes.
+6. Confirm the release contains only the two desktop packages plus `checksums.txt` and the SPDX SBOM.
 
 ## GitHub Release Workflow
 
@@ -76,20 +100,19 @@ Tags matching `v*` trigger [`.github/workflows/release.yml`](../.github/workflow
 The release workflow:
 
 1. reruns the CI-grade verification gate
-2. builds cross-platform CLI binaries
-3. builds native desktop artifacts on Linux, Windows, and macOS runners
-4. generates checksums and an SPDX SBOM
-5. publishes the GitHub release using notes derived from `CHANGELOG.md`
-6. pushes the container image to GHCR with provenance and SBOM metadata
+2. builds the Linux desktop package
+3. builds the Windows desktop package
+4. generates the SPDX SBOM
+5. generates release checksums
+6. publishes the GitHub release using notes derived from `CHANGELOG.md`
 
-## Release Assets
+## Asset Verification
 
-Expected release outputs include:
+Expected release outputs:
 
-- CLI binaries for Linux, macOS, and Windows
-- desktop packages for native GUI runners
-- checksums file
-- SPDX SBOM
-- GitHub release notes
+- `k8s-recovery-visualizer-desktop-linux-amd64.tar.gz`
+- `k8s-recovery-visualizer-desktop-windows-amd64.zip`
+- `checksums.txt`
+- `k8s-recovery-visualizer.spdx.json`
 
 For contributor workflow details, see [../CONTRIBUTING.md](../CONTRIBUTING.md).

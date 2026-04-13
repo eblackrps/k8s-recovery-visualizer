@@ -1,6 +1,15 @@
 # Desktop App
 
-The desktop app ships to users as `K8V`. It lives in [`desktop/`](../desktop) and uses Wails v2 for the shell plus React + TypeScript for the frontend. It shares the same Go execution path as the CLI, so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
+The desktop app ships to users as `K8V`. It lives in [`desktop/`](../desktop), uses Wails v2 for the shell plus React + TypeScript for the frontend, and shares the same execution path as the CLI so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
+
+## Public Support
+
+Supported public desktop release packages:
+
+- Linux amd64
+- Windows amd64
+
+Public macOS desktop packages are deprecated for this release line. macOS-oriented Wails assets may still exist for source builds and contributor workflow, but no public macOS package is published.
 
 ## What The Desktop App Is For
 
@@ -18,16 +27,17 @@ Use the desktop app when you want:
 - `New Scan`: wizard for kubeconfig/context, namespace scope, profile, compare baseline, outputs, redaction, summary/runbook, and dry-run settings
 - `Live Run`: progress events, warnings, structured logs, and cancel
 - `Results`: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
-- `Settings`: workspace defaults plus an open-existing-bundle path
+- `Settings`: workspace defaults plus open-existing-bundle support
 
 ## Shared Backend Contract
 
-The Wails backend binds typed methods from `desktop/app.go` and delegates real work to `internal/appcore`.
+The Wails backend keeps [`desktop/app.go`](../desktop/app.go) as wiring and app lifecycle glue, then splits settings, scan control, dialogs, bundle loading, and window helpers into focused files under [`desktop/`](../desktop).
 
-Key methods:
+Bound methods include:
 
 - `GetBootstrap`
 - `GetSettings`
+- `GetStartupAlerts`
 - `SaveSettings`
 - `ListProjects`
 - `RunPreflight`
@@ -42,10 +52,17 @@ Live run updates are emitted as the `scan:event` Wails event.
 
 The desktop app can:
 
-- open an existing bundle directory without cluster access
+- open a bundle directory, `recovery-scan.json`, or a supported `.zip` / `.tar.gz` / `.tgz` archive without cluster access
 - export only the requested outputs instead of rewriting everything blindly
 - refresh HTML, Markdown, summary, runbook, CSV, redacted, and JSON artifacts from a loaded bundle
 - preserve the same theme and offline-friendly output format as the CLI-generated reports
+
+## Settings Behavior
+
+- startup now surfaces saved-settings load failures instead of silently swallowing them
+- settings-save failures are reported back through the desktop UI without destroying the in-memory session state
+- Linux defaults prefer XDG-friendly locations when available
+- persisted settings files are written with tighter per-user permissions
 
 ## Accessibility And Navigation
 
@@ -75,7 +92,11 @@ Build the current-host app:
 make build-gui
 ```
 
-The packaged executable name is `K8V` on supported desktop targets.
+Package the current-host app:
+
+```bash
+make package-gui
+```
 
 Do not use `go build` directly in [`desktop/`](../desktop). Wails requires its own build path, and a plain Go build will produce a binary that exits with a build-tags error dialog instead of launching the app.
 

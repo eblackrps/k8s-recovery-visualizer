@@ -1,22 +1,18 @@
 # Screenshot Workflow
 
-The repository keeps the original report screenshots in place and adds deterministic GUI screenshots beside them in `images/`.
+The repository keeps a deterministic screenshot set in `images/` for the main README and supporting docs.
 
-## Report Screenshots Kept In Place
-
-- `images/report-dr-score.png`
-- `images/report-summary.png`
-- `images/sample-report.png`
-
-## GUI Screenshots
+## Current Screenshot Set
 
 - `images/gui-dashboard.png`
 - `images/gui-scan-wizard.png`
 - `images/gui-live-run.png`
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`
+- `images/report-summary.png`
+- `images/report-dr-score.png`
 
-These files are the supported screenshot set for the README, docs, and GitHub release presentation.
+These files are the supported screenshot set for the README and documentation. Refresh them whenever the desktop UI or landing-page gallery changes.
 
 ## Generate The GUI Screenshots
 

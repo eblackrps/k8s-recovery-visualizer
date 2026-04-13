@@ -1,6 +1,30 @@
 # CLI Guide
 
-The supported command-line entrypoint is [`cmd/scan`](../cmd/scan). It stays intentionally thin and delegates real execution to [`internal/scanapp`](../internal/scanapp) and the shared backend in [`internal/appcore`](../internal/appcore).
+The supported command-line entrypoints are [`cmd/scan`](../cmd/scan) and [`cmd/check`](../cmd/check). They stay intentionally thin and delegate real execution to [`internal/scanapp`](../internal/scanapp) and the shared backend in [`internal/appcore`](../internal/appcore).
+
+## Public Release Note
+
+Prebuilt CLI binaries are no longer published as GitHub release assets. The CLI remains fully supported for source builds, CI gates, smoke tests, automation, and contributor workflows.
+
+## Build Or Run From Source
+
+Build a host-specific CLI binary:
+
+```bash
+make build
+```
+
+Build the contributor cross-platform CLI set into `dist/`:
+
+```bash
+make build-cli-cross
+```
+
+Or run directly from source:
+
+```bash
+go run ./cmd/scan --dry-run --summary --runbook --out ./out --min-score 0
+```
 
 ## When To Use The CLI
 
@@ -10,17 +34,7 @@ Use the CLI when you want:
 - air-gapped or terminal-only operation
 - direct control over output locations and scan options
 - `cmd/check` policy gates against generated bundles
-
-## Build Or Download
-
-- Download a prebuilt binary from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest)
-- Or build a host-specific binary locally with:
-
-```bash
-make build
-```
-
-`make build` writes a host-specific binary into `dist/`. `make release-cli` builds the full cross-platform CLI set used for releases.
+- source-first validation without relying on GitHub release binaries
 
 ## Common Examples
 
