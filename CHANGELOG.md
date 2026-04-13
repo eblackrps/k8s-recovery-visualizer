@@ -4,7 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+### Fixed
+
+- Updated GitHub Actions workflows to use `actions/setup-node@v6` so CI and release automation are aligned with GitHub's Node 24 migration path and no longer rely on the deprecated Node 20-based action runtime.
 
 ## [1.5.1] - 2026-04-13
 
