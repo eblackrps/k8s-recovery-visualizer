@@ -51,6 +51,8 @@ make package-gui
 
 Do not run `go build` directly inside `desktop/`. Wails desktop builds require `wails build` or the matching Make target so the correct build tags and packaging steps are applied.
 
+On Windows, the maintained `make build-gui` and `make package-gui` targets include the `native_webview2loader` tag so local packages match the validated release runtime behavior on managed Windows 11 machines.
+
 ## Repo Map
 
 - `cmd/scan`: source-first CLI scan entrypoint

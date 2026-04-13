@@ -35,9 +35,11 @@ endif
 ifeq ($(HOST_GOOS),windows)
   GUI_PACKAGE_FLAGS ?= -nsis
   GUI_BUILD_FLAGS ?= -clean -skipbindings -s
+  GUI_WINDOWS_TAGS ?= -tags native_webview2loader
 else
   GUI_PACKAGE_FLAGS ?=
   GUI_BUILD_FLAGS ?= -clean -nopackage -skipbindings -s
+  GUI_WINDOWS_TAGS ?=
 endif
 
 .PHONY: build build-cli build-gui package-gui dev-gui frontend-install frontend-build frontend-test screenshots
@@ -72,14 +74,14 @@ dev-gui:
 
 build-gui: frontend-build
 ifeq ($(OS),Windows_NT)
-	powershell -NoProfile -Command "Set-Location 'desktop'; $(WAILS) build $(GUI_BUILD_FLAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
+	powershell -NoProfile -Command "Set-Location 'desktop'; $(WAILS) build $(GUI_BUILD_FLAGS) $(GUI_WINDOWS_TAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
 else
 	cd $(GUI_DIR) && $(WAILS) build $(GUI_BUILD_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
 endif
 
 package-gui: frontend-build
 ifeq ($(OS),Windows_NT)
-	powershell -NoProfile -Command "$$nsisPaths=@('C:\\Program Files (x86)\\NSIS','C:\\Program Files (x86)\\NSIS\\Bin'); $$existing=$$nsisPaths | Where-Object { Test-Path $$_ }; if ($$existing) { $$env:PATH=(($$existing -join ';') + ';' + $$env:PATH) }; Set-Location 'desktop'; $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
+	powershell -NoProfile -Command "$$nsisPaths=@('C:\\Program Files (x86)\\NSIS','C:\\Program Files (x86)\\NSIS\\Bin'); $$existing=$$nsisPaths | Where-Object { Test-Path $$_ }; if ($$existing) { $$env:PATH=(($$existing -join ';') + ';' + $$env:PATH) }; Set-Location 'desktop'; $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) $(GUI_WINDOWS_TAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
 else
 	cd $(GUI_DIR) && $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
 endif

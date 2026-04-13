@@ -102,10 +102,11 @@ The GitHub release workflow installs NSIS automatically on the Windows packaging
 If `K8V.exe` does nothing when double-clicked:
 
 1. Confirm you extracted the zip and are not running from inside the archive.
-2. Verify WebView2 is installed by checking for:
+2. If the app was built locally on Windows, rebuild it with the current `make build-gui` or `make package-gui` target. Older local builds could still use the newer WebView2 loader and fail on some managed Windows 11 machines even when they worked on the build box.
+3. Verify WebView2 is installed by checking for:
    - `C:\Program Files (x86)\Microsoft\EdgeWebView\Application\msedgewebview2.exe`
    - `C:\Program Files\Microsoft\EdgeWebView\Application\msedgewebview2.exe`
-3. Open the startup log created by the app:
+4. Open the startup log created by the app:
    - `%APPDATA%\k8s-recovery-visualizer\logs\k8v-startup.log`
 
 If the log file is missing or shows WebView2 not found, install the Evergreen WebView2 runtime and retry. If the log shows a startup error, attach the log when reporting the issue.

@@ -88,6 +88,8 @@ make build-cli-cross
 
 Windows packaging uses NSIS. If `make package-gui` fails locally with `makensis not found`, install NSIS before retrying.
 
+Local Windows `make build-gui` and `make package-gui` runs intentionally pass `-tags native_webview2loader` so contributor-built packages match the Win11-compatible release packaging path.
+
 ## GitHub Release Flow
 
 1. Update the changelog, README, screenshots, and public docs.
