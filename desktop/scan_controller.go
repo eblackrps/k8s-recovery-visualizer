@@ -12,10 +12,15 @@ import (
 	"k8s-recovery-visualizer/internal/appcore"
 )
 
+var errLifecycleContextUnavailable = errors.New("desktop app lifecycle context is unavailable")
+
 func (a *App) RunPreflight(req appcore.ScanRequest) (appcore.PreflightReport, error) {
 	req = a.applyDefaults(req)
 
-	preflightCtx, cancel := context.WithCancel(a.lifecycleContext())
+	preflightCtx, cancel, err := a.newRunContext()
+	if err != nil {
+		return appcore.PreflightReport{}, err
+	}
 	defer cancel()
 
 	return a.service.Preflight(preflightCtx, req)
@@ -27,7 +32,10 @@ func (a *App) RunScan(req appcore.ScanRequest) (appcore.RunResult, error) {
 		req.RunID = fmt.Sprintf("run-%d", time.Now().UnixNano())
 	}
 
-	runCtx, cancel := context.WithCancel(a.lifecycleContext())
+	runCtx, cancel, err := a.newRunContext()
+	if err != nil {
+		return appcore.RunResult{}, err
+	}
 	if err := a.registerRun(req.RunID, cancel); err != nil {
 		cancel()
 		return appcore.RunResult{}, err
@@ -110,14 +118,23 @@ func (a *App) setLifecycleContext(ctx context.Context) {
 	a.lifecycleCtx, a.lifecycleCancel = context.WithCancel(ctx)
 }
 
-func (a *App) lifecycleContext() context.Context {
+func (a *App) newRunContext() (context.Context, context.CancelFunc, error) {
+	baseCtx, err := a.lifecycleContext()
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, cancel := context.WithCancel(baseCtx)
+	return ctx, cancel, nil
+}
+
+func (a *App) lifecycleContext() (context.Context, error) {
 	a.lifecycleMu.RLock()
 	defer a.lifecycleMu.RUnlock()
 
 	if a.lifecycleCtx != nil {
-		return a.lifecycleCtx
+		return a.lifecycleCtx, nil
 	}
-	return context.Background()
+	return nil, errLifecycleContextUnavailable
 }
 
 func (a *App) cancelLifecycle() {

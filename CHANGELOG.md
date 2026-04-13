@@ -4,7 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+### Fixed
+
+- Switched GitHub Actions workflow execution fully onto Node 24, including forcing JavaScript actions onto the Node 24 runner path so CI and release jobs no longer emit Node 20 deprecation warnings.
+- Tightened the desktop runtime so preflight and scan entrypoints fail fast when the Wails lifecycle context is unavailable instead of silently falling back to a detached background context.
 
 ## [1.6.0] - 2026-04-13
 
