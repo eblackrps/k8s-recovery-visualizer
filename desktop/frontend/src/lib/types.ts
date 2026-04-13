@@ -34,6 +34,11 @@ export type Bootstrap = {
   theme: ThemeTokens;
 };
 
+export type AppAlert = {
+  tone: "info" | "error";
+  message: string;
+};
+
 export type ProjectSummary = {
   name: string;
   clusterName?: string;

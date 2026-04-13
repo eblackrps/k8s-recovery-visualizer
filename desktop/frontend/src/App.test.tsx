@@ -41,6 +41,16 @@ describe("desktop shell", () => {
     expect(await screen.findByText("Bundle open canceled.", { selector: "p.notice" })).toBeInTheDocument();
   });
 
+  it("surfaces startup settings alerts in the desktop shell", async () => {
+    vi.spyOn(mockBackend, "GetStartupAlerts").mockResolvedValueOnce([
+      { tone: "error", message: "Saved desktop settings could not be loaded." },
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Saved desktop settings could not be loaded.", { selector: "p.notice" })).toBeInTheDocument();
+  });
+
   it("shows cancel as unavailable when no live run is active", async () => {
     render(<App />);
 

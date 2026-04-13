@@ -1,4 +1,5 @@
 import type {
+  AppAlert,
   Bootstrap,
   ExportRequest,
   PreflightReport,
@@ -83,11 +84,11 @@ const demoWorkspace: Workspace = {
       clusterName: "prod-east",
       environment: "production",
       generatedAt: "2026-04-12T14:11:00Z",
-      toolVersion: "1.5.2",
+      toolVersion: "1.6.0",
     },
     tool: {
       name: "k8s-recovery-visualizer",
-      version: "1.5.2",
+      version: "1.6.0",
       buildDate: "2026-04-12",
     },
     scan: {
@@ -397,6 +398,9 @@ export const mockBackend = {
   },
   async GetSettings(): Promise<Settings> {
     return clone(currentSettings());
+  },
+  async GetStartupAlerts(): Promise<AppAlert[]> {
+    return [];
   },
   async SaveSettings(settings: Settings): Promise<void> {
     globalThis.localStorage?.setItem("k8vis:settings", JSON.stringify(settings));

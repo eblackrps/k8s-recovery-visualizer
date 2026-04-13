@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useState } from "react";
 import { backend, mockWorkspace } from "./lib/backend";
 import type {
+  AppAlert,
   ExportRequest,
   PreflightReport,
   ProjectSummary,
@@ -17,7 +18,7 @@ import { ResultsView } from "./views/ResultsView";
 import { SettingsView } from "./views/SettingsView";
 
 type View = "home" | "projects" | "scan" | "live" | "results" | "settings";
-type BannerTone = "info" | "error";
+type BannerTone = AppAlert["tone"];
 
 const navItems: Array<{ id: View; label: string }> = [
   { id: "home", label: "Home" },
@@ -62,6 +63,11 @@ function formatActionError(error: unknown, fallback: string) {
     return error.trim();
   }
   return fallback;
+}
+
+function isCanceledError(error: unknown) {
+  const message = formatActionError(error, "");
+  return /\bcancel(?:ed|led)\b/i.test(message);
 }
 
 function defaultBundleInputPath(browserDemo: boolean) {
@@ -126,21 +132,68 @@ export default function App() {
   const [scanForm, setScanForm] = useState<ScanRequest>(defaultScanForm(browserDemo));
 
   useEffect(() => {
-    backend.getBootstrap().then((bootstrap) => applyTheme(bootstrap.theme));
-    backend.getSettings().then((saved) => {
-      setSettings(saved);
-      setScanForm((current) => ({
-        ...current,
-        outputDir: saved.defaultOutputDir || current.outputDir,
-        profileName: saved.defaultProfile || current.profileName,
-        summary: saved.summary,
-        runbook: saved.runbook,
-        redact: saved.redact,
-        csvExport: saved.csvExport,
-        includeSecretMetadata: saved.includeSecretMetadata,
-      }));
-    });
-    backend.listProjects().then(setProjects);
+    let active = true;
+
+    void (async () => {
+      try {
+        const bootstrap = await backend.getBootstrap();
+        if (active) {
+          applyTheme(bootstrap.theme);
+        }
+      } catch (error) {
+        if (active) {
+          showBanner("error", `Theme load failed: ${formatActionError(error, "Could not load the desktop theme.")}`);
+        }
+      }
+
+      try {
+        const saved = await backend.getSettings();
+        if (!active) {
+          return;
+        }
+        setSettings(saved);
+        setScanForm((current) => ({
+          ...current,
+          outputDir: saved.defaultOutputDir || current.outputDir,
+          profileName: saved.defaultProfile || current.profileName,
+          summary: saved.summary,
+          runbook: saved.runbook,
+          redact: saved.redact,
+          csvExport: saved.csvExport,
+          includeSecretMetadata: saved.includeSecretMetadata,
+        }));
+      } catch (error) {
+        if (active) {
+          showBanner("error", `Settings load failed: ${formatActionError(error, "Could not load desktop settings.")}`);
+          setStatusMessage("Desktop settings failed to load.");
+        }
+      }
+
+      try {
+        const alerts = await backend.getStartupAlerts();
+        if (active && alerts.length > 0) {
+          setActionBanner(alerts[0]);
+          if (alerts[0].tone === "error") {
+            setStatusMessage("Desktop settings need attention.");
+          }
+        }
+      } catch {
+        // Startup alerts are optional and should not block the shell.
+      }
+
+      try {
+        const nextProjects = await backend.listProjects();
+        if (active) {
+          setProjects(nextProjects);
+        }
+      } catch (error) {
+        if (active) {
+          showBanner("error", `Workspace discovery failed: ${formatActionError(error, "Could not load saved projects.")}`);
+          setStatusMessage("Workspace discovery failed.");
+        }
+      }
+    })();
+
     const unsubscribe = backend.onScanEvent((event) => {
       setEvents((current) => [...current, event]);
       setStatusMessage(event.message);
@@ -148,7 +201,10 @@ export default function App() {
         setActiveRunId(null);
       }
     });
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const bundle = workspace?.bundle;
@@ -218,9 +274,14 @@ export default function App() {
       startTransition(() => setView("results"));
       setStatusMessage("Scan finished. Results workspace is ready.");
     } catch (error) {
-      const message = formatActionError(error, "Could not complete the scan.");
-      showBanner("error", `Scan failed: ${message}`);
-      setStatusMessage("Scan failed.");
+      if (isCanceledError(error)) {
+        showBanner("info", "Scan canceled.");
+        setStatusMessage("Scan canceled.");
+      } else {
+        const message = formatActionError(error, "Could not complete the scan.");
+        showBanner("error", `Scan failed: ${message}`);
+        setStatusMessage("Scan failed.");
+      }
     } finally {
       setBusy(false);
       setActiveRunId(null);
