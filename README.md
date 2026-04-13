@@ -9,10 +9,18 @@
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
-  <img alt="K8V findings workspace" src="images/gui-results-findings.png" width="49%" />
+  <img alt="K8V findings workspace with prioritized recovery actions" src="images/gui-results-findings.png" width="49%" />
 </p>
 
-`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, `.zip`, `.tar.gz`, or `.tgz` bundle without cluster access.
+`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, `.zip`, `.tar.gz`, or `.tgz` bundle without cluster access. Bundle loading now validates archives and JSON structure up front so operators get clearer corruption or mis-packaging diagnostics instead of a generic open failure.
+
+## What Teams Get
+
+- prioritized findings with impact, likely owner, rough effort, and deterministic ranking
+- restore-readiness evidence that goes beyond “backup detected” to show blocked, warning, ready, and unknown namespaces
+- a restore drill planner that turns bundle evidence into an operator runbook sequence
+- compare and history workflows that surface score drift, severity deltas, regressed findings, and persistent gaps
+- offline-friendly exports and schema-validated bundles that still work in CI and air-gapped review flows
 
 ## Public Release
 
@@ -32,11 +40,17 @@ Current supported public release platforms:
 
 Deprecated release surfaces and contributor-only build paths are documented in [docs/SUPPORT-MATRIX.md](docs/SUPPORT-MATRIX.md).
 
-## Choose Your Path
+## Support Limits
+
+- Public GitHub releases support Linux amd64 and Windows amd64 desktop packages only.
+- Public macOS desktop packages, prebuilt CLI release binaries, and GHCR container images are deprecated in this release line.
+- The CLI remains fully supported through source builds, CI gates, automation, smoke tests, and contributor workflows.
+
+## Start Here
 
 | Path | Best for | How |
 | --- | --- | --- |
-| Download the desktop app | Operators and evaluators | Grab the Linux or Windows desktop package from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) |
+| Use the supported desktop release | Operators, consultants, and evaluators | Download the Linux or Windows desktop package from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) and launch `K8V` |
 | Build the CLI from source | Contributors, CI, air-gapped workflows | `make build` |
 | Build cross-platform CLI binaries locally | Contributor validation and internal packaging | `make build-cli-cross` |
 | Run the desktop app in dev mode | Frontend and UX iteration | `make frontend-install && make dev-gui` |
@@ -44,7 +58,15 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 
 ## Quickstart
 
-### Desktop
+### Desktop Release Quickstart
+
+1. Download the Linux tarball or Windows zip from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest).
+2. Extract the archive.
+3. Launch `K8V` directly. On Windows, the zip also includes `K8V-amd64-installer.exe` if you prefer an installed shortcut.
+4. Choose **New Scan** for a live assessment or **Open Existing Bundle** for offline review.
+5. Export HTML, Markdown, CSV, redacted, summary, or runbook artifacts from the loaded bundle as needed.
+
+### Desktop Development Quickstart
 
 Install frontend dependencies and launch the desktop app in development mode:
 
@@ -56,6 +78,7 @@ make dev-gui
 Build the current-host desktop app:
 
 ```bash
+make frontend-install
 make build-gui
 ```
 
@@ -76,7 +99,7 @@ go run ./cmd/scan --context prod-east-admin --profile enterprise --summary --run
 Evaluate the generated bundle in CI:
 
 ```bash
-go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
+go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --min-backup-score 80 --max-new-findings 0 --max-regressed-findings 0 --format json
 ```
 
 Build a host-specific CLI binary into `dist/`:
@@ -90,7 +113,7 @@ make build
 <p align="center">
   <img alt="K8V guided scan wizard" src="images/gui-scan-wizard.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
-  <img alt="K8V compare workflow" src="images/gui-compare.png" width="32%" />
+  <img alt="K8V compare workflow with score drift and regression details" src="images/gui-compare.png" width="32%" />
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
@@ -100,7 +123,7 @@ The public gallery intentionally uses the current deterministic desktop screensh
 | Surface | Best for | Strengths |
 | --- | --- | --- |
 | CLI (`cmd/scan`, `cmd/check`) | CI/CD, repeatable ops workflows, scripting, source builds | Stable flags, schema-validated bundles, policy gating, deterministic smoke flows |
-| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, offline bundle inspection |
+| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, prioritized findings, restore drill planning, offline bundle inspection |
 
 ## Output Artifacts
 
@@ -114,6 +137,12 @@ The public gallery intentionally uses the current deterministic desktop screensh
 | `recovery-runbook.html` | Optional customer-facing DR runbook |
 | `csv/` | Optional CSV exports for spreadsheet or downstream analysis |
 | `*-redacted.*` | Optional share-safe exports with masked identifiers |
+
+## Compare, History, And Policy Gates
+
+- Open a bundle in `K8V` or run `cmd/scan --compare ./previous/recovery-scan.json` to review score drift, severity deltas, persistent gaps, and regressed findings.
+- Historical bundles add per-domain trend points so repeat assessments can show whether recovery readiness is improving or backsliding over time.
+- Use `cmd/check` in CI to enforce overall score floors, domain-specific thresholds, new-finding budgets, regressed-finding budgets, and backup readiness gates against emitted bundles.
 
 ## Documentation
 

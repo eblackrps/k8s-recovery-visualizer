@@ -122,20 +122,41 @@ func (s *Service) ListProjects(root string) ([]ProjectSummary, error) {
 }
 
 func (s *Service) workspaceFromBundle(bundle model.Bundle, artifacts ArtifactPaths) Workspace {
-	entries := history.LoadRecent(artifacts.OutputDir, 10)
-	historyEntries := make([]HistoryEntry, 0, len(entries))
-	for _, entry := range entries {
+	dashboard := history.LoadDashboard(artifacts.OutputDir, 10)
+	historyEntries := make([]HistoryEntry, 0, len(dashboard.Entries))
+	for _, entry := range dashboard.Entries {
 		historyEntries = append(historyEntries, HistoryEntry{
 			TimestampUTC: entry.TimestampUTC,
 			Overall:      entry.Overall,
+			Storage:      entry.Storage,
+			Workload:     entry.Workload,
+			Config:       entry.Config,
+			Backup:       entry.Backup,
+			Findings:     entry.Findings,
 			Maturity:     entry.Maturity,
+		})
+	}
+	domainTrends := make([]HistoryDomainTrend, 0, len(dashboard.DomainTrends))
+	for _, trend := range dashboard.DomainTrends {
+		domainTrends = append(domainTrends, HistoryDomainTrend{
+			Name:      trend.Name,
+			Current:   trend.Current,
+			Delta:     trend.Delta,
+			Direction: trend.Direction,
 		})
 	}
 	return Workspace{
 		Bundle:    bundle,
 		Artifacts: artifacts,
 		History: HistoryDashboard{
-			Entries: historyEntries,
+			Entries:      historyEntries,
+			TrendLabel:   dashboard.TrendLabel,
+			TrendDelta:   dashboard.TrendDelta,
+			AverageScore: dashboard.AverageScore,
+			BestScore:    dashboard.BestScore,
+			WorstScore:   dashboard.WorstScore,
+			RunCount:     dashboard.RunCount,
+			DomainTrends: domainTrends,
 		},
 		Source:   "bundle",
 		LoadedAt: s.now().Format(time.RFC3339),

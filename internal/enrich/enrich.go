@@ -52,6 +52,10 @@ type Enriched struct {
 	Trend         *trend.Trend  `json:"trend,omitempty"`
 	Risk          risk.Rating   `json:"risk"`
 	LastN         []float64     `json:"lastN"`
+	RunCount      int           `json:"runCount,omitempty"`
+	AverageScore  *float64      `json:"averageScore,omitempty"`
+	BestScore     *float64      `json:"bestScore,omitempty"`
+	WorstScore    *float64      `json:"worstScore,omitempty"`
 
 	Categories         []CategoryScore `json:"categories,omitempty"`
 	ProfileOverall     *float64        `json:"profileOverall,omitempty"`
@@ -84,6 +88,7 @@ func Run(opts Options) (*Enriched, error) {
 	historyPath := filepath.Join(opts.OutDir, "history", "index.json")
 	b, err := os.ReadFile(historyPath)
 	if err != nil {
+		currentAverage := currentFromScan.Overall
 		return &Enriched{
 			SchemaVersion: SchemaVersion,
 			GeneratedUtc:  time.Now().UTC().Format(time.RFC3339),
@@ -91,6 +96,10 @@ func Run(opts Options) (*Enriched, error) {
 			Current:       currentFromScan,
 			Risk:          risk.FromScore(currentFromScan.Overall, currentFromScan.Maturity),
 			LastN:         lastNFromCurrent(currentFromScan),
+			RunCount:      1,
+			AverageScore:  &currentAverage,
+			BestScore:     &currentAverage,
+			WorstScore:    &currentAverage,
 		}, nil
 	}
 
@@ -99,6 +108,7 @@ func Run(opts Options) (*Enriched, error) {
 		return nil, fmt.Errorf("parse history index: %w", err)
 	}
 	if len(idx.Entries) == 0 {
+		currentAverage := currentFromScan.Overall
 		return &Enriched{
 			SchemaVersion: SchemaVersion,
 			GeneratedUtc:  time.Now().UTC().Format(time.RFC3339),
@@ -106,6 +116,10 @@ func Run(opts Options) (*Enriched, error) {
 			Current:       currentFromScan,
 			Risk:          risk.FromScore(currentFromScan.Overall, currentFromScan.Maturity),
 			LastN:         lastNFromCurrent(currentFromScan),
+			RunCount:      1,
+			AverageScore:  &currentAverage,
+			BestScore:     &currentAverage,
+			WorstScore:    &currentAverage,
 		}, nil
 	}
 
@@ -121,8 +135,20 @@ func Run(opts Options) (*Enriched, error) {
 		start = len(idx.Entries) - opts.LastNCount
 	}
 	last := make([]float64, 0, len(idx.Entries)-start)
+	best := idx.Entries[0].Overall
+	worst := idx.Entries[0].Overall
+	total := 0.0
 	for i := start; i < len(idx.Entries); i++ {
 		last = append(last, idx.Entries[i].Overall)
+	}
+	for _, entry := range idx.Entries {
+		total += entry.Overall
+		if entry.Overall > best {
+			best = entry.Overall
+		}
+		if entry.Overall < worst {
+			worst = entry.Overall
+		}
 	}
 
 	var tr *trend.Trend
@@ -130,6 +156,7 @@ func Run(opts Options) (*Enriched, error) {
 		t := trend.Compute(prev.Overall, curr.Overall)
 		tr = &t
 	}
+	avg := total / float64(len(idx.Entries))
 
 	en := &Enriched{
 		SchemaVersion: SchemaVersion,
@@ -140,6 +167,10 @@ func Run(opts Options) (*Enriched, error) {
 		Trend:         tr,
 		Risk:          risk.FromScore(curr.Overall, curr.Maturity),
 		LastN:         last,
+		RunCount:      len(idx.Entries),
+		AverageScore:  &avg,
+		BestScore:     &best,
+		WorstScore:    &worst,
 	}
 
 	// best-effort categories from recovery-scan.json

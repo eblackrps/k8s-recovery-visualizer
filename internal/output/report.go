@@ -73,6 +73,24 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		actionHeadline = fmt.Sprintf("%d critical/high finding(s)", criticalOrHigh)
 		actionDetail = "Review the Findings and Remediation tabs for the highest-risk gaps."
 	}
+	historyAverage := 0
+	historyBest := 0
+	historyWorst := 0
+	if len(b.TrendHistory) > 0 {
+		historyBest = b.TrendHistory[0].Overall
+		historyWorst = b.TrendHistory[0].Overall
+		total := 0
+		for _, point := range b.TrendHistory {
+			total += point.Overall
+			if point.Overall > historyBest {
+				historyBest = point.Overall
+			}
+			if point.Overall < historyWorst {
+				historyWorst = point.Overall
+			}
+		}
+		historyAverage = total / len(b.TrendHistory)
+	}
 	w(reportDocumentStart("K8s DR Recovery Report", "report-page", reportPageCSS()))
 
 	// Header
@@ -349,6 +367,50 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		w(`</svg>`)
 		wf(`<div style="color:var(--muted);font-size:.83em;margin-top:4px">Last <strong style="color:var(--text)">%d</strong> scans &mdash; Current: <strong style="color:%s">%d</strong> (%s)</div>`,
 			n, trendColor, last.Overall, e(last.Maturity))
+		w(`</div>`)
+	}
+	if len(b.TrendHistory) > 0 {
+		w(`<div class="card"><h2>History Summary</h2>`)
+		wf(`<table><tbody>
+<tr><td>Runs in history</td><td>%d</td></tr>
+<tr><td>Average score</td><td>%d</td></tr>
+<tr><td>Best score</td><td>%d</td></tr>
+<tr><td>Worst score</td><td>%d</td></tr>
+</tbody></table>`, len(b.TrendHistory), historyAverage, historyBest, historyWorst)
+		if len(b.TrendHistory) > 1 {
+			last := b.TrendHistory[len(b.TrendHistory)-1]
+			prev := b.TrendHistory[len(b.TrendHistory)-2]
+			w(`<h3 style="margin-top:14px">Domain Trends</h3><table><thead><tr>`)
+			for _, h := range []string{"Domain", "Current", "Delta"} {
+				wf(`<th>%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, row := range []struct {
+				label   string
+				current int
+				delta   int
+			}{
+				{"Storage", last.Storage, last.Storage - prev.Storage},
+				{"Workload", last.Workload, last.Workload - prev.Workload},
+				{"Config", last.Config, last.Config - prev.Config},
+				{"Backup", last.Backup, last.Backup - prev.Backup},
+				{"Findings", last.Findings, last.Findings - prev.Findings},
+			} {
+				color := "var(--muted)"
+				if row.delta > 0 {
+					color = "var(--success)"
+				} else if row.delta < 0 {
+					color = "var(--danger)"
+				}
+				sign := ""
+				if row.delta > 0 {
+					sign = "+"
+				}
+				wf(`<tr><td>%s</td><td>%d</td><td style="color:%s">%s%d</td></tr>`,
+					e(row.label), row.current, color, sign, row.delta)
+			}
+			w(`</tbody></table>`)
+		}
 		w(`</div>`)
 	}
 
@@ -1282,19 +1344,37 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 <div class="sbox"><div class="v" style="color:%s">%d</div><div class="l">%s</div></div>
 <div class="sbox"><div class="v">%.1f GB</div><div class="l">Total PVC Data</div></div>
 <div class="sbox"><div class="v">%s</div><div class="l">Coverage by Volume</div></div>
+<div class="sbox"><div class="v" style="color:var(--success)">%d</div><div class="l">Ready</div></div>
+<div class="sbox"><div class="v" style="color:var(--danger)">%d</div><div class="l">Blocked</div></div>
 </div>`,
 			len(sim.Namespaces),
 			coverageCountColor,
 			coverageCount,
 			coverageCountLabel,
 			sim.TotalPVCsGB,
-			coverageVolumeText)
+			coverageVolumeText,
+			sim.ReadyNamespaces,
+			sim.BlockedNamespaces)
+		wf(`<p style="color:var(--muted);font-size:.84em;margin-bottom:12px">Warning namespaces: <strong style="color:var(--warning-medium)">%d</strong> &nbsp; Unknown namespaces: <strong>%d</strong> &nbsp; Estimated data at risk: <strong>%.1f GB</strong></p>`,
+			sim.WarningNamespaces, sim.UnknownNamespaces, sim.EstimatedDataAtRiskGB)
+		if len(sim.BlockingReasons) > 0 {
+			wf(`<p style="color:var(--muted);font-size:.84em;margin-bottom:12px">Top blocking reasons: %s</p>`, e(strings.Join(sim.BlockingReasons, " • ")))
+		}
 		w(`<table id="t-sim"><thead><tr>`)
-		for _, h := range []string{"Namespace", "Coverage", "RPO (h)", "PVC Data (GB)", "Blockers", "Warnings"} {
+		for _, h := range []string{"Namespace", "Readiness", "Coverage", "RPO (h)", "PVC Data (GB)", "Blockers", "Warnings"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody>`)
 		for _, ns := range sim.Namespaces {
+			readinessColor := "var(--muted)"
+			switch ns.Readiness {
+			case "ready":
+				readinessColor = "var(--success)"
+			case "warning", "uncovered":
+				readinessColor = "var(--warning-medium)"
+			case "blocked":
+				readinessColor = "var(--danger)"
+			}
 			covCell := `<span class="chip f">none</span>`
 			if !ns.CoverageKnown {
 				covCell = `<span class="chip w">unverified</span>`
@@ -1318,12 +1398,33 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if len(ns.Warnings) > 0 {
 				warningsCell = fmt.Sprintf(`<span class="c-MEDIUM">%s</span>`, e(strings.Join(ns.Warnings, "; ")))
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(ns.Namespace), covCell, rpoCell, sizeCell, blockersCell, warningsCell)
+			wf(`<tr><td>%s</td><td style="color:%s">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(ns.Namespace), readinessColor, e(strings.ToUpper(ns.Readiness)), covCell, rpoCell, sizeCell, blockersCell, warningsCell)
 		}
 		w(`</tbody></table>`)
 	}
 	w(`</div>`) // restore sim card
+
+	if len(backupInv.DrillPlan) > 0 {
+		w(`<div class="card"><h2>Restore Drill Planner</h2><table><thead><tr>`)
+		for _, h := range []string{"Phase", "Step", "Owner", "Detail", "Validate"} {
+			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+		}
+		w(`</tr></thead><tbody>`)
+		for _, step := range backupInv.DrillPlan {
+			validation := "—"
+			if len(step.Validation) > 0 {
+				validation = strings.Join(step.Validation, "; ")
+			}
+			owner := step.OwnerHint
+			if owner == "" {
+				owner = "—"
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(step.Phase), e(step.Title), e(owner), e(step.Detail), e(validation))
+		}
+		w(`</tbody></table></div>`)
+	}
 
 	// ── Round 14: etcd backup status ─────────────────────────────────────
 	w(`<div class="card"><h2>etcd Backup Status</h2>`)
@@ -1430,13 +1531,29 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 <button class="fbtn" data-sev="INFO" onclick="filterSev(this)">Info</button>
 </div>`)
 		w(`<table id="t-findings"><thead><tr>`)
-		for _, h := range []string{"Severity", "Resource", "Finding", "Recommendation"} {
+		for _, h := range []string{"Rank", "Severity", "Owner", "Impact", "Effort", "Resource", "Finding", "Recommendation"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody id="findings-tbody">`)
 		for _, f := range b.Inventory.Findings {
-			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message), e(f.Recommendation))
+			rank := "—"
+			if f.Rank > 0 {
+				rank = fmt.Sprintf("%d", f.Rank)
+			}
+			owner := f.OwnerHint
+			if owner == "" {
+				owner = "—"
+			}
+			impact := f.Impact
+			if impact == "" {
+				impact = "—"
+			}
+			effort := f.Effort
+			if effort == "" {
+				effort = "—"
+			}
+			wf(`<tr data-sev="%s"><td>%s</td><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(f.Severity), e(rank), e(f.Severity), e(f.Severity), e(owner), e(impact), e(effort), e(f.ResourceID), e(f.Message), e(f.Recommendation))
 		}
 		w(`</tbody></table>`)
 	}
@@ -1520,7 +1637,7 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 </div>`)
 
 		w(`<table id="t-findings2"><thead><tr>`)
-		for _, h := range []string{"Severity", "ID", "Resource", "Finding", "Recommendation", "Action"} {
+		for _, h := range []string{"Rank", "Severity", "Owner", "Impact", "Effort", "ID", "Resource", "Finding", "Recommendation", "Action"} {
 			wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
 		}
 		w(`</tr></thead><tbody id="findings2-tbody">`)
@@ -1529,8 +1646,24 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			if remI, ok := remIdx[f.ID]; ok {
 				actionCell = fmt.Sprintf(`<a href="#" onclick="showRemStep(%d);return false;" style="color:var(--accent-soft);font-size:.82em;white-space:nowrap">-> Remediation #%d</a>`, remI, remI+1)
 			}
-			wf(`<tr data-sev="%s"><td class="sev-%s">%s</td><td style="color:var(--muted);font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(f.Severity), e(f.Severity), e(f.Severity), e(f.ID), e(f.ResourceID), e(f.Message), e(f.Recommendation), actionCell)
+			rank := "—"
+			if f.Rank > 0 {
+				rank = fmt.Sprintf("%d", f.Rank)
+			}
+			owner := f.OwnerHint
+			if owner == "" {
+				owner = "—"
+			}
+			impact := f.Impact
+			if impact == "" {
+				impact = "—"
+			}
+			effort := f.Effort
+			if effort == "" {
+				effort = "—"
+			}
+			wf(`<tr data-sev="%s"><td>%s</td><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td><td style="color:var(--muted);font-size:.82em">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(f.Severity), e(rank), e(f.Severity), e(f.Severity), e(owner), e(impact), e(effort), e(f.ID), e(f.ResourceID), e(f.Message), e(f.Recommendation), actionCell)
 		}
 		w(`</tbody></table>`)
 	}
@@ -1584,10 +1717,13 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 <div class="sbox"><div class="v">%d</div><div class="l">Previous Score</div></div>
 <div class="sbox"><div class="v">%d</div><div class="l">Current Score</div></div>
 <div class="sbox"><div class="v" style="color:var(--muted);font-size:.8em">%s → %s</div><div class="l">Maturity Change</div></div>
+<div class="sbox"><div class="v" style="color:var(--danger)">%d</div><div class="l">Regressed Findings</div></div>
+<div class="sbox"><div class="v">%d</div><div class="l">Persistent Findings</div></div>
 </div></div>`,
 			deltaColor, deltaSign, c.ScoreDelta,
 			c.PreviousScore, b.Score.Overall.Final,
-			e(c.PreviousMaturity), e(b.Score.Maturity))
+			e(c.PreviousMaturity), e(b.Score.Maturity),
+			len(c.FindingsRegressed), c.PersistentFinding)
 
 		// Backup tool change
 		if c.BackupToolChanged {
@@ -1626,6 +1762,69 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		w(`</tbody></table></div>`)
 
+		if len(c.DomainDeltas) > 0 {
+			w(`<div class="card"><h2>Score Deltas</h2><table><thead><tr>`)
+			for _, h := range []string{"Domain", "Previous", "Current", "Delta"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, delta := range c.DomainDeltas {
+				label := delta.Name
+				if label != "" {
+					label = strings.ToUpper(label[:1]) + label[1:]
+				}
+				color := "var(--muted)"
+				sign := ""
+				if delta.Delta > 0 {
+					color = "var(--success)"
+					sign = "+"
+				} else if delta.Delta < 0 {
+					color = "var(--danger)"
+				}
+				wf(`<tr><td>%s</td><td>%d</td><td>%d</td><td style="color:%s">%s%d</td></tr>`,
+					e(label), delta.Previous, delta.Current, color, sign, delta.Delta)
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		if len(c.SeverityDeltas) > 0 {
+			w(`<div class="card"><h2>Severity Deltas</h2><table><thead><tr>`)
+			for _, h := range []string{"Severity", "Previous", "Current", "Delta"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, delta := range c.SeverityDeltas {
+				color := "var(--muted)"
+				sign := ""
+				if delta.Delta > 0 {
+					color = "var(--warning-high)"
+					sign = "+"
+				} else if delta.Delta < 0 {
+					color = "var(--success)"
+				}
+				wf(`<tr><td>%s</td><td>%d</td><td>%d</td><td style="color:%s">%s%d</td></tr>`,
+					e(delta.Severity), delta.Previous, delta.Current, color, sign, delta.Delta)
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		if len(c.InventoryDeltas) > 0 {
+			w(`<div class="card"><h2>Inventory Deltas</h2><table><thead><tr>`)
+			for _, h := range []string{"Area", "Added", "Removed"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, delta := range c.InventoryDeltas {
+				label := delta.Name
+				if label != "" {
+					label = strings.ToUpper(label[:1]) + label[1:]
+				}
+				wf(`<tr><td>%s</td><td>%d</td><td>%d</td></tr>`,
+					e(label), delta.Added, delta.Removed)
+			}
+			w(`</tbody></table></div>`)
+		}
+
 		// New findings (regressions)
 		if len(c.FindingsNew) > 0 {
 			w(`<div class="card" style="border-color:var(--danger)"><h2 style="color:var(--danger)">New Findings (regressions)</h2>`)
@@ -1656,7 +1855,47 @@ func buildReport(buf *bytes.Buffer, b *model.Bundle) {
 			w(`</tbody></table></div>`)
 		}
 
-		if len(c.FindingsNew) == 0 && len(c.FindingsResolved) == 0 {
+		if len(c.FindingsRegressed) > 0 {
+			w(`<div class="card" style="border-color:var(--danger)"><h2 style="color:var(--danger)">Severity Regressions</h2>`)
+			w(`<table><thead><tr>`)
+			for _, h := range []string{"Was", "Now", "Owner", "Impact", "Effort", "Resource", "Message"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, f := range c.FindingsRegressed {
+				owner := f.OwnerHint
+				if owner == "" {
+					owner = "—"
+				}
+				impact := f.Impact
+				if impact == "" {
+					impact = "—"
+				}
+				effort := f.Effort
+				if effort == "" {
+					effort = "—"
+				}
+				wf(`<tr><td>%s</td><td class="sev-%s">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+					e(f.PreviousSeverity), e(f.CurrentSeverity), e(f.CurrentSeverity), e(owner), e(impact), e(effort), e(f.ResourceID), e(f.Message))
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		if len(c.FindingsImproved) > 0 {
+			w(`<div class="card" style="border-color:var(--success)"><h2 style="color:var(--success)">Severity Improvements</h2>`)
+			w(`<table><thead><tr>`)
+			for _, h := range []string{"Was", "Now", "Resource", "Message"} {
+				wf(`<th onclick="sortTbl(this)">%s</th>`, e(h))
+			}
+			w(`</tr></thead><tbody>`)
+			for _, f := range c.FindingsImproved {
+				wf(`<tr><td>%s</td><td class="sev-%s">%s</td><td>%s</td><td>%s</td></tr>`,
+					e(f.PreviousSeverity), e(f.CurrentSeverity), e(f.CurrentSeverity), e(f.ResourceID), e(f.Message))
+			}
+			w(`</tbody></table></div>`)
+		}
+
+		if len(c.FindingsNew) == 0 && len(c.FindingsResolved) == 0 && len(c.FindingsRegressed) == 0 && len(c.FindingsImproved) == 0 {
 			w(`<div class="card"><p class="ok">No finding changes between scans.</p></div>`)
 		}
 

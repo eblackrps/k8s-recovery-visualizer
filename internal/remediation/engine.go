@@ -23,6 +23,7 @@ func Generate(b *model.Bundle, target string) []model.RemediationStep {
 	for _, f := range b.Inventory.Findings {
 		if s := stepForFinding(f, tool, target, b.Cluster.Platform.Provider); s != nil {
 			applyKnowledge(s, f.ID)
+			carryFindingMetadata(s, f)
 			steps = append(steps, *s)
 		}
 	}
@@ -52,6 +53,15 @@ func Generate(b *model.Bundle, target string) []model.RemediationStep {
 		return steps[i].Priority < steps[j].Priority
 	})
 	return steps
+}
+
+func carryFindingMetadata(step *model.RemediationStep, finding model.Finding) {
+	if step.OwnerHint == "" {
+		step.OwnerHint = finding.OwnerHint
+	}
+	if step.Effort == "" {
+		step.Effort = finding.Effort
+	}
 }
 
 func stepForFinding(f model.Finding, tool, target, platform string) *model.RemediationStep {
@@ -253,6 +263,8 @@ func backupInstallStep(target string) model.RemediationStep {
 		Category:    "Backup",
 		Title:       "Install a backup solution — no backup tool detected",
 		Detail:      "Without a backup tool, cluster recovery is not possible. Install Kasten K10, Velero, or Rubrik.",
+		OwnerHint:   "Platform / backup owner",
+		Effort:      "L",
 		Commands:    []string{kastenNote, veleroNote},
 		TargetNotes: targetNote,
 	}
@@ -382,11 +394,13 @@ func helmValuesStep(releases []model.HelmRelease) model.RemediationStep {
 	}
 	cmds = append(cmds, "# Store these files in a safe external location (git, S3, etc.)")
 	return model.RemediationStep{
-		Priority: 3,
-		Category: "Config",
-		Title:    fmt.Sprintf("Back up values for %d Helm release(s)", len(releases)),
-		Detail:   "Helm release values are required to reinstall applications in the DR environment.",
-		Commands: cmds,
+		Priority:  3,
+		Category:  "Config",
+		Title:     fmt.Sprintf("Back up values for %d Helm release(s)", len(releases)),
+		Detail:    "Helm release values are required to reinstall applications in the DR environment.",
+		OwnerHint: "Application owner",
+		Effort:    "S",
+		Commands:  cmds,
 	}
 }
 
@@ -396,6 +410,8 @@ func imageMirrorStep(count int, target string) model.RemediationStep {
 		Category:    "Config",
 		Title:       fmt.Sprintf("Mirror %d public image(s) to a private registry", count),
 		Detail:      "Public registry images may be unavailable in the DR environment if network access is restricted.",
+		OwnerHint:   "Platform engineering",
+		Effort:      "M",
 		Commands:    []string{"# List all public images:\nkubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{\"\\n\"}{end}' | sort -u", "# Pull and push to private registry:\n# docker pull <image> && docker tag <image> <private-registry>/<image> && docker push <private-registry>/<image>"},
 		TargetNotes: targetImageNote(target),
 	}

@@ -73,7 +73,7 @@ jobs:
       - name: Regression tests -- backup coverage trust behavior and rendered artifacts
         run: >
           go test ./cmd/scan ./internal/appcore ./internal/backup ./internal/restore ./internal/analyze ./internal/output
-          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestSharedOutputCSSUsesSharedThemePalette|TestDryRunFinalizationMatchesSinglePass|TestExportBundleWritesOnlyRequestedArtifacts|TestExportBundleRequiresSelectedOutput"
+          -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestBuildReportRendersRestoreDrillAndFindingPrioritization|TestBuildRunbookRendersRestoreDrillAndPrioritizedFindings|TestSharedOutputCSSUsesSharedThemePalette|TestDryRunFinalizationMatchesSinglePass|TestExportBundleWritesOnlyRequestedArtifacts|TestExportBundleRequiresSelectedOutput"
 
       - name: Build CLI smoke binary (linux amd64)
         run: |
@@ -103,18 +103,18 @@ jobs:
 
       - name: Smoke test -- validate emitted schemas
         run: |
-          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input /tmp/smoke/recovery-scan.json
-          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input /tmp/smoke/recovery-enriched.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input /tmp/smoke/recovery-scan.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input /tmp/smoke/recovery-enriched.json
 
       - name: Validate committed schema samples
         run: |
-          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.sample.json
-          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
-          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./schemas/examples/recovery-enriched-1.1.0.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./schemas/examples/recovery-scan-3.1.0.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./schemas/examples/recovery-scan-3.1.0.unverified.sample.json
+          go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./schemas/examples/recovery-enriched-1.2.0.sample.json
 
       - name: Validate committed trust semantics example
         run: |
-          JSON=./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
+          JSON=./schemas/examples/recovery-scan-3.1.0.unverified.sample.json
           grep -q '"coverageStatus": "unsupported"' "$JSON" || { echo "ERROR: committed unverified example must show unsupported coverage"; exit 1; }
           grep -q '"conclusion": "unverified"' "$JSON" || { echo "ERROR: committed unverified example must show unverified assurance"; exit 1; }
           grep -q '"id": "BACKUP_COVERAGE_UNVERIFIED"' "$JSON" || { echo "ERROR: committed unverified example must include the backup trust finding"; exit 1; }

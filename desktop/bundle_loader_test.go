@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +58,44 @@ func TestOpenBundleExtractsZipArchives(t *testing.T) {
 	}
 	if filepath.Dir(workspace.Artifacts.LoadedBundlePath) != app.extractedBundleDirs[0] {
 		t.Fatalf("LoadedBundlePath = %q, want extracted dir %q", workspace.Artifacts.LoadedBundlePath, app.extractedBundleDirs[0])
+	}
+}
+
+func TestOpenBundleRejectsInvalidJSONWithHelpfulMessage(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "recovery-scan.json")
+	if err := os.WriteFile(path, []byte("{not-json"), settingsFileMode); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "recovery-report.html"), []byte("<html></html>"), settingsFileMode); err != nil {
+		t.Fatalf("WriteFile(report) error = %v", err)
+	}
+
+	app := NewApp()
+	_, err := app.OpenBundle(path)
+	if err == nil {
+		t.Fatal("OpenBundle() error = nil, want validation error")
+	}
+	if !strings.Contains(err.Error(), "not a readable recovery-scan.json bundle") {
+		t.Fatalf("OpenBundle() error = %q, want readable bundle guidance", err)
+	}
+}
+
+func TestFindBundleJSONListsCandidatesWhenBundleIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "other.json"), []byte("{}"), settingsFileMode); err != nil {
+		t.Fatalf("WriteFile(other.json) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "recovery-report.html"), []byte("<html></html>"), settingsFileMode); err != nil {
+		t.Fatalf("WriteFile(report) error = %v", err)
+	}
+
+	_, err := findBundleJSON(dir)
+	if err == nil {
+		t.Fatal("findBundleJSON() error = nil, want diagnostic failure")
+	}
+	if !strings.Contains(err.Error(), "JSON candidates: other.json") || !strings.Contains(err.Error(), "HTML reports: recovery-report.html") {
+		t.Fatalf("findBundleJSON() error = %q, want candidate diagnostics", err)
 	}
 }
 

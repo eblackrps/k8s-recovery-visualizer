@@ -13,6 +13,8 @@ func Diff(prev, curr *model.Bundle) model.ComparisonSummary {
 		PreviousScannedAt: prev.Metadata.GeneratedAt,
 		PreviousScore:     prev.Score.Overall.Final,
 		PreviousMaturity:  prev.Score.Maturity,
+		CurrentScore:      curr.Score.Overall.Final,
+		CurrentMaturity:   curr.Score.Maturity,
 		ScoreDelta:        curr.Score.Overall.Final - prev.Score.Overall.Final,
 	}
 
@@ -57,17 +59,39 @@ func Diff(prev, curr *model.Bundle) model.ComparisonSummary {
 	r.BackupToolPrevious = prevTool
 	r.BackupToolCurrent = currTool
 	r.BackupToolChanged = prevTool != currTool
+	r.DomainDeltas = []model.ScoreDeltaSummary{
+		scoreDelta("overall", prev.Score.Overall.Final, curr.Score.Overall.Final),
+		scoreDelta("storage", prev.Score.Storage.Final, curr.Score.Storage.Final),
+		scoreDelta("workload", prev.Score.Workload.Final, curr.Score.Workload.Final),
+		scoreDelta("config", prev.Score.Config.Final, curr.Score.Config.Final),
+		scoreDelta("backup", prev.Score.Backup.Final, curr.Score.Backup.Final),
+	}
+	r.SeverityDeltas = buildSeverityDeltas(prev.Inventory.Findings, curr.Inventory.Findings)
+	r.InventoryDeltas = []model.InventoryDeltaSummary{
+		{Name: "namespaces", Added: len(r.NamespacesAdded), Removed: len(r.NamespacesRemoved)},
+		{Name: "workloads", Added: len(r.WorkloadsAdded), Removed: len(r.WorkloadsRemoved)},
+		{Name: "pvcs", Added: len(r.PVCsAdded), Removed: len(r.PVCsRemoved)},
+		{Name: "images", Added: len(r.ImagesAdded), Removed: len(r.ImagesRemoved)},
+	}
 
 	// Findings delta
 	prevSet := findingSet(prev.Inventory.Findings)
 	currSet := findingSet(curr.Inventory.Findings)
-	for k, f := range currSet {
-		if _, ok := prevSet[k]; !ok {
+	for _, f := range curr.Inventory.Findings {
+		prevFinding, ok := prevSet[findingKey(f)]
+		if !ok {
 			r.FindingsNew = append(r.FindingsNew, f)
+			continue
+		}
+		r.PersistentFinding++
+		if severityRank(f.Severity) > severityRank(prevFinding.Severity) {
+			r.FindingsRegressed = append(r.FindingsRegressed, buildFindingChange(prevFinding, f, "severity-up"))
+		} else if severityRank(f.Severity) < severityRank(prevFinding.Severity) {
+			r.FindingsImproved = append(r.FindingsImproved, buildFindingChange(prevFinding, f, "severity-down"))
 		}
 	}
-	for k, f := range prevSet {
-		if _, ok := currSet[k]; !ok {
+	for _, f := range prev.Inventory.Findings {
+		if _, ok := currSet[findingKey(f)]; !ok {
 			r.FindingsResolved = append(r.FindingsResolved, f)
 		}
 	}
@@ -128,7 +152,77 @@ func workloadKeys(b *model.Bundle) map[string]struct{} {
 func findingSet(findings []model.Finding) map[string]model.Finding {
 	m := make(map[string]model.Finding, len(findings))
 	for _, f := range findings {
-		m[f.ID+"|"+f.ResourceID] = f
+		m[findingKey(f)] = f
 	}
 	return m
+}
+
+func findingKey(f model.Finding) string {
+	return f.ID + "|" + f.ResourceID
+}
+
+func scoreDelta(name string, prev, curr int) model.ScoreDeltaSummary {
+	return model.ScoreDeltaSummary{
+		Name:     name,
+		Previous: prev,
+		Current:  curr,
+		Delta:    curr - prev,
+	}
+}
+
+func severityRank(severity string) int {
+	switch severity {
+	case "CRITICAL":
+		return 4
+	case "HIGH":
+		return 3
+	case "MEDIUM":
+		return 2
+	case "LOW":
+		return 1
+	case "INFO":
+		return 0
+	default:
+		return -1
+	}
+}
+
+func buildSeverityDeltas(prev, curr []model.Finding) []model.SeverityDeltaSummary {
+	severities := []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
+	prevCounts := severityCounts(prev)
+	currCounts := severityCounts(curr)
+	out := make([]model.SeverityDeltaSummary, 0, len(severities))
+	for _, severity := range severities {
+		out = append(out, model.SeverityDeltaSummary{
+			Severity: severity,
+			Previous: prevCounts[severity],
+			Current:  currCounts[severity],
+			Delta:    currCounts[severity] - prevCounts[severity],
+		})
+	}
+	return out
+}
+
+func severityCounts(findings []model.Finding) map[string]int {
+	out := map[string]int{}
+	for _, finding := range findings {
+		out[finding.Severity]++
+	}
+	return out
+}
+
+func buildFindingChange(prev, curr model.Finding, change string) model.FindingChange {
+	return model.FindingChange{
+		ID:               curr.ID,
+		Title:            curr.Title,
+		ResourceID:       curr.ResourceID,
+		Message:          curr.Message,
+		Recommendation:   curr.Recommendation,
+		PreviousSeverity: prev.Severity,
+		CurrentSeverity:  curr.Severity,
+		Change:           change,
+		OwnerHint:        curr.OwnerHint,
+		Impact:           curr.Impact,
+		Effort:           curr.Effort,
+	}
 }

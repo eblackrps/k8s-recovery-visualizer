@@ -21,6 +21,8 @@ type IndexEntry struct {
 	Storage      model.DomainScore `json:"storage"`
 	Workload     model.DomainScore `json:"workload"`
 	Config       model.DomainScore `json:"config"`
+	Backup       model.DomainScore `json:"backup"`
+	Findings     int               `json:"findings,omitempty"`
 	JSONFile     string            `json:"jsonFile"`
 	MDFile       string            `json:"mdFile"`
 	HTMLFile     string            `json:"htmlFile"`
@@ -35,6 +37,24 @@ type Trend struct {
 	Current  int
 	Delta    int
 	Label    string // IMPROVING / DECLINING / SAME / FIRST_RUN
+}
+
+type DomainTrend struct {
+	Name      string
+	Current   int
+	Delta     int
+	Direction string
+}
+
+type Dashboard struct {
+	Entries      []model.TrendPoint
+	TrendLabel   string
+	TrendDelta   int
+	AverageScore int
+	BestScore    int
+	WorstScore   int
+	RunCount     int
+	DomainTrends []DomainTrend
 }
 
 func Record(outDir string, b *model.Bundle) (Trend, error) {
@@ -79,6 +99,8 @@ func Record(outDir string, b *model.Bundle) (Trend, error) {
 		Storage:      b.Score.Storage,
 		Workload:     b.Score.Workload,
 		Config:       b.Score.Config,
+		Backup:       b.Score.Backup,
+		Findings:     len(b.Inventory.Findings),
 		JSONFile:     filepath.ToSlash(filepath.Join("history", jsonName)),
 		MDFile:       filepath.ToSlash(filepath.Join("history", mdName)),
 		HTMLFile:     filepath.ToSlash(filepath.Join("history", htmlName)),
@@ -132,10 +154,77 @@ func LoadRecent(outDir string, n int) []model.TrendPoint {
 		pts[i] = model.TrendPoint{
 			TimestampUTC: e.TimestampUTC,
 			Overall:      e.Overall,
+			Storage:      e.Storage.Final,
+			Workload:     e.Workload.Final,
+			Config:       e.Config.Final,
+			Backup:       e.Backup.Final,
+			Findings:     e.Findings,
 			Maturity:     e.Maturity,
 		}
 	}
 	return pts
+}
+
+func LoadDashboard(outDir string, n int) Dashboard {
+	entries := LoadRecent(outDir, n)
+	if len(entries) == 0 {
+		return Dashboard{}
+	}
+
+	best := entries[0].Overall
+	worst := entries[0].Overall
+	total := 0
+	for _, entry := range entries {
+		total += entry.Overall
+		if entry.Overall > best {
+			best = entry.Overall
+		}
+		if entry.Overall < worst {
+			worst = entry.Overall
+		}
+	}
+
+	dashboard := Dashboard{
+		Entries:      entries,
+		AverageScore: total / len(entries),
+		BestScore:    best,
+		WorstScore:   worst,
+		RunCount:     len(entries),
+	}
+	if len(entries) >= 2 {
+		last := entries[len(entries)-1]
+		prev := entries[len(entries)-2]
+		delta := last.Overall - prev.Overall
+		dashboard.TrendDelta = delta
+		switch {
+		case delta > 0:
+			dashboard.TrendLabel = "IMPROVING"
+		case delta < 0:
+			dashboard.TrendLabel = "DECLINING"
+		default:
+			dashboard.TrendLabel = "SAME"
+		}
+		dashboard.DomainTrends = []DomainTrend{
+			buildDomainTrend("storage", prev.Storage, last.Storage),
+			buildDomainTrend("workload", prev.Workload, last.Workload),
+			buildDomainTrend("config", prev.Config, last.Config),
+			buildDomainTrend("backup", prev.Backup, last.Backup),
+		}
+	} else {
+		dashboard.TrendLabel = "FIRST_RUN"
+	}
+	return dashboard
+}
+
+func buildDomainTrend(name string, prev, curr int) DomainTrend {
+	trend := DomainTrend{Name: name, Current: curr, Delta: curr - prev, Direction: "same"}
+	switch {
+	case trend.Delta > 0:
+		trend.Direction = "up"
+	case trend.Delta < 0:
+		trend.Direction = "down"
+	}
+	return trend
 }
 
 // SnapshotLatestHTML updates the most recent history HTML artifact with the

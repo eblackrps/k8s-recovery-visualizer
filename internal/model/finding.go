@@ -10,11 +10,17 @@ const (
 
 type Finding struct {
 	ID             string             `json:"id"`
+	Title          string             `json:"title,omitempty"`
 	Domain         string             `json:"domain,omitempty"`
 	Severity       string             `json:"severity"`
 	ResourceID     string             `json:"resourceId"`
 	Message        string             `json:"message"`
 	Recommendation string             `json:"recommendation"`
+	Impact         string             `json:"impact,omitempty"`
+	Effort         string             `json:"effort,omitempty"`
+	OwnerHint      string             `json:"ownerHint,omitempty"`
+	PriorityScore  int                `json:"priorityScore,omitempty"`
+	Rank           int                `json:"rank,omitempty"`
 	Penalty        int                `json:"penalty,omitempty"`
 	Confidence     EvidenceConfidence `json:"confidence,omitempty"`
 }

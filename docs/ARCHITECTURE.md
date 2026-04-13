@@ -84,8 +84,8 @@
 
 ## Compatibility Contracts
 
-- `recovery-scan.json` schema: [`../schemas/recovery-scan-3.0.0.schema.json`](../schemas/recovery-scan-3.0.0.schema.json)
-- `recovery-enriched.json` schema: [`../schemas/recovery-enriched-1.1.0.schema.json`](../schemas/recovery-enriched-1.1.0.schema.json)
+- `recovery-scan.json` schema: [`../schemas/recovery-scan-3.1.0.schema.json`](../schemas/recovery-scan-3.1.0.schema.json)
+- `recovery-enriched.json` schema: [`../schemas/recovery-enriched-1.2.0.schema.json`](../schemas/recovery-enriched-1.2.0.schema.json)
 
 The current release line preserves both published schema versions.
 

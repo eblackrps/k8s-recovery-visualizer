@@ -22,56 +22,80 @@ type toolSpec struct {
 	PodLabelValue string
 }
 
-var knownTools = []toolSpec{
-	{
-		Name:          "kasten",
-		Namespaces:    []string{"kasten-io"},
-		CRDGroupParts: []string{"kio.kasten.io", "config.kio.kasten.io"},
-		PodLabelKey:   "app",
-		PodLabelValue: "k10",
-	},
-	{
-		Name:          "velero",
-		Namespaces:    []string{"velero"},
-		CRDGroupParts: []string{"velero.io"},
-		PodLabelKey:   "app.kubernetes.io/name",
-		PodLabelValue: "velero",
-	},
-	{
-		Name:          "rubrik",
-		Namespaces:    []string{"rubrik", "rbs"},
-		CRDGroupParts: []string{"rubrik.com"},
-		PodLabelKey:   "app",
-		PodLabelValue: "rubrik-backup-service",
-	},
-	{
-		Name:          "longhorn",
-		Namespaces:    []string{"longhorn-system"},
-		CRDGroupParts: []string{"longhorn.io"},
-		PodLabelKey:   "app",
-		PodLabelValue: "longhorn-manager",
-	},
-	{
-		Name:          "trilio",
-		Namespaces:    []string{"trilio-system"},
-		CRDGroupParts: []string{"triliovault.trilio.io"},
-		PodLabelKey:   "app",
-		PodLabelValue: "trilio",
-	},
-	{
-		Name:          "stash",
-		Namespaces:    []string{"stash"},
-		CRDGroupParts: []string{"stash.appscode.com"},
-		PodLabelKey:   "app",
-		PodLabelValue: "stash",
-	},
-	{
-		Name:          "cloudcasa",
-		Namespaces:    []string{"cloudcasa-io"},
-		CRDGroupParts: []string{"cloudcasa.io"},
-		PodLabelKey:   "app",
-		PodLabelValue: "cloudcasa",
-	},
+type toolCollector interface {
+	name() string
+	detect(ctx context.Context, cs *kubernetes.Clientset, nsSet, crdGroups map[string]struct{}) model.BackupDetectedTool
+	inspect(ctx context.Context, cs *kubernetes.Clientset) inspectionResult
+}
+
+type signatureCollector struct {
+	spec      toolSpec
+	inspectFn func(context.Context, *kubernetes.Clientset) inspectionResult
+}
+
+func (c signatureCollector) name() string {
+	return c.spec.Name
+}
+
+func (c signatureCollector) detect(ctx context.Context, cs *kubernetes.Clientset, nsSet, crdGroups map[string]struct{}) model.BackupDetectedTool {
+	tool := model.BackupDetectedTool{
+		Name:     c.spec.Name,
+		Detected: false,
+	}
+	foundNS := ""
+	for _, ns := range c.spec.Namespaces {
+		if _, ok := nsSet[ns]; ok {
+			foundNS = ns
+			tool.Detected = true
+			tool.Namespace = ns
+			break
+		}
+	}
+	for group := range crdGroups {
+		for _, part := range c.spec.CRDGroupParts {
+			if strings.Contains(group, part) {
+				tool.Detected = true
+				tool.CRDsFound = append(tool.CRDsFound, group)
+			}
+		}
+	}
+	if foundNS != "" && c.spec.PodLabelKey != "" {
+		selector := c.spec.PodLabelKey + "=" + c.spec.PodLabelValue
+		pods, err := cs.CoreV1().Pods(foundNS).List(ctx, metav1.ListOptions{
+			LabelSelector: selector,
+			Limit:         1,
+		})
+		if err == nil && len(pods.Items) > 0 {
+			pod := pods.Items[0]
+			if v := pod.Labels["app.kubernetes.io/version"]; v != "" {
+				tool.Version = v
+			} else if v := pod.Labels["helm.sh/chart"]; v != "" {
+				tool.Version = v
+			}
+		}
+	}
+	return tool
+}
+
+func (c signatureCollector) inspect(ctx context.Context, cs *kubernetes.Clientset) inspectionResult {
+	if c.inspectFn != nil {
+		return c.inspectFn(ctx, cs)
+	}
+	return inspectionResult{
+		Tool:   c.spec.Name,
+		Status: model.BackupCoverageStatusUnsupported,
+		Reason: fmt.Sprintf("%s was detected, but this scanner does not yet inspect its policies or schedules.", c.spec.Name),
+	}
+}
+
+var collectors = []toolCollector{
+	signatureCollector{spec: toolSpec{Name: "kasten", Namespaces: []string{"kasten-io"}, CRDGroupParts: []string{"kio.kasten.io", "config.kio.kasten.io"}, PodLabelKey: "app", PodLabelValue: "k10"}, inspectFn: kastenPolicies},
+	signatureCollector{spec: toolSpec{Name: "velero", Namespaces: []string{"velero"}, CRDGroupParts: []string{"velero.io"}, PodLabelKey: "app.kubernetes.io/name", PodLabelValue: "velero"}, inspectFn: veleroSchedules},
+	signatureCollector{spec: toolSpec{Name: "rubrik", Namespaces: []string{"rubrik", "rbs"}, CRDGroupParts: []string{"rubrik.com"}, PodLabelKey: "app", PodLabelValue: "rubrik-backup-service"}},
+	signatureCollector{spec: toolSpec{Name: "longhorn", Namespaces: []string{"longhorn-system"}, CRDGroupParts: []string{"longhorn.io"}, PodLabelKey: "app", PodLabelValue: "longhorn-manager"}, inspectFn: longhornRecurringJobs},
+	signatureCollector{spec: toolSpec{Name: "trilio", Namespaces: []string{"trilio-system"}, CRDGroupParts: []string{"triliovault.trilio.io"}, PodLabelKey: "app", PodLabelValue: "trilio"}},
+	signatureCollector{spec: toolSpec{Name: "stash", Namespaces: []string{"stash"}, CRDGroupParts: []string{"stash.appscode.com"}, PodLabelKey: "app", PodLabelValue: "stash"}},
+	signatureCollector{spec: toolSpec{Name: "cloudcasa", Namespaces: []string{"cloudcasa-io"}, CRDGroupParts: []string{"cloudcasa.io"}, PodLabelKey: "app", PodLabelValue: "cloudcasa"}},
 }
 
 type inspectionResult struct {
@@ -104,51 +128,8 @@ func Detect(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) {
 		CoverageStatus: model.BackupCoverageStatusNotDetected,
 	}
 
-	for _, spec := range knownTools {
-		tool := model.BackupDetectedTool{
-			Name:     spec.Name,
-			Detected: false,
-		}
-
-		// Check namespace presence
-		foundNS := ""
-		for _, ns := range spec.Namespaces {
-			if _, ok := nsSet[ns]; ok {
-				foundNS = ns
-				tool.Detected = true
-				tool.Namespace = ns
-				break
-			}
-		}
-
-		// Check CRD presence
-		for group := range crdGroups {
-			for _, part := range spec.CRDGroupParts {
-				if strings.Contains(group, part) {
-					tool.Detected = true
-					tool.CRDsFound = append(tool.CRDsFound, group)
-				}
-			}
-		}
-
-		// If namespace found, check for pods to confirm and get version
-		if foundNS != "" && spec.PodLabelKey != "" {
-			selector := spec.PodLabelKey + "=" + spec.PodLabelValue
-			pods, err := cs.CoreV1().Pods(foundNS).List(ctx, metav1.ListOptions{
-				LabelSelector: selector,
-				Limit:         1,
-			})
-			if err == nil && len(pods.Items) > 0 {
-				pod := pods.Items[0]
-				if v := pod.Labels["app.kubernetes.io/version"]; v != "" {
-					tool.Version = v
-				} else if v := pod.Labels["helm.sh/chart"]; v != "" {
-					tool.Version = v
-				}
-			}
-		}
-
-		inv.Tools = append(inv.Tools, tool)
+	for _, collector := range collectors {
+		inv.Tools = append(inv.Tools, collector.detect(ctx, cs, nsSet, crdGroups))
 	}
 
 	inspectDetectedTools(ctx, cs, b, &inv)
@@ -157,24 +138,6 @@ func Detect(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) {
 }
 
 // ── Policy collection ──────────────────────────────────────────────────────
-
-// collectPolicies fetches backup policies/schedules for supported tools.
-func collectPolicies(ctx context.Context, cs *kubernetes.Clientset, tool string) inspectionResult {
-	switch tool {
-	case "velero":
-		return veleroSchedules(ctx, cs)
-	case "kasten":
-		return kastenPolicies(ctx, cs)
-	case "longhorn":
-		return longhornRecurringJobs(ctx, cs)
-	default:
-		return inspectionResult{
-			Tool:   tool,
-			Status: model.BackupCoverageStatusUnsupported,
-			Reason: fmt.Sprintf("%s was detected, but this scanner does not yet inspect its policies or schedules.", tool),
-		}
-	}
-}
 
 // veleroSchedules reads velero.io/v1 Schedule objects.
 func veleroSchedules(ctx context.Context, cs *kubernetes.Clientset) inspectionResult {
@@ -525,12 +488,20 @@ func policyCoversNamespace(p model.BackupPolicy, ns string) bool {
 }
 
 func inspectDetectedTools(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle, inv *model.BackupInventory) {
+	collectorIndex := map[string]toolCollector{}
+	for _, collector := range collectors {
+		collectorIndex[collector.name()] = collector
+	}
 	var detected []rankedInspection
 	for i := range inv.Tools {
 		if !inv.Tools[i].Detected {
 			continue
 		}
-		result := collectPolicies(ctx, cs, inv.Tools[i].Name)
+		collector := collectorIndex[inv.Tools[i].Name]
+		if collector == nil {
+			continue
+		}
+		result := collector.inspect(ctx, cs)
 		inv.Tools[i].PolicyInspectionStatus = result.Status
 		inv.Tools[i].PolicyInspectionDetail = result.Reason
 		detected = append(detected, rankedInspection{index: i, result: result})

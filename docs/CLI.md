@@ -73,6 +73,7 @@ Use the CI gate engine:
 ```bash
 go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
 go run ./cmd/check --current ./out/recovery-scan.json --previous ./previous/recovery-scan.json --max-drop 5 --fail-on-new-critical
+go run ./cmd/check --current ./out/recovery-scan.json --previous ./previous/recovery-scan.json --min-backup-score 80 --max-critical-findings 0 --max-new-findings 0 --max-regressed-findings 0 --format json
 ```
 
 ## Output Artifacts
@@ -86,6 +87,13 @@ The CLI can write:
 - optional summary, runbook, CSV, and redacted artifacts
 
 All HTML outputs remain self-contained and offline-friendly.
+
+Current scan bundles also include:
+
+- prioritized findings with `rank`, `impact`, `ownerHint`, `effort`, and `priorityScore`
+- restore-readiness summaries and per-namespace readiness states
+- a generated restore drill plan under `inventory.backup.drillPlan`
+- richer compare summaries and per-domain trend points when history or `--compare` data is available
 
 ## High-Value Flags
 
@@ -101,6 +109,22 @@ All HTML outputs remain self-contained and offline-friendly.
 | `--csv` | Emit CSV exports for spreadsheet or downstream analysis |
 | `--include-secret-metadata` | Opt in to Secret metadata collection when you have approved RBAC for it |
 | `--insecure` | Skip TLS verification for clusters with a known self-signed or broken trust chain |
+
+## `cmd/check` Gate Flags
+
+`cmd/check` now supports broader operator policy gates in addition to the existing score and regression thresholds.
+
+| Flag | Purpose |
+| --- | --- |
+| `--min-storage-score` / `--min-workload-score` / `--min-config-score` / `--min-backup-score` | Fail a pipeline on weak domain-specific posture even when overall score still passes |
+| `--max-critical-findings` / `--max-high-findings` | Enforce finding budgets by severity |
+| `--max-new-findings` | Cap newly introduced findings compared with a baseline bundle |
+| `--max-regressed-findings` | Cap findings whose severity got worse between bundles |
+| `--max-drop` / `--max-drop-pct` | Budget overall score regression |
+| `--fail-on-new-critical` | Fail immediately when a new critical finding appears |
+| `--fail-on-uncovered-stateful` | Fail when verified backup scope still misses stateful namespaces |
+| `--fail-on-offsite-loss` | Fail when offsite evidence disappears between scans |
+| `--fail-on-missing-backup-policies` | Fail when a backup tool is present but schedules/policies are not |
 
 ## Compatibility Notes
 

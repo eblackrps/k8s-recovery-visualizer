@@ -104,7 +104,11 @@ export function ResultsView(props: {
               caption="Findings"
               rows={filteredFindings as Array<Record<string, unknown>>}
               columns={[
+                { key: "rank", label: "Rank" },
                 { key: "severity", label: "Severity" },
+                { key: "ownerHint", label: "Owner" },
+                { key: "impact", label: "Impact" },
+                { key: "effort", label: "Effort" },
                 { key: "resourceId", label: "Resource" },
                 { key: "message", label: "Finding" },
                 { key: "recommendation", label: "Recommendation" },
@@ -122,7 +126,11 @@ export function ResultsView(props: {
                       <p className="eyebrow">Priority {step.priority}</p>
                       <h4>{step.title}</h4>
                     </div>
-                    <span className="chip">{step.category}</span>
+                    <div className="toolbar">
+                      {step.ownerHint ? <span className="chip">{step.ownerHint}</span> : null}
+                      {step.effort ? <span className="chip">Effort {step.effort}</span> : null}
+                      <span className="chip">{step.category}</span>
+                    </div>
                   </div>
                   <p>{step.detail}</p>
                   {step.whyItMatters ? <p className="muted">Why it matters: {step.whyItMatters}</p> : null}
@@ -160,6 +168,23 @@ function SummaryPanel(props: { bundle: Bundle; workspace: Workspace }) {
         </Card>
         <Card title="Backup Trust">
           <KeyValueGrid items={[["Primary Tool", bundle.inventory.backup?.primaryTool || "none"], ["Coverage", bundle.inventory.backup?.coverageStatus || "unknown"], ["Assurance", bundle.inventory.backup?.assurance?.conclusion || "not assessed"], ["Offsite", bundle.inventory.backup?.hasOffsite ? "verified" : "missing"]]} />
+        </Card>
+      </div>
+      <div className="summary-two-up">
+        <Card title="History Summary">
+          <KeyValueGrid items={[["Runs", String(props.workspace.history.runCount || props.workspace.history.entries.length || 0)], ["Average", String(props.workspace.history.averageScore || "n/a")], ["Best", String(props.workspace.history.bestScore || "n/a")], ["Worst", String(props.workspace.history.worstScore || "n/a")], ["Recent Trend", `${props.workspace.history.trendLabel || "FIRST_RUN"}${props.workspace.history.trendDelta ? ` (${props.workspace.history.trendDelta > 0 ? "+" : ""}${props.workspace.history.trendDelta})` : ""}`]]} />
+        </Card>
+        <Card title="Domain Trends">
+          <DataTable
+            caption="Domain trends"
+            rows={(props.workspace.history.domainTrends || []) as Array<Record<string, unknown>>}
+            columns={[
+              { key: "name", label: "Domain", render: (value) => titleCase(String(value || "")) },
+              { key: "current", label: "Current" },
+              { key: "delta", label: "Delta", render: (value) => formatDelta(Number(value || 0)) },
+              { key: "direction", label: "Direction", render: (value) => titleCase(String(value || "same")) },
+            ]}
+          />
         </Card>
       </div>
       <Card title="History">
@@ -223,12 +248,21 @@ function BackupPanel(props: { bundle: Bundle }) {
         <MetricCard label="Coverage" value={backup?.coverageStatus || "unknown"} tone="accent" />
         <MetricCard label="Assurance" value={backup?.assurance?.conclusion || "unknown"} tone="success" />
         <MetricCard label="Offsite" value={backup?.hasOffsite ? "yes" : "no"} tone={backup?.hasOffsite ? "success" : "high"} />
+        <MetricCard label="Ready NS" value={backup?.restoreSim?.readyNamespaces || 0} tone="success" />
+        <MetricCard label="Blocked NS" value={backup?.restoreSim?.blockedNamespaces || 0} tone="critical" />
       </div>
       <Card title="Policies">
         <DataTable caption="Policies" rows={(backup?.policies || []) as Array<Record<string, unknown>>} columns={[{ key: "tool", label: "Tool" }, { key: "name", label: "Policy" }, { key: "schedule", label: "Schedule" }, { key: "rpoHours", label: "RPO (h)" }, { key: "lastSuccessAt", label: "Last Success" }]} />
       </Card>
+      <Card title="Restore Readiness">
+        <KeyValueGrid items={[["Ready namespaces", String(backup?.restoreSim?.readyNamespaces || 0)], ["Blocked namespaces", String(backup?.restoreSim?.blockedNamespaces || 0)], ["Warning namespaces", String(backup?.restoreSim?.warningNamespaces || 0)], ["Unknown namespaces", String(backup?.restoreSim?.unknownNamespaces || 0)], ["Covered PVC GiB", String(backup?.restoreSim?.coveredPvcsGb || 0)], ["Data at risk GiB", String(backup?.restoreSim?.estimatedDataAtRiskGb || 0)]]} />
+        {(backup?.restoreSim?.blockingReasons || []).length ? <p className="muted">Top blockers: {(backup?.restoreSim?.blockingReasons || []).join(" · ")}</p> : null}
+      </Card>
       <Card title="Restore Simulation">
-        <DataTable caption="Restore simulation" rows={(backup?.restoreSim?.namespaces || []) as Array<Record<string, unknown>>} columns={[{ key: "namespace", label: "Namespace" }, { key: "hasCoverage", label: "Covered", render: (value) => statusCell(Boolean(value)) }, { key: "rpoHours", label: "RPO (h)" }, { key: "pvcSizeGb", label: "PVC GB" }, { key: "warnings", label: "Warnings", render: (value) => listCell(value) }]} />
+        <DataTable caption="Restore simulation" rows={(backup?.restoreSim?.namespaces || []) as Array<Record<string, unknown>>} columns={[{ key: "namespace", label: "Namespace" }, { key: "readiness", label: "Readiness", render: (value) => titleCase(String(value || "unknown")) }, { key: "hasCoverage", label: "Covered", render: (value) => statusCell(Boolean(value)) }, { key: "rpoHours", label: "RPO (h)" }, { key: "pvcSizeGb", label: "PVC GB" }, { key: "blockers", label: "Blockers", render: (value) => listCell(value) }, { key: "warnings", label: "Warnings", render: (value) => listCell(value) }]} />
+      </Card>
+      <Card title="Restore Drill Plan">
+        <DataTable caption="Restore drill plan" rows={(backup?.drillPlan || []) as Array<Record<string, unknown>>} columns={[{ key: "phase", label: "Phase", render: (value) => titleCase(String(value || "")) }, { key: "title", label: "Step" }, { key: "ownerHint", label: "Owner" }, { key: "detail", label: "Detail" }, { key: "validation", label: "Validate", render: (value) => listCell(value) }]} />
       </Card>
     </div>
   );
@@ -255,11 +289,28 @@ function ComparePanel(props: { bundle: Bundle }) {
         <MetricCard label="Delta" value={`${(compare?.scoreDelta || 0) > 0 ? "+" : ""}${compare?.scoreDelta || 0}`} tone="accent" />
         <MetricCard label="New Findings" value={(compare?.findingsNew || []).length} tone="high" />
         <MetricCard label="Resolved" value={(compare?.findingsResolved || []).length} tone="success" />
+        <MetricCard label="Regressed" value={(compare?.findingsRegressed || []).length} tone="critical" />
+        <MetricCard label="Persistent" value={compare?.persistentFindingCount || 0} />
       </div>
       <Card title="Change Summary">
-        <KeyValueGrid items={[["Previous Scan", compare?.previousScannedAt || "n/a"], ["Backup Tool", `${compare?.backupToolPrevious || "none"} -> ${compare?.backupToolCurrent || "none"}`], ["Namespaces Added", (compare?.namespacesAdded || []).join(", ") || "none"], ["Workloads Added", (compare?.workloadsAdded || []).join(", ") || "none"]]} />
+        <KeyValueGrid items={[["Previous Scan", compare?.previousScannedAt || "n/a"], ["Maturity", `${compare?.previousMaturity || "n/a"} -> ${compare?.currentMaturity || "n/a"}`], ["Backup Tool", `${compare?.backupToolPrevious || "none"} -> ${compare?.backupToolCurrent || "none"}`], ["Namespaces Added", (compare?.namespacesAdded || []).join(", ") || "none"], ["Workloads Added", (compare?.workloadsAdded || []).join(", ") || "none"]]} />
+      </Card>
+      <Card title="Score Deltas">
+        <DataTable caption="Score deltas" rows={(compare?.domainDeltas || []) as Array<Record<string, unknown>>} columns={[{ key: "name", label: "Domain", render: (value) => titleCase(String(value || "")) }, { key: "previous", label: "Previous" }, { key: "current", label: "Current" }, { key: "delta", label: "Delta", render: (value) => formatDelta(Number(value || 0)) }]} />
+      </Card>
+      <Card title="Severity Deltas">
+        <DataTable caption="Severity deltas" rows={(compare?.severityDeltas || []) as Array<Record<string, unknown>>} columns={[{ key: "severity", label: "Severity" }, { key: "previous", label: "Previous" }, { key: "current", label: "Current" }, { key: "delta", label: "Delta", render: (value) => formatDelta(Number(value || 0)) }]} />
+      </Card>
+      <Card title="Inventory Deltas">
+        <DataTable caption="Inventory deltas" rows={(compare?.inventoryDeltas || []) as Array<Record<string, unknown>>} columns={[{ key: "name", label: "Area", render: (value) => titleCase(String(value || "")) }, { key: "added", label: "Added" }, { key: "removed", label: "Removed" }]} />
       </Card>
       <DataTable caption="New findings" rows={(compare?.findingsNew || []) as Array<Record<string, unknown>>} columns={[{ key: "severity", label: "Severity" }, { key: "resourceId", label: "Resource" }, { key: "message", label: "Message" }]} />
+      <DataTable caption="Regressed findings" rows={(compare?.findingsRegressed || []) as Array<Record<string, unknown>>} columns={[{ key: "previousSeverity", label: "Was" }, { key: "currentSeverity", label: "Now" }, { key: "change", label: "Change" }, { key: "resourceId", label: "Resource" }, { key: "message", label: "Message" }, { key: "ownerHint", label: "Owner" }]} />
+      <DataTable caption="Improved findings" rows={(compare?.findingsImproved || []) as Array<Record<string, unknown>>} columns={[{ key: "previousSeverity", label: "Was" }, { key: "currentSeverity", label: "Now" }, { key: "change", label: "Change" }, { key: "resourceId", label: "Resource" }, { key: "message", label: "Message" }]} />
     </div>
   );
+}
+
+function formatDelta(value: number) {
+  return `${value > 0 ? "+" : ""}${value}`;
 }

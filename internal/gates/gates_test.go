@@ -81,6 +81,50 @@ func TestEvaluatePassesWhenPolicyIsSatisfied(t *testing.T) {
 	}
 }
 
+func TestEvaluateSupportsDomainThresholdsAndRegressionBudgets(t *testing.T) {
+	previous := model.NewBundle("prev", time.Now().UTC())
+	previous.Score.Overall.Final = 88
+	previous.Score.Storage.Final = 86
+	previous.Score.Workload.Final = 85
+	previous.Score.Config.Final = 84
+	previous.Score.Backup.Final = 90
+	previous.Score.Maturity = "GOLD"
+	previous.Inventory.Findings = []model.Finding{
+		{ID: "BACKUP_NO_POLICIES", Severity: "MEDIUM", ResourceID: "cluster/demo"},
+	}
+
+	current := model.NewBundle("curr", time.Now().UTC())
+	current.Score.Overall.Final = 82
+	current.Score.Storage.Final = 86
+	current.Score.Workload.Final = 74
+	current.Score.Config.Final = 84
+	current.Score.Backup.Final = 81
+	current.Score.Maturity = "GOLD"
+	current.Inventory.Findings = []model.Finding{
+		{ID: "BACKUP_NO_POLICIES", Severity: "CRITICAL", ResourceID: "cluster/demo"},
+		{ID: "PVC_UNBOUND", Severity: "HIGH", ResourceID: "payments/db"},
+	}
+
+	eval := Evaluate(&current, &previous, Policy{
+		MinWorkloadScore:     80,
+		MinBackupScore:       85,
+		MaxCriticalFindings:  0,
+		MaxHighFindings:      0,
+		MaxNewFindings:       0,
+		MaxRegressedFindings: 0,
+	})
+
+	if eval.Status != StatusFail {
+		t.Fatalf("overall status = %s, want FAIL", eval.Status)
+	}
+	assertGateStatus(t, eval, "workload-score", StatusFail)
+	assertGateStatus(t, eval, "backup-score", StatusFail)
+	assertGateStatus(t, eval, "critical-finding-budget", StatusFail)
+	assertGateStatus(t, eval, "high-finding-budget", StatusFail)
+	assertGateStatus(t, eval, "new-finding-budget", StatusFail)
+	assertGateStatus(t, eval, "regressed-finding-budget", StatusFail)
+}
+
 func assertGateStatus(t *testing.T, eval Evaluation, id string, want Status) {
 	t.Helper()
 	for _, result := range eval.Results {

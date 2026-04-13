@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eblackrps/k8s-recovery-visualizer/schemas/recovery-enriched-1.2.0.schema.json",
+  "title": "k8s-recovery-visualizer recovery-enriched.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "generatedUtc",
+    "profile",
+    "current",
+    "risk",
+    "lastN"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.2.0"
+    },
+    "generatedUtc": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "current": {
+      "$ref": "#/$defs/historyEntry"
+    },
+    "previous": {
+      "$ref": "#/$defs/historyEntry"
+    },
+    "trend": {
+      "$ref": "#/$defs/trend"
+    },
+    "risk": {
+      "$ref": "#/$defs/risk"
+    },
+    "lastN": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "runCount": {
+      "type": "integer"
+    },
+    "averageScore": {
+      "type": "number"
+    },
+    "bestScore": {
+      "type": "number"
+    },
+    "worstScore": {
+      "type": "number"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/categoryScore"
+      }
+    },
+    "profileOverall": {
+      "type": "number"
+    },
+    "profileRiskPosture": {
+      "type": "string"
+    },
+    "categoryDeltas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/categoryDelta"
+      }
+    }
+  },
+  "$defs": {
+    "historyEntry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "timestampUtc",
+        "overall",
+        "maturity"
+      ],
+      "properties": {
+        "timestampUtc": {
+          "type": "string"
+        },
+        "overall": {
+          "type": "number"
+        },
+        "maturity": {
+          "type": "string"
+        }
+      }
+    },
+    "trend": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "deltaScore",
+        "deltaPercent",
+        "direction",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "deltaScore": {
+          "type": "number"
+        },
+        "deltaPercent": {
+          "type": "number"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "from": {
+          "type": "number"
+        },
+        "to": {
+          "type": "number"
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "score",
+        "maturity",
+        "posture"
+      ],
+      "properties": {
+        "score": {
+          "type": "number"
+        },
+        "maturity": {
+          "type": "string"
+        },
+        "posture": {
+          "type": "string"
+        }
+      }
+    },
+    "categoryScore": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "raw",
+        "weight",
+        "weighted",
+        "max",
+        "grade"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "raw": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        },
+        "weighted": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "grade": {
+          "type": "string"
+        }
+      }
+    },
+    "categoryDelta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "from",
+        "to",
+        "delta"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "from": {
+          "type": "number"
+        },
+        "to": {
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

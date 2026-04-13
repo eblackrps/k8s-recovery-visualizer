@@ -77,6 +77,72 @@ func TestBuildReportRendersStructuredRemediationGuidance(t *testing.T) {
 	}
 }
 
+func TestBuildReportRendersRestoreDrillAndFindingPrioritization(t *testing.T) {
+	b := model.NewBundle("scan-test", time.Now().UTC())
+	b.TrendHistory = []model.TrendPoint{
+		{TimestampUTC: "2026-04-01T12:00:00Z", Overall: 72, Storage: 80, Workload: 70, Config: 73, Backup: 64, Findings: 6, Maturity: "SILVER"},
+		{TimestampUTC: "2026-04-08T12:00:00Z", Overall: 81, Storage: 85, Workload: 79, Config: 82, Backup: 78, Findings: 3, Maturity: "GOLD"},
+	}
+	b.Inventory.Findings = []model.Finding{
+		{
+			ID:             "BACKUP_NONE",
+			Severity:       "CRITICAL",
+			ResourceID:     "cluster",
+			Message:        "No backup tool detected",
+			Recommendation: "Install and validate a backup platform",
+			OwnerHint:      "Platform / backup owner",
+			Impact:         "restore block",
+			Effort:         "L",
+			Rank:           1,
+		},
+	}
+	b.Inventory.Backup.RestoreSim = &model.RestoreSimResult{
+		Namespaces: []model.RestoreSimNamespace{
+			{Namespace: "payments", CoverageKnown: true, HasCoverage: false, Readiness: "blocked", Blockers: []string{"no backup coverage"}},
+		},
+		ReadyNamespaces:       0,
+		BlockedNamespaces:     1,
+		WarningNamespaces:     0,
+		UnknownNamespaces:     0,
+		EstimatedDataAtRiskGB: 48,
+		BlockingReasons:       []string{"no backup coverage"},
+	}
+	b.Inventory.Backup.DrillPlan = []model.RestoreDrillStep{
+		{Phase: "prepare", Title: "Freeze a restore window", Detail: "Coordinate the exercise before restoring workloads.", OwnerHint: "Platform engineering", Validation: []string{"Window approved"}},
+	}
+	b.Comparison = &model.ComparisonSummary{
+		PreviousScannedAt: "2026-04-01T12:00:00Z",
+		PreviousScore:     72,
+		PreviousMaturity:  "SILVER",
+		CurrentScore:      81,
+		CurrentMaturity:   "GOLD",
+		ScoreDelta:        9,
+		DomainDeltas: []model.ScoreDeltaSummary{
+			{Name: "backup", Previous: 64, Current: 78, Delta: 14},
+		},
+		SeverityDeltas: []model.SeverityDeltaSummary{
+			{Severity: "CRITICAL", Previous: 2, Current: 1, Delta: -1},
+		},
+		InventoryDeltas: []model.InventoryDeltaSummary{
+			{Name: "workloads", Added: 1, Removed: 0},
+		},
+		FindingsRegressed: []model.FindingChange{
+			{PreviousSeverity: "MEDIUM", CurrentSeverity: "HIGH", OwnerHint: "Platform / security", Impact: "access gap", Effort: "M", ResourceID: "clusterrole/view", Message: "RBAC posture worsened"},
+		},
+		PersistentFinding: 2,
+	}
+
+	var buf bytes.Buffer
+	buildReport(&buf, &b)
+	html := buf.String()
+
+	for _, fragment := range []string{"History Summary", "Restore Drill Planner", "Platform / backup owner", "restore block", "Severity Regressions", "Persistent Findings", "Top blocking reasons"} {
+		if !strings.Contains(html, fragment) {
+			t.Fatalf("buildReport() missing fragment %q", fragment)
+		}
+	}
+}
+
 func TestSharedOutputCSSUsesSharedThemePalette(t *testing.T) {
 	css := sharedOutputCSS()
 	for _, want := range []string{"#0d1117", "#161b22", "#58a6ff", "#7ee787", "#f85149"} {

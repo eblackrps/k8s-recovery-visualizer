@@ -14,6 +14,8 @@ Use this index to find the right starting point for operating, evaluating, or co
 ## Operator Guides
 
 - Platform and public support policy: [SUPPORT-MATRIX.md](SUPPORT-MATRIX.md)
+- Desktop-first evaluation flow, bundle review, compare, and export workflows: [GUI.md](GUI.md)
+- CLI automation, source builds, and policy gates: [CLI.md](CLI.md)
 - RBAC and degraded-mode behavior: [RBAC.md](RBAC.md)
 - Troubleshooting scan, packaging, and bundle-open issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - Backup capability coverage: [CAPABILITY-MATRIX.md](CAPABILITY-MATRIX.md)

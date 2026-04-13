@@ -99,6 +99,7 @@ If you changed the desktop UI or README screenshots, keep the generated images u
 - Keep `internal/scanapp` thin.
 - Prefer shared logic in `internal/appcore` instead of creating GUI-only execution paths.
 - Do not break published JSON schemas without versioning and documentation updates.
+- Keep schema references aligned with the current published contracts (`recovery-scan 3.1.0`, `recovery-enriched 1.2.0`) when the JSON surface changes.
 - Keep reports offline-friendly.
 - Route palette and styling changes through `internal/theme`.
 - Keep public release messaging aligned with the actual shipped artifacts.

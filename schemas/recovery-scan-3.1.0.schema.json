@@ -1,0 +1,1058 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eblackrps/k8s-recovery-visualizer/schemas/recovery-scan-3.1.0.schema.json",
+  "title": "k8s-recovery-visualizer recovery-scan.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "metadata",
+    "tool",
+    "scan",
+    "cluster",
+    "inventory",
+    "score"
+  ],
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "schemaVersion": {
+      "const": "3.1.0"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "tool": {
+      "$ref": "#/$defs/tool"
+    },
+    "scan": {
+      "$ref": "#/$defs/scan"
+    },
+    "cluster": {
+      "$ref": "#/$defs/cluster"
+    },
+    "inventory": {
+      "$ref": "#/$defs/inventory"
+    },
+    "score": {
+      "$ref": "#/$defs/score"
+    },
+    "target": {
+      "type": "string",
+      "enum": ["vm", "baremetal"]
+    },
+    "profile": {
+      "type": "string"
+    },
+    "collectorSkips": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/collectorSkip"
+      }
+    },
+    "scanNamespaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comparison": {
+      "$ref": "#/$defs/comparison"
+    },
+    "trendHistory": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/trendPoint"
+      }
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toolVersion", "generatedAt"],
+      "properties": {
+        "customerId": { "type": "string" },
+        "site": { "type": "string" },
+        "clusterName": { "type": "string" },
+        "environment": { "type": "string" },
+        "toolVersion": { "type": "string" },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "buildDate"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "buildDate": { "type": "string" }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scanId", "startedAt", "endedAt", "durationSeconds", "mode"],
+      "properties": {
+        "scanId": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "durationSeconds": { "type": "integer", "minimum": 0 },
+        "mode": { "type": "string" }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apiServer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "endpoint": { "type": "string" }
+          }
+        },
+        "platform": { "$ref": "#/$defs/platform" }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespaces",
+        "pvcs",
+        "pvs",
+        "pods",
+        "statefulSets",
+        "nodes",
+        "storageClasses",
+        "backup",
+        "findings"
+      ],
+      "properties": {
+        "namespaces": { "type": "array", "items": { "$ref": "#/$defs/namespace" } },
+        "pvcs": { "type": "array", "items": { "$ref": "#/$defs/persistentVolumeClaim" } },
+        "pvs": { "type": "array", "items": { "$ref": "#/$defs/persistentVolume" } },
+        "pods": { "type": "array", "items": { "$ref": "#/$defs/pod" } },
+        "statefulSets": { "type": "array", "items": { "$ref": "#/$defs/statefulSet" } },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "storageClasses": { "type": "array", "items": { "$ref": "#/$defs/storageClass" } },
+        "deployments": { "type": "array", "items": { "$ref": "#/$defs/deployment" } },
+        "daemonSets": { "type": "array", "items": { "$ref": "#/$defs/daemonSet" } },
+        "jobs": { "type": "array", "items": { "$ref": "#/$defs/job" } },
+        "cronJobs": { "type": "array", "items": { "$ref": "#/$defs/cronJob" } },
+        "services": { "type": "array", "items": { "$ref": "#/$defs/service" } },
+        "ingresses": { "type": "array", "items": { "$ref": "#/$defs/ingress" } },
+        "networkPolicies": { "type": "array", "items": { "$ref": "#/$defs/networkPolicy" } },
+        "configMaps": { "type": "array", "items": { "$ref": "#/$defs/configMap" } },
+        "secrets": { "type": "array", "items": { "$ref": "#/$defs/secret" } },
+        "clusterRoles": { "type": "array", "items": { "$ref": "#/$defs/clusterRole" } },
+        "clusterRoleBindings": { "type": "array", "items": { "$ref": "#/$defs/clusterRoleBinding" } },
+        "resourceQuotas": { "type": "array", "items": { "$ref": "#/$defs/resourceQuota" } },
+        "hpas": { "type": "array", "items": { "$ref": "#/$defs/hpa" } },
+        "podDisruptionBudgets": { "type": "array", "items": { "$ref": "#/$defs/podDisruptionBudget" } },
+        "crds": { "type": "array", "items": { "$ref": "#/$defs/crd" } },
+        "helmReleases": { "type": "array", "items": { "$ref": "#/$defs/helmRelease" } },
+        "images": { "type": "array", "items": { "$ref": "#/$defs/containerImage" } },
+        "certificates": { "type": "array", "items": { "$ref": "#/$defs/certificate" } },
+        "volumeSnapshotClasses": { "type": "array", "items": { "$ref": "#/$defs/volumeSnapshotClass" } },
+        "volumeSnapshots": { "type": "array", "items": { "$ref": "#/$defs/volumeSnapshot" } },
+        "limitRanges": { "type": "array", "items": { "$ref": "#/$defs/limitRange" } },
+        "etcdBackup": { "$ref": "#/$defs/etcdBackup" },
+        "serviceAccounts": { "type": "array", "items": { "$ref": "#/$defs/serviceAccount" } },
+        "backup": { "$ref": "#/$defs/backupInventory" },
+        "remediationSteps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/remediationStep" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "workload", "config", "backup", "overall", "maturity"],
+      "properties": {
+        "storage": { "$ref": "#/$defs/domainScore" },
+        "workload": { "$ref": "#/$defs/domainScore" },
+        "config": { "$ref": "#/$defs/domainScore" },
+        "backup": { "$ref": "#/$defs/domainScore" },
+        "overall": { "$ref": "#/$defs/domainScore" },
+        "maturity": { "type": "string" }
+      }
+    },
+    "domainScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max", "final"],
+      "properties": {
+        "max": { "type": "integer" },
+        "final": { "type": "integer" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "resourceId", "message", "recommendation"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "domain": { "type": "string" },
+        "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "resourceId": { "type": "string" },
+        "message": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "impact": { "type": "string" },
+        "effort": { "type": "string" },
+        "ownerHint": { "type": "string" },
+        "priorityScore": { "type": "integer" },
+        "rank": { "type": "integer", "minimum": 1 },
+        "penalty": { "type": "integer" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "score": { "type": "integer" },
+        "note": { "type": "string" },
+        "status": { "type": "string", "enum": ["PASS", "WARN", "FAIL"] },
+        "weight": { "type": "integer" },
+        "message": { "type": "string" },
+        "remediation": { "type": "string" }
+      }
+    },
+    "collectorSkip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "reason", "rbac"],
+      "properties": {
+        "name": { "type": "string" },
+        "reason": { "type": "string" },
+        "rbac": { "type": "boolean" }
+      }
+    },
+    "backupInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tools", "primaryTool", "coverageVerified", "coverageStatus", "hasOffsite"],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupTool" }
+        },
+        "primaryTool": { "type": "string" },
+        "coverageVerified": { "type": "boolean" },
+        "coverageStatus": { "$ref": "#/$defs/coverageStatus" },
+        "coverageReason": { "type": "string" },
+        "coverageSourceTools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "coveredNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "uncoveredStatefulNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "policies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupPolicy" }
+        },
+        "hasOffsite": { "type": "boolean" },
+        "offsiteCoveredNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "offsiteMissingNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "restoreSim": { "$ref": "#/$defs/restoreSim" },
+        "drillPlan": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/restoreDrillStep" }
+        },
+        "assurance": { "$ref": "#/$defs/backupAssurance" }
+      }
+    },
+    "backupTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "detected"],
+      "properties": {
+        "name": { "type": "string" },
+        "namespace": { "type": "string" },
+        "version": { "type": "string" },
+        "detected": { "type": "boolean" },
+        "crdsFound": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "policyInspectionStatus": { "$ref": "#/$defs/coverageStatus" },
+        "policyInspectionDetail": { "type": "string" }
+      }
+    },
+    "backupPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "name", "rpoHours", "hasOffsite"],
+      "properties": {
+        "tool": { "type": "string" },
+        "name": { "type": "string" },
+        "policyNamespace": { "type": "string" },
+        "includedNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "excludedNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schedule": { "type": "string" },
+        "retentionTtl": { "type": "string" },
+        "rpoHours": { "type": "integer" },
+        "hasOffsite": { "type": "boolean" },
+        "storageLocation": { "type": "string" },
+        "lastSuccessAt": { "type": "string" },
+        "lastSuccessAgeHours": { "type": "integer" },
+        "freshSchedule": { "type": "boolean" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "restoreNamespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "coverageKnown", "hasCoverage", "rpoHours", "pvcSizeGb"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "coverageKnown": { "type": "boolean" },
+        "hasCoverage": { "type": "boolean" },
+        "rpoHours": { "type": "integer" },
+        "pvcSizeGb": { "type": "number" },
+        "readiness": { "type": "string" },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" }
+      }
+    },
+    "restoreSim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespaces", "totalPvcsGb", "coveredPvcsGb"],
+      "properties": {
+        "namespaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/restoreNamespace" }
+        },
+        "totalPvcsGb": { "type": "number" },
+        "coveredPvcsGb": { "type": "number" },
+        "estimatedDataAtRiskGb": { "type": "number" },
+        "readyNamespaces": { "type": "integer", "minimum": 0 },
+        "blockedNamespaces": { "type": "integer", "minimum": 0 },
+        "warningNamespaces": { "type": "integer", "minimum": 0 },
+        "unknownNamespaces": { "type": "integer", "minimum": 0 },
+        "blockingReasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "uncoveredNamespaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "restoreDrillStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase", "title", "detail"],
+      "properties": {
+        "phase": { "type": "string" },
+        "title": { "type": "string" },
+        "detail": { "type": "string" },
+        "ownerHint": { "type": "string" },
+        "validation": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "backupAssurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conclusion", "summary"],
+      "properties": {
+        "conclusion": {
+          "type": "string",
+          "enum": [
+            "at_risk",
+            "unverified",
+            "coverage_gap",
+            "evidence_inferred",
+            "evidence_confirmed"
+          ]
+        },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" },
+        "summary": { "type": "string" },
+        "signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backupEvidenceSignal" }
+        }
+      }
+    },
+    "backupEvidenceSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "summary"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" },
+        "confidence": { "$ref": "#/$defs/evidenceConfidence" },
+        "summary": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "remediationStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priority", "category", "title", "detail"],
+      "properties": {
+        "priority": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "detail": { "type": "string" },
+        "ownerHint": { "type": "string" },
+        "effort": { "type": "string" },
+        "whyItMatters": { "type": "string" },
+        "drImpact": { "type": "string" },
+        "validation": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fixSteps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "caveats": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "targetNotes": { "type": "string" },
+        "findingId": { "type": "string" }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "previousScanId",
+        "previousScannedAt",
+        "previousScore",
+        "previousMaturity",
+        "currentScore",
+        "currentMaturity",
+        "scoreDelta",
+        "backupToolPrevious",
+        "backupToolCurrent",
+        "backupToolChanged"
+      ],
+      "properties": {
+        "previousScanId": { "type": "string" },
+        "previousScannedAt": { "type": "string" },
+        "previousScore": { "type": "integer" },
+        "previousMaturity": { "type": "string" },
+        "currentScore": { "type": "integer" },
+        "currentMaturity": { "type": "string" },
+        "scoreDelta": { "type": "integer" },
+        "namespacesAdded": { "$ref": "#/$defs/stringArray" },
+        "namespacesRemoved": { "$ref": "#/$defs/stringArray" },
+        "workloadsAdded": { "$ref": "#/$defs/stringArray" },
+        "workloadsRemoved": { "$ref": "#/$defs/stringArray" },
+        "pvcsAdded": { "$ref": "#/$defs/stringArray" },
+        "pvcsRemoved": { "$ref": "#/$defs/stringArray" },
+        "imagesAdded": { "$ref": "#/$defs/stringArray" },
+        "imagesRemoved": { "$ref": "#/$defs/stringArray" },
+        "backupToolPrevious": { "type": "string" },
+        "backupToolCurrent": { "type": "string" },
+        "backupToolChanged": { "type": "boolean" },
+        "domainDeltas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/scoreDeltaSummary" }
+        },
+        "severityDeltas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/severityDeltaSummary" }
+        },
+        "inventoryDeltas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inventoryDeltaSummary" }
+        },
+        "findingsNew": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "findingsResolved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "findingsRegressed": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/findingChange" }
+        },
+        "findingsImproved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/findingChange" }
+        },
+        "persistentFindingCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "trendPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ts", "score", "maturity"],
+      "properties": {
+        "ts": { "type": "string" },
+        "score": { "type": "integer" },
+        "storage": { "type": "integer" },
+        "workload": { "type": "integer" },
+        "config": { "type": "integer" },
+        "backup": { "type": "integer" },
+        "findings": { "type": "integer" },
+        "maturity": { "type": "string" }
+      }
+    },
+    "scoreDeltaSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "previous", "current", "delta"],
+      "properties": {
+        "name": { "type": "string" },
+        "previous": { "type": "integer" },
+        "current": { "type": "integer" },
+        "delta": { "type": "integer" }
+      }
+    },
+    "severityDeltaSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "previous", "current", "delta"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "previous": { "type": "integer" },
+        "current": { "type": "integer" },
+        "delta": { "type": "integer" }
+      }
+    },
+    "inventoryDeltaSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "added", "removed"],
+      "properties": {
+        "name": { "type": "string" },
+        "added": { "type": "integer" },
+        "removed": { "type": "integer" }
+      }
+    },
+    "findingChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resourceId", "message", "change"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "message": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "previousSeverity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "currentSeverity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "change": { "type": "string" },
+        "ownerHint": { "type": "string" },
+        "impact": { "type": "string" },
+        "effort": { "type": "string" }
+      }
+    },
+    "coverageStatus": {
+      "type": "string",
+      "enum": [
+        "not_detected",
+        "verified",
+        "unsupported",
+        "permission_denied",
+        "api_error",
+        "parse_error"
+      ]
+    },
+    "evidenceConfidence": {
+      "type": "string",
+      "enum": ["confirmed", "inferred", "unknown"]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "namespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "psaEnforce": { "type": "string" },
+        "psaWarn": { "type": "string" },
+        "psaAudit": { "type": "string" }
+      }
+    },
+    "persistentVolumeClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "namespace"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "namespace": { "type": "string" },
+        "storageClass": { "type": "string" },
+        "accessModes": { "$ref": "#/$defs/stringArray" },
+        "requestedSize": { "type": "string" }
+      }
+    },
+    "persistentVolume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "storageClass": { "type": "string" },
+        "capacity": { "type": "string" },
+        "reclaimPolicy": { "type": "string" },
+        "backend": { "type": "string" },
+        "claimRef": { "type": "string" }
+      }
+    },
+    "pod": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "usesHostPath", "containerCount", "hasRequests", "hasLimits"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "usesHostPath": { "type": "boolean" },
+        "containerCount": { "type": "integer" },
+        "hasRequests": { "type": "boolean" },
+        "hasLimits": { "type": "boolean" },
+        "privileged": { "type": "boolean" },
+        "hostNetwork": { "type": "boolean" },
+        "hostPid": { "type": "boolean" },
+        "automountSaToken": { "type": "boolean" }
+      }
+    },
+    "statefulSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "replicas", "hasVolumeClaim"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "replicas": { "type": "integer" },
+        "hasVolumeClaim": { "type": "boolean" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ready"],
+      "properties": {
+        "name": { "type": "string" },
+        "roles": { "$ref": "#/$defs/stringArray" },
+        "ready": { "type": "boolean" },
+        "zone": { "type": "string" },
+        "kubeletVersion": { "type": "string" },
+        "osImage": { "type": "string" },
+        "kernelVersion": { "type": "string" },
+        "containerRuntime": { "type": "string" },
+        "internalIp": { "type": "string" },
+        "externalIp": { "type": "string" },
+        "labels": { "$ref": "#/$defs/stringMap" },
+        "taints": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "storageClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "provisioner": { "type": "string" },
+        "reclaimPolicy": { "type": "string" },
+        "volumeBindingMode": { "type": "string" },
+        "allowVolumeExpansion": { "type": "boolean" },
+        "parameters": { "$ref": "#/$defs/stringMap" },
+        "annotations": { "$ref": "#/$defs/stringMap" }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "replicas", "ready"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "replicas": { "type": "integer" },
+        "ready": { "type": "integer" },
+        "images": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "daemonSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "desired", "ready"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "desired": { "type": "integer" },
+        "ready": { "type": "integer" },
+        "images": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "succeeded", "failed", "active", "completed"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "succeeded": { "type": "integer" },
+        "failed": { "type": "integer" },
+        "active": { "type": "integer" },
+        "completed": { "type": "boolean" }
+      }
+    },
+    "cronJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "schedule", "suspended", "activeJobs"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "schedule": { "type": "string" },
+        "suspended": { "type": "boolean" },
+        "lastRunTime": { "type": "string" },
+        "activeJobs": { "type": "integer" }
+      }
+    },
+    "servicePort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port"],
+      "properties": {
+        "name": { "type": "string" },
+        "port": { "type": "integer" },
+        "protocol": { "type": "string" },
+        "nodePort": { "type": "integer" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "type"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "clusterIp": { "type": "string" },
+        "externalIp": { "type": "string" },
+        "ports": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/servicePort" }
+        },
+        "selector": { "$ref": "#/$defs/stringMap" }
+      }
+    },
+    "ingressRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": { "type": "string" },
+        "backend": { "type": "string" }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "tls"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "className": { "type": "string" },
+        "tls": { "type": "boolean" },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ingressRule" }
+        }
+      }
+    },
+    "configMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "keyCount"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "keyCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "secret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "type", "keyCount"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "keyCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "clusterRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "custom", "ruleCount"],
+      "properties": {
+        "name": { "type": "string" },
+        "custom": { "type": "boolean" },
+        "ruleCount": { "type": "integer" },
+        "hasWildcardVerb": { "type": "boolean" },
+        "hasSecretAccess": { "type": "boolean" },
+        "hasEscalatePriv": { "type": "boolean" },
+        "dangerousRules": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "clusterRoleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "roleName"],
+      "properties": {
+        "name": { "type": "string" },
+        "roleName": { "type": "string" },
+        "subjects": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "hasIngress", "hasEgress"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "podSelector": { "type": "string" },
+        "hasIngress": { "type": "boolean" },
+        "hasEgress": { "type": "boolean" }
+      }
+    },
+    "hpa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "target", "minReplicas", "maxReplicas", "currentReplicas"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "target": { "type": "string" },
+        "minReplicas": { "type": "integer" },
+        "maxReplicas": { "type": "integer" },
+        "currentReplicas": { "type": "integer" }
+      }
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "minAvailable": { "type": "string" },
+        "maxUnavailable": { "type": "string" }
+      }
+    },
+    "resourceQuotaItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "hard"],
+      "properties": {
+        "resource": { "type": "string" },
+        "hard": { "type": "string" },
+        "used": { "type": "string" }
+      }
+    },
+    "resourceQuota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/resourceQuotaItem" }
+        }
+      }
+    },
+    "crd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "group", "scope"],
+      "properties": {
+        "name": { "type": "string" },
+        "group": { "type": "string" },
+        "versions": { "$ref": "#/$defs/stringArray" },
+        "scope": { "type": "string" }
+      }
+    },
+    "helmRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "chart", "version", "status"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "chart": { "type": "string" },
+        "version": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "containerImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "registry", "isPublic"],
+      "properties": {
+        "image": { "type": "string" },
+        "registry": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "workloads": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "ready", "daysToExpiry"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "secretName": { "type": "string" },
+        "issuer": { "type": "string" },
+        "ready": { "type": "boolean" },
+        "notAfter": { "type": "string" },
+        "daysToExpiry": { "type": "integer" }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider"],
+      "properties": {
+        "provider": { "type": "string" },
+        "k8sVersion": { "type": "string" },
+        "clusterUID": { "type": "string" }
+      }
+    },
+    "volumeSnapshotClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "driver": { "type": "string" },
+        "deletionPolicy": { "type": "string" }
+      }
+    },
+    "volumeSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "readyToUse"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "pvcName": { "type": "string" },
+        "className": { "type": "string" },
+        "readyToUse": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "sizeGb": { "type": "number" }
+      }
+    },
+    "limitRangeItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "maxCpu": { "type": "string" },
+        "maxMemory": { "type": "string" },
+        "defaultCpu": { "type": "string" },
+        "defaultMemory": { "type": "string" }
+      }
+    },
+    "limitRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/limitRangeItem" }
+        }
+      }
+    },
+    "etcdBackup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detected", "source"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "source": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name"],
+      "properties": {
+        "namespace": { "type": "string" },
+        "name": { "type": "string" },
+        "automountServiceAccountToken": { "type": "boolean" }
+      }
+    }
+  }
+}

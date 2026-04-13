@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s-recovery-visualizer/internal/compare"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/risk"
 )
@@ -18,9 +19,17 @@ const (
 
 type Policy struct {
 	MinScore                  int
+	MinStorageScore           int
+	MinWorkloadScore          int
+	MinConfigScore            int
+	MinBackupScore            int
 	MaxRisk                   string
 	MaxDrop                   float64
 	MaxDropPct                float64
+	MaxCriticalFindings       int
+	MaxHighFindings           int
+	MaxNewFindings            int
+	MaxRegressedFindings      int
 	FailOnNewCritical         bool
 	FailOnUncoveredStateful   bool
 	FailOnOffsiteLoss         bool
@@ -61,6 +70,20 @@ func Evaluate(current, previous *model.Bundle, policy Policy) Evaluation {
 			add("overall-score", StatusPass, fmt.Sprintf("overall score %d meets minimum %d", current.Score.Overall.Final, policy.MinScore))
 		}
 	}
+	addDomainScoreGate := func(id, label string, actual, minimum int) {
+		if minimum <= 0 {
+			return
+		}
+		if actual < minimum {
+			add(id, StatusFail, fmt.Sprintf("%s score %d is below minimum %d", label, actual, minimum))
+			return
+		}
+		add(id, StatusPass, fmt.Sprintf("%s score %d meets minimum %d", label, actual, minimum))
+	}
+	addDomainScoreGate("storage-score", "storage", current.Score.Storage.Final, policy.MinStorageScore)
+	addDomainScoreGate("workload-score", "workload", current.Score.Workload.Final, policy.MinWorkloadScore)
+	addDomainScoreGate("config-score", "config", current.Score.Config.Final, policy.MinConfigScore)
+	addDomainScoreGate("backup-score", "backup", current.Score.Backup.Final, policy.MinBackupScore)
 
 	if strings.TrimSpace(policy.MaxRisk) != "" {
 		actual := risk.FromScore(float64(current.Score.Overall.Final), current.Score.Maturity).Posture
@@ -70,8 +93,24 @@ func Evaluate(current, previous *model.Bundle, policy Policy) Evaluation {
 			add("risk-posture", StatusPass, fmt.Sprintf("risk posture %s is within allowed %s", actual, strings.ToUpper(strings.TrimSpace(policy.MaxRisk))))
 		}
 	}
+	if policy.MaxCriticalFindings >= 0 {
+		critical := findingCountBySeverity(current.Inventory.Findings, "CRITICAL")
+		if critical > policy.MaxCriticalFindings {
+			add("critical-finding-budget", StatusFail, fmt.Sprintf("critical findings %d exceed budget %d", critical, policy.MaxCriticalFindings))
+		} else {
+			add("critical-finding-budget", StatusPass, fmt.Sprintf("critical findings %d are within budget %d", critical, policy.MaxCriticalFindings))
+		}
+	}
+	if policy.MaxHighFindings >= 0 {
+		high := findingCountBySeverity(current.Inventory.Findings, "HIGH")
+		if high > policy.MaxHighFindings {
+			add("high-finding-budget", StatusFail, fmt.Sprintf("high findings %d exceed budget %d", high, policy.MaxHighFindings))
+		} else {
+			add("high-finding-budget", StatusPass, fmt.Sprintf("high findings %d are within budget %d", high, policy.MaxHighFindings))
+		}
+	}
 
-	if policy.MaxDrop > 0 || policy.MaxDropPct > 0 || policy.FailOnNewCritical || policy.FailOnOffsiteLoss {
+	if policy.MaxDrop > 0 || policy.MaxDropPct > 0 || policy.MaxNewFindings >= 0 || policy.MaxRegressedFindings >= 0 || policy.FailOnNewCritical || policy.FailOnOffsiteLoss {
 		if previous == nil {
 			if policy.MaxDrop > 0 {
 				add("score-drop", StatusSkip, "no previous bundle supplied; score regression gate skipped")
@@ -85,10 +124,17 @@ func Evaluate(current, previous *model.Bundle, policy Policy) Evaluation {
 			if policy.FailOnOffsiteLoss {
 				add("offsite-loss", StatusSkip, "no previous bundle supplied; offsite loss gate skipped")
 			}
+			if policy.MaxNewFindings >= 0 {
+				add("new-finding-budget", StatusSkip, "no previous bundle supplied; new finding budget skipped")
+			}
+			if policy.MaxRegressedFindings >= 0 {
+				add("regressed-finding-budget", StatusSkip, "no previous bundle supplied; regressed finding budget skipped")
+			}
 		} else {
 			prevScore := float64(previous.Score.Overall.Final)
 			currScore := float64(current.Score.Overall.Final)
 			drop := prevScore - currScore
+			diff := compare.Diff(previous, current)
 			if policy.MaxDrop > 0 {
 				if drop > policy.MaxDrop {
 					add("score-drop", StatusFail, fmt.Sprintf("score regressed by %.2f points (max %.2f)", drop, policy.MaxDrop))
@@ -122,6 +168,20 @@ func Evaluate(current, previous *model.Bundle, policy Policy) Evaluation {
 					add("offsite-loss", StatusPass, "offsite backup posture did not regress")
 				}
 			}
+			if policy.MaxNewFindings >= 0 {
+				if len(diff.FindingsNew) > policy.MaxNewFindings {
+					add("new-finding-budget", StatusFail, fmt.Sprintf("new findings %d exceed budget %d", len(diff.FindingsNew), policy.MaxNewFindings))
+				} else {
+					add("new-finding-budget", StatusPass, fmt.Sprintf("new findings %d are within budget %d", len(diff.FindingsNew), policy.MaxNewFindings))
+				}
+			}
+			if policy.MaxRegressedFindings >= 0 {
+				if len(diff.FindingsRegressed) > policy.MaxRegressedFindings {
+					add("regressed-finding-budget", StatusFail, fmt.Sprintf("regressed findings %d exceed budget %d", len(diff.FindingsRegressed), policy.MaxRegressedFindings))
+				} else {
+					add("regressed-finding-budget", StatusPass, fmt.Sprintf("regressed findings %d are within budget %d", len(diff.FindingsRegressed), policy.MaxRegressedFindings))
+				}
+			}
 		}
 	}
 
@@ -145,6 +205,16 @@ func Evaluate(current, previous *model.Bundle, policy Policy) Evaluation {
 	}
 
 	return eval
+}
+
+func findingCountBySeverity(findings []model.Finding, severity string) int {
+	count := 0
+	for _, finding := range findings {
+		if finding.Severity == severity {
+			count++
+		}
+	}
+	return count
 }
 
 func postureRank(p string) int {
