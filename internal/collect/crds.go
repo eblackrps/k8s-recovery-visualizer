@@ -4,35 +4,35 @@ import (
 	"context"
 	"strings"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s-recovery-visualizer/internal/model"
+	"k8s.io/client-go/kubernetes"
 )
 
 // nativeGroups are built-in K8s API groups that are not CRDs.
 var nativeGroups = map[string]struct{}{
-	"":                                  {},
-	"apps":                              {},
-	"batch":                             {},
-	"networking.k8s.io":                 {},
-	"storage.k8s.io":                    {},
-	"rbac.authorization.k8s.io":         {},
-	"autoscaling":                       {},
-	"policy":                            {},
-	"apiextensions.k8s.io":              {},
-	"apiregistration.k8s.io":            {},
-	"coordination.k8s.io":               {},
-	"discovery.k8s.io":                  {},
-	"events.k8s.io":                     {},
-	"admissionregistration.k8s.io":      {},
-	"certificates.k8s.io":               {},
-	"scheduling.k8s.io":                 {},
-	"flowcontrol.apiserver.k8s.io":      {},
-	"resource.k8s.io":                   {},
-	"node.k8s.io":                       {},
-	"authentication.k8s.io":             {},
-	"authorization.k8s.io":              {},
-	"internal.apiserver.k8s.io":         {},
-	"storagemigration.k8s.io":           {},
+	"":                             {},
+	"apps":                         {},
+	"batch":                        {},
+	"networking.k8s.io":            {},
+	"storage.k8s.io":               {},
+	"rbac.authorization.k8s.io":    {},
+	"autoscaling":                  {},
+	"policy":                       {},
+	"apiextensions.k8s.io":         {},
+	"apiregistration.k8s.io":       {},
+	"coordination.k8s.io":          {},
+	"discovery.k8s.io":             {},
+	"events.k8s.io":                {},
+	"admissionregistration.k8s.io": {},
+	"certificates.k8s.io":          {},
+	"scheduling.k8s.io":            {},
+	"flowcontrol.apiserver.k8s.io": {},
+	"resource.k8s.io":              {},
+	"node.k8s.io":                  {},
+	"authentication.k8s.io":        {},
+	"authorization.k8s.io":         {},
+	"internal.apiserver.k8s.io":    {},
+	"storagemigration.k8s.io":      {},
 }
 
 // CRDs detects installed CustomResourceDefinitions via the discovery API.

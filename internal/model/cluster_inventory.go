@@ -29,11 +29,11 @@ type StorageClass struct {
 
 // Deployment represents a Kubernetes Deployment.
 type Deployment struct {
-	Namespace   string   `json:"namespace"`
-	Name        string   `json:"name"`
-	Replicas    int32    `json:"replicas"`
-	Ready       int32    `json:"ready"`
-	Images      []string `json:"images,omitempty"`
+	Namespace string   `json:"namespace"`
+	Name      string   `json:"name"`
+	Replicas  int32    `json:"replicas"`
+	Ready     int32    `json:"ready"`
+	Images    []string `json:"images,omitempty"`
 }
 
 // DaemonSet represents a Kubernetes DaemonSet.
@@ -47,12 +47,12 @@ type DaemonSet struct {
 
 // Job represents a Kubernetes Job.
 type Job struct {
-	Namespace  string `json:"namespace"`
-	Name       string `json:"name"`
-	Succeeded  int32  `json:"succeeded"`
-	Failed     int32  `json:"failed"`
-	Active     int32  `json:"active"`
-	Completed  bool   `json:"completed"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Succeeded int32  `json:"succeeded"`
+	Failed    int32  `json:"failed"`
+	Active    int32  `json:"active"`
+	Completed bool   `json:"completed"`
 }
 
 // CronJob represents a Kubernetes CronJob.
@@ -92,11 +92,11 @@ type IngressRule struct {
 
 // Ingress represents a Kubernetes Ingress.
 type Ingress struct {
-	Namespace   string        `json:"namespace"`
-	Name        string        `json:"name"`
-	ClassName   string        `json:"className,omitempty"`
-	TLS         bool          `json:"tls"`
-	Rules       []IngressRule `json:"rules,omitempty"`
+	Namespace string        `json:"namespace"`
+	Name      string        `json:"name"`
+	ClassName string        `json:"className,omitempty"`
+	TLS       bool          `json:"tls"`
+	Rules     []IngressRule `json:"rules,omitempty"`
 }
 
 // ConfigMap represents metadata for a Kubernetes ConfigMap (no values).
@@ -119,10 +119,10 @@ type ClusterRole struct {
 	Name            string   `json:"name"`
 	Custom          bool     `json:"custom"` // true if not a built-in system: role
 	RuleCount       int      `json:"ruleCount"`
-	HasWildcardVerb bool     `json:"hasWildcardVerb,omitempty"`  // any rule grants wildcard verb
-	HasSecretAccess bool     `json:"hasSecretAccess,omitempty"`  // any rule grants read on secrets
-	HasEscalatePriv bool     `json:"hasEscalatePriv,omitempty"`  // escalate/bind/impersonate verbs
-	DangerousRules  []string `json:"dangerousRules,omitempty"`   // human-readable risk summary
+	HasWildcardVerb bool     `json:"hasWildcardVerb,omitempty"` // any rule grants wildcard verb
+	HasSecretAccess bool     `json:"hasSecretAccess,omitempty"` // any rule grants read on secrets
+	HasEscalatePriv bool     `json:"hasEscalatePriv,omitempty"` // escalate/bind/impersonate verbs
+	DangerousRules  []string `json:"dangerousRules,omitempty"`  // human-readable risk summary
 }
 
 // ClusterRoleBinding represents a Kubernetes ClusterRoleBinding.
@@ -134,29 +134,29 @@ type ClusterRoleBinding struct {
 
 // NetworkPolicy represents a Kubernetes NetworkPolicy.
 type NetworkPolicy struct {
-	Namespace     string `json:"namespace"`
-	Name          string `json:"name"`
-	PodSelector   string `json:"podSelector,omitempty"`
-	HasIngress    bool   `json:"hasIngress"`
-	HasEgress     bool   `json:"hasEgress"`
+	Namespace   string `json:"namespace"`
+	Name        string `json:"name"`
+	PodSelector string `json:"podSelector,omitempty"`
+	HasIngress  bool   `json:"hasIngress"`
+	HasEgress   bool   `json:"hasEgress"`
 }
 
 // HPA represents a Kubernetes HorizontalPodAutoscaler.
 type HPA struct {
-	Namespace   string `json:"namespace"`
-	Name        string `json:"name"`
-	Target      string `json:"target"`
-	MinReplicas int32  `json:"minReplicas"`
-	MaxReplicas int32  `json:"maxReplicas"`
-	CurrentReplicas int32 `json:"currentReplicas"`
+	Namespace       string `json:"namespace"`
+	Name            string `json:"name"`
+	Target          string `json:"target"`
+	MinReplicas     int32  `json:"minReplicas"`
+	MaxReplicas     int32  `json:"maxReplicas"`
+	CurrentReplicas int32  `json:"currentReplicas"`
 }
 
 // PodDisruptionBudget represents a Kubernetes PodDisruptionBudget.
 type PodDisruptionBudget struct {
-	Namespace        string `json:"namespace"`
-	Name             string `json:"name"`
-	MinAvailable     string `json:"minAvailable,omitempty"`
-	MaxUnavailable   string `json:"maxUnavailable,omitempty"`
+	Namespace      string `json:"namespace"`
+	Name           string `json:"name"`
+	MinAvailable   string `json:"minAvailable,omitempty"`
+	MaxUnavailable string `json:"maxUnavailable,omitempty"`
 }
 
 // ResourceQuotaItem holds a single resource limit.
@@ -183,31 +183,31 @@ type CRD struct {
 
 // HelmRelease represents an installed Helm release detected from cluster secrets.
 type HelmRelease struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-	Chart     string `json:"chart"`
-	Version   string `json:"version"`
+	Namespace  string `json:"namespace"`
+	Name       string `json:"name"`
+	Chart      string `json:"chart"`
+	Version    string `json:"version"`
 	AppVersion string `json:"appVersion,omitempty"`
-	Status    string `json:"status"` // deployed, failed, pending, etc.
+	Status     string `json:"status"` // deployed, failed, pending, etc.
 }
 
 // ContainerImage represents a unique container image found across all workloads.
 type ContainerImage struct {
 	Image     string   `json:"image"`
 	Registry  string   `json:"registry"`
-	IsPublic  bool     `json:"isPublic"` // true if known public registry
+	IsPublic  bool     `json:"isPublic"`            // true if known public registry
 	Workloads []string `json:"workloads,omitempty"` // "ns/name" references
 }
 
 // Certificate represents a cert-manager Certificate resource.
 type Certificate struct {
-	Namespace   string `json:"namespace"`
-	Name        string `json:"name"`
-	SecretName  string `json:"secretName,omitempty"`
-	Issuer      string `json:"issuer,omitempty"`
-	Ready       bool   `json:"ready"`
-	NotAfter    string `json:"notAfter,omitempty"`
-	DaysToExpiry int   `json:"daysToExpiry"`
+	Namespace    string `json:"namespace"`
+	Name         string `json:"name"`
+	SecretName   string `json:"secretName,omitempty"`
+	Issuer       string `json:"issuer,omitempty"`
+	Ready        bool   `json:"ready"`
+	NotAfter     string `json:"notAfter,omitempty"`
+	DaysToExpiry int    `json:"daysToExpiry"`
 }
 
 // Platform holds detected cluster platform/provider information.

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s-recovery-visualizer/internal/model"
+	"k8s.io/client-go/kubernetes"
 )
 
 type certList struct {

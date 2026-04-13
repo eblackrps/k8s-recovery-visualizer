@@ -2,11 +2,11 @@ package model
 
 // LimitRangeItem holds a single limit/request constraint from a LimitRange.
 type LimitRangeItem struct {
-	Type           string `json:"type"`                     // Container, Pod, PersistentVolumeClaim
-	MaxCPU         string `json:"maxCpu,omitempty"`
-	MaxMemory      string `json:"maxMemory,omitempty"`
-	DefaultCPU     string `json:"defaultCpu,omitempty"`
-	DefaultMemory  string `json:"defaultMemory,omitempty"`
+	Type          string `json:"type"` // Container, Pod, PersistentVolumeClaim
+	MaxCPU        string `json:"maxCpu,omitempty"`
+	MaxMemory     string `json:"maxMemory,omitempty"`
+	DefaultCPU    string `json:"defaultCpu,omitempty"`
+	DefaultMemory string `json:"defaultMemory,omitempty"`
 }
 
 // LimitRange represents a Kubernetes LimitRange object.
