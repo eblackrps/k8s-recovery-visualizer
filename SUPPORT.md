@@ -7,6 +7,7 @@ Use this guide when you need help with `k8s-recovery-visualizer`.
 Please check:
 
 - [README.md](README.md)
+- [PRIVACY.md](PRIVACY.md)
 - [docs/README.md](docs/README.md)
 - [docs/CLI.md](docs/CLI.md)
 - [docs/GUI.md](docs/GUI.md)
