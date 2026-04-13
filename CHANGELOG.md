@@ -28,6 +28,13 @@ Release candidate changes for the next minor line focus on operator actionabilit
 
 - Restored usable `cmd/check --help` output so the current gate set can be audited directly from the terminal instead of failing with a bare help error.
 - Hardened the release workflow so tagged releases validate the exact four supported assets and prune stale uploaded assets before publishing, preventing stale release-surface drift on reruns.
+
+## [1.7.4] - 2026-04-13
+
+Hotfix release to align local Windows contributor packaging with the Win11-compatible WebView2 loader path already used by validated release builds.
+
+### Fixed
+
 - Aligned local Windows `make build-gui` and `make package-gui` packaging with the Win11-compatible release workflow by passing the legacy WebView2 loader tag there as well.
 
 ## [1.7.1] - 2026-04-13
