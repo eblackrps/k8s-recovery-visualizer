@@ -183,6 +183,10 @@ jobs:
         working-directory: desktop/frontend
         run: npm ci
 
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
+
       - name: Build Linux desktop package
         env:
           VERSION: ${{ github.ref_name }}
@@ -234,6 +238,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: desktop/frontend
         run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
 
       - name: Build Windows desktop package
         shell: pwsh

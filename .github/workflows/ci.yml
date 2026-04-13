@@ -181,6 +181,10 @@ jobs:
         working-directory: desktop/frontend
         run: npm ci
 
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
+
       - name: Build Linux desktop package
         working-directory: desktop
         run: wails build -clean -skipbindings -s -platform linux/amd64 -o K8V
@@ -227,6 +231,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: desktop/frontend
         run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
 
       - name: Build Windows desktop package
         shell: pwsh

@@ -45,6 +45,14 @@ Follow-on hotfix to improve Windows launch diagnostics and gather actionable log
 
 - Added a desktop startup log on Windows to capture early launch failures and WebView2 detection results.
 
+## [1.7.3] - 2026-04-13
+
+Hotfix release to ensure packaged desktop builds embed the frontend assets correctly on Windows and Linux.
+
+### Fixed
+
+- Added explicit frontend build steps to Linux and Windows packaging jobs so release artifacts always include embedded UI assets.
+
 ## [1.6.1] - 2026-04-13
 
 Patch follow-up for `v1.6.0`: this release ships the post-release review fixes by moving GitHub Actions fully onto Node 24 and tightening the desktop runtime so scan and preflight work only from the app lifecycle context.
