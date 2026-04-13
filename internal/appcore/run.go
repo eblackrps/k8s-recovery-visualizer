@@ -20,6 +20,7 @@ import (
 	"k8s-recovery-visualizer/internal/profile"
 	"k8s-recovery-visualizer/internal/remediation"
 	"k8s-recovery-visualizer/internal/restore"
+	"k8s-recovery-visualizer/internal/triage"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -254,6 +255,8 @@ func finalizeBundle(bundle *model.Bundle, target string) {
 	bundle.Inventory.Backup.RestoreSim = &sim
 	backup.AssessAssurance(bundle)
 	analyze.Evaluate(bundle)
+	bundle.Inventory.Findings = triage.Apply(bundle.Inventory.Findings)
+	bundle.Inventory.Backup.DrillPlan = restore.BuildDrillPlan(bundle)
 	bundle.Inventory.RemediationSteps = remediation.Generate(bundle, target)
 }
 
@@ -281,14 +284,6 @@ func (s *Service) writeOutputs(bundle *model.Bundle, req ScanRequest, sink Event
 	if err := output.WriteJSON(layout.BundleJSON, bundle); err != nil {
 		return "", 0, ArtifactPaths{}, fmt.Errorf("write json: %w", err)
 	}
-	if en, err := enrich.Run(enrich.Options{OutDir: outDir, LastNCount: 10, Profile: bundle.Profile}); err == nil {
-		if err := enrich.WriteArtifacts(outDir, en); err != nil {
-			return "", 0, ArtifactPaths{}, fmt.Errorf("write enriched artifacts: %w", err)
-		}
-	} else {
-		return "", 0, ArtifactPaths{}, fmt.Errorf("enrich outputs: %w", err)
-	}
-
 	var trendLabel string
 	var trendDelta int
 	if recordHistory {
@@ -297,6 +292,13 @@ func (s *Service) writeOutputs(bundle *model.Bundle, req ScanRequest, sink Event
 			trendDelta = tr.Delta
 		}
 		bundle.TrendHistory = history.LoadRecent(outDir, 20)
+	}
+	if en, err := enrich.Run(enrich.Options{OutDir: outDir, LastNCount: 10, Profile: bundle.Profile}); err == nil {
+		if err := enrich.WriteArtifacts(outDir, en); err != nil {
+			return "", 0, ArtifactPaths{}, fmt.Errorf("write enriched artifacts: %w", err)
+		}
+	} else {
+		return "", 0, ArtifactPaths{}, fmt.Errorf("enrich outputs: %w", err)
 	}
 
 	if err := output.WriteReport(layout.HTMLReport, bundle); err != nil {

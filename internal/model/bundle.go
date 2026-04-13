@@ -29,7 +29,46 @@ type Bundle struct {
 type TrendPoint struct {
 	TimestampUTC string `json:"ts"`
 	Overall      int    `json:"score"`
+	Storage      int    `json:"storage,omitempty"`
+	Workload     int    `json:"workload,omitempty"`
+	Config       int    `json:"config,omitempty"`
+	Backup       int    `json:"backup,omitempty"`
+	Findings     int    `json:"findings,omitempty"`
 	Maturity     string `json:"maturity"`
+}
+
+type ScoreDeltaSummary struct {
+	Name     string `json:"name"`
+	Previous int    `json:"previous"`
+	Current  int    `json:"current"`
+	Delta    int    `json:"delta"`
+}
+
+type SeverityDeltaSummary struct {
+	Severity string `json:"severity"`
+	Previous int    `json:"previous"`
+	Current  int    `json:"current"`
+	Delta    int    `json:"delta"`
+}
+
+type InventoryDeltaSummary struct {
+	Name    string `json:"name"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+}
+
+type FindingChange struct {
+	ID               string `json:"id"`
+	Title            string `json:"title,omitempty"`
+	ResourceID       string `json:"resourceId"`
+	Message          string `json:"message"`
+	Recommendation   string `json:"recommendation,omitempty"`
+	PreviousSeverity string `json:"previousSeverity,omitempty"`
+	CurrentSeverity  string `json:"currentSeverity,omitempty"`
+	Change           string `json:"change"`
+	OwnerHint        string `json:"ownerHint,omitempty"`
+	Impact           string `json:"impact,omitempty"`
+	Effort           string `json:"effort,omitempty"`
 }
 
 // ComparisonSummary is a lightweight reference stored in the bundle.
@@ -40,6 +79,8 @@ type ComparisonSummary struct {
 	PreviousScannedAt string `json:"previousScannedAt"`
 	PreviousScore     int    `json:"previousScore"`
 	PreviousMaturity  string `json:"previousMaturity"`
+	CurrentScore      int    `json:"currentScore"`
+	CurrentMaturity   string `json:"currentMaturity"`
 	ScoreDelta        int    `json:"scoreDelta"`
 
 	NamespacesAdded   []string `json:"namespacesAdded,omitempty"`
@@ -55,8 +96,14 @@ type ComparisonSummary struct {
 	BackupToolCurrent  string `json:"backupToolCurrent"`
 	BackupToolChanged  bool   `json:"backupToolChanged"`
 
-	FindingsNew      []Finding `json:"findingsNew,omitempty"`
-	FindingsResolved []Finding `json:"findingsResolved,omitempty"`
+	DomainDeltas      []ScoreDeltaSummary     `json:"domainDeltas,omitempty"`
+	SeverityDeltas    []SeverityDeltaSummary  `json:"severityDeltas,omitempty"`
+	InventoryDeltas   []InventoryDeltaSummary `json:"inventoryDeltas,omitempty"`
+	FindingsNew       []Finding               `json:"findingsNew,omitempty"`
+	FindingsResolved  []Finding               `json:"findingsResolved,omitempty"`
+	FindingsRegressed []FindingChange         `json:"findingsRegressed,omitempty"`
+	FindingsImproved  []FindingChange         `json:"findingsImproved,omitempty"`
+	PersistentFinding int                     `json:"persistentFindingCount,omitempty"`
 }
 
 // CollectorSkip records a collector that was skipped during the scan.
@@ -168,6 +215,7 @@ type RestoreSimNamespace struct {
 	HasCoverage   bool               `json:"hasCoverage"`
 	RPOHours      int                `json:"rpoHours"` // best RPO from applicable policies; -1 = unknown
 	PVCSizeGB     float64            `json:"pvcSizeGb"`
+	Readiness     string             `json:"readiness,omitempty"`
 	Blockers      []string           `json:"blockers,omitempty"`
 	Warnings      []string           `json:"warnings,omitempty"`
 	Confidence    EvidenceConfidence `json:"confidence,omitempty"`
@@ -175,10 +223,24 @@ type RestoreSimNamespace struct {
 
 // RestoreSimResult holds the full restore simulation output.
 type RestoreSimResult struct {
-	Namespaces    []RestoreSimNamespace `json:"namespaces"`
-	TotalPVCsGB   float64               `json:"totalPvcsGb"`
-	CoveredPVCsGB float64               `json:"coveredPvcsGb"`
-	UncoveredNS   []string              `json:"uncoveredNamespaces,omitempty"`
+	Namespaces            []RestoreSimNamespace `json:"namespaces"`
+	TotalPVCsGB           float64               `json:"totalPvcsGb"`
+	CoveredPVCsGB         float64               `json:"coveredPvcsGb"`
+	EstimatedDataAtRiskGB float64               `json:"estimatedDataAtRiskGb,omitempty"`
+	ReadyNamespaces       int                   `json:"readyNamespaces,omitempty"`
+	BlockedNamespaces     int                   `json:"blockedNamespaces,omitempty"`
+	WarningNamespaces     int                   `json:"warningNamespaces,omitempty"`
+	UnknownNamespaces     int                   `json:"unknownNamespaces,omitempty"`
+	BlockingReasons       []string              `json:"blockingReasons,omitempty"`
+	UncoveredNS           []string              `json:"uncoveredNamespaces,omitempty"`
+}
+
+type RestoreDrillStep struct {
+	Phase      string   `json:"phase"`
+	Title      string   `json:"title"`
+	Detail     string   `json:"detail"`
+	OwnerHint  string   `json:"ownerHint,omitempty"`
+	Validation []string `json:"validation,omitempty"`
 }
 
 // BackupInventory holds the result of backup tool detection.
@@ -196,6 +258,7 @@ type BackupInventory struct {
 	OffsiteCoveredNS    []string             `json:"offsiteCoveredNamespaces,omitempty"`
 	OffsiteMissingNS    []string             `json:"offsiteMissingNamespaces,omitempty"`
 	RestoreSim          *RestoreSimResult    `json:"restoreSim,omitempty"`
+	DrillPlan           []RestoreDrillStep   `json:"drillPlan,omitempty"`
 	Assurance           *BackupAssurance     `json:"assurance,omitempty"`
 }
 
@@ -205,6 +268,8 @@ type RemediationStep struct {
 	Category     string   `json:"category"` // Storage, Backup, Workload, Network, Config
 	Title        string   `json:"title"`
 	Detail       string   `json:"detail"`
+	OwnerHint    string   `json:"ownerHint,omitempty"`
+	Effort       string   `json:"effort,omitempty"`
 	WhyItMatters string   `json:"whyItMatters,omitempty"`
 	DRImpact     string   `json:"drImpact,omitempty"`
 	Validation   []string `json:"validation,omitempty"`

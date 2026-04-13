@@ -4,6 +4,7 @@
 package restore
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -62,6 +63,7 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 		Namespaces: []model.RestoreSimNamespace{},
 	}
 	var uncoveredNS []string
+	blockingReasonSet := map[string]struct{}{}
 
 	for ns := range relevantNS {
 		coverageKnown := inv.PrimaryTool == "none" || inv.PrimaryTool == "" || inv.CoverageVerified
@@ -109,6 +111,31 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 		if len(sim.Warnings) > 0 && len(sim.Blockers) == 0 && sim.Confidence == model.EvidenceConfidenceConfirmed {
 			sim.Confidence = model.EvidenceConfidenceInferred
 		}
+		switch {
+		case !sim.CoverageKnown:
+			sim.Readiness = "unknown"
+			result.UnknownNamespaces++
+			result.EstimatedDataAtRiskGB += nsSizeGB
+			blockingReasonSet["backup coverage is not yet verified"] = struct{}{}
+		case len(sim.Blockers) > 0:
+			sim.Readiness = "blocked"
+			result.BlockedNamespaces++
+			result.EstimatedDataAtRiskGB += nsSizeGB
+			for _, blocker := range sim.Blockers {
+				blockingReasonSet[blocker] = struct{}{}
+			}
+		case !sim.HasCoverage:
+			sim.Readiness = "uncovered"
+			result.BlockedNamespaces++
+			result.EstimatedDataAtRiskGB += nsSizeGB
+			blockingReasonSet["no verified backup policy covers this namespace"] = struct{}{}
+		case len(sim.Warnings) > 0:
+			sim.Readiness = "warning"
+			result.WarningNamespaces++
+		default:
+			sim.Readiness = "ready"
+			result.ReadyNamespaces++
+		}
 
 		result.Namespaces = append(result.Namespaces, sim)
 		result.TotalPVCsGB += nsSizeGB
@@ -118,6 +145,10 @@ func Simulate(b *model.Bundle) model.RestoreSimResult {
 	}
 
 	result.UncoveredNS = uncoveredNS
+	for reason := range blockingReasonSet {
+		result.BlockingReasons = append(result.BlockingReasons, reason)
+	}
+	sort.Strings(result.BlockingReasons)
 	return result
 }
 

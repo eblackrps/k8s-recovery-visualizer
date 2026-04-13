@@ -128,6 +128,53 @@ func TestRunReturnsUsageStyleFailureForMissingInput(t *testing.T) {
 	}
 }
 
+func TestRunSupportsDomainThresholdsAndFindingBudgets(t *testing.T) {
+	previous := testBundle(90, "PLATINUM")
+	previous.Score.Workload.Final = 88
+	previous.Score.Backup.Final = 90
+	previous.Inventory.Findings = []model.Finding{
+		{ID: "BACKUP_NO_POLICIES", Severity: "MEDIUM", ResourceID: "cluster/demo"},
+	}
+
+	current := testBundle(82, "GOLD")
+	current.Score.Workload.Final = 74
+	current.Score.Backup.Final = 81
+	current.Inventory.Findings = []model.Finding{
+		{ID: "BACKUP_NO_POLICIES", Severity: "CRITICAL", ResourceID: "cluster/demo"},
+		{ID: "PVC_UNBOUND", Severity: "HIGH", ResourceID: "payments/db"},
+	}
+
+	prevPath := writeJSONFixture(t, "previous.json", previous)
+	currPath := writeJSONFixture(t, "current.json", current)
+
+	var out bytes.Buffer
+	code := run([]string{
+		"--current", currPath,
+		"--previous", prevPath,
+		"--min-workload-score", "80",
+		"--min-backup-score", "85",
+		"--max-critical-findings", "0",
+		"--max-high-findings", "0",
+		"--max-new-findings", "0",
+		"--max-regressed-findings", "0",
+		"--format", "json",
+	}, &out, os.ReadFile)
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1\n%s", code, out.String())
+	}
+
+	var eval gates.Evaluation
+	if err := json.Unmarshal(out.Bytes(), &eval); err != nil {
+		t.Fatalf("failed to decode json output: %v\n%s", err, out.String())
+	}
+	assertHasGate(t, eval, "workload-score")
+	assertHasGate(t, eval, "backup-score")
+	assertHasGate(t, eval, "critical-finding-budget")
+	assertHasGate(t, eval, "high-finding-budget")
+	assertHasGate(t, eval, "new-finding-budget")
+	assertHasGate(t, eval, "regressed-finding-budget")
+}
+
 func writeJSONFixture(t *testing.T, name string, value any) string {
 	t.Helper()
 	raw, err := json.Marshal(value)
@@ -144,6 +191,20 @@ func writeJSONFixture(t *testing.T, name string, value any) string {
 func testBundle(score int, maturity string) model.Bundle {
 	b := model.NewBundle("scan-test", time.Unix(1_700_000_000, 0).UTC())
 	b.Score.Overall.Final = score
+	b.Score.Storage.Final = score
+	b.Score.Workload.Final = score
+	b.Score.Config.Final = score
+	b.Score.Backup.Final = score
 	b.Score.Maturity = maturity
 	return b
+}
+
+func assertHasGate(t *testing.T, eval gates.Evaluation, id string) {
+	t.Helper()
+	for _, result := range eval.Results {
+		if result.ID == id {
+			return
+		}
+	}
+	t.Fatalf("gate %s not found in %#v", id, eval.Results)
 }

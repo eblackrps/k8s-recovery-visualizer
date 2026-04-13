@@ -63,6 +63,16 @@ The scanner records permission failures under `collectorSkips` and renders them 
 | `velero.io/schedules` / `config.kio.kasten.io/policies` / `longhorn.io/*` | backup inspection falls back to `unverified` |
 | `cert-manager.io/certificates` | certificate expiry findings disappear |
 
+## Preflight Remediation Assistant
+
+The CLI and desktop preflight path now attach more than a warning string when a permission probe fails.
+
+- Desktop preflight cards show the probe scope and resource explicitly.
+- The shared backend includes a suggested `kubectl auth can-i` command for each missing permission.
+- When the gap maps cleanly to a single RBAC rule, the preflight response also includes a least-privilege manifest snippet you can adapt into your own service-account policy.
+
+Treat those snippets as a starting point, not a blind copy/paste replacement for the published manifests. The supported manifests in `deploy/rbac/` remain the source of truth for the baseline cluster-wide and namespace-scoped roles.
+
 ## Optional Secret metadata collection
 
 The published manifests intentionally do not grant Secret reads.

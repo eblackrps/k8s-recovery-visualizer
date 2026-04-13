@@ -12,7 +12,15 @@
   <img alt="K8V findings workspace" src="images/gui-results-findings.png" width="49%" />
 </p>
 
-`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, `.zip`, `.tar.gz`, or `.tgz` bundle without cluster access.
+`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, `.zip`, `.tar.gz`, or `.tgz` bundle without cluster access. Bundle loading now validates archives and JSON structure up front so operators get clearer corruption or mis-packaging diagnostics instead of a generic open failure.
+
+## What Teams Get
+
+- prioritized findings with impact, likely owner, rough effort, and deterministic ranking
+- restore-readiness evidence that goes beyond “backup detected” to show blocked, warning, ready, and unknown namespaces
+- a restore drill planner that turns bundle evidence into an operator runbook sequence
+- compare and history workflows that surface score drift, severity deltas, regressed findings, and persistent gaps
+- offline-friendly exports and schema-validated bundles that still work in CI and air-gapped review flows
 
 ## Public Release
 
@@ -76,7 +84,7 @@ go run ./cmd/scan --context prod-east-admin --profile enterprise --summary --run
 Evaluate the generated bundle in CI:
 
 ```bash
-go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
+go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --min-backup-score 80 --max-new-findings 0 --max-regressed-findings 0 --format json
 ```
 
 Build a host-specific CLI binary into `dist/`:
@@ -100,7 +108,7 @@ The public gallery intentionally uses the current deterministic desktop screensh
 | Surface | Best for | Strengths |
 | --- | --- | --- |
 | CLI (`cmd/scan`, `cmd/check`) | CI/CD, repeatable ops workflows, scripting, source builds | Stable flags, schema-validated bundles, policy gating, deterministic smoke flows |
-| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, offline bundle inspection |
+| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, prioritized findings, restore drill planning, offline bundle inspection |
 
 ## Output Artifacts
 

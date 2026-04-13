@@ -19,6 +19,7 @@ Use the desktop app when you want:
 - a preflight and RBAC check before running
 - live progress, structured logs, warning surfacing, and cancel support
 - a results workspace that mirrors the report tabs
+- prioritized findings, restore-readiness summaries, and drill-planning guidance in one place
 - easy inspection of existing bundles without needing live cluster access
 
 ## Main Screens
@@ -27,6 +28,9 @@ Use the desktop app when you want:
 - `New Scan`: wizard for kubeconfig/context, namespace scope, profile, compare baseline, outputs, redaction, summary/runbook, and dry-run settings
 - `Live Run`: progress events, warnings, structured logs, and cancel
 - `Results`: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
+  - Findings now surface rank, owner hints, impact, and effort metadata
+  - Backup now surfaces restore readiness, namespace blockers, and a generated drill plan
+  - Compare now surfaces score deltas, severity drift, regressed findings, improved findings, and persistent gaps
 - `Settings`: workspace defaults plus open-existing-bundle support
 
 ## Shared Backend Contract
@@ -53,9 +57,20 @@ Live run updates are emitted as the `scan:event` Wails event.
 The desktop app can:
 
 - open a bundle directory, `recovery-scan.json`, or a supported `.zip` / `.tar.gz` / `.tgz` archive without cluster access
+- validate archives and JSON content before loading so users get actionable corruption or ambiguity diagnostics
 - export only the requested outputs instead of rewriting everything blindly
 - refresh HTML, Markdown, summary, runbook, CSV, redacted, and JSON artifacts from a loaded bundle
 - preserve the same theme and offline-friendly output format as the CLI-generated reports
+
+## Preflight And RBAC Guidance
+
+The preflight panel is no longer just a pass/fail list. When key permissions are missing, `K8V` now shows:
+
+- scope and resource context for the failing probe
+- a suggested `kubectl auth can-i` command to confirm the gap
+- a least-privilege manifest snippet when the missing permission maps cleanly to an RBAC rule
+
+That keeps degraded-mode behavior explicit and gives platform teams a concrete starting point for access remediation.
 
 ## Settings Behavior
 

@@ -44,5 +44,6 @@ The public release promise is intentionally narrower than the full source tree. 
 ## Explicit Non-Claims
 
 - This tool does not prove that a backup can be restored until operators run a real drill.
+- The generated restore drill plan is a starting point for execution, not a substitute for application-specific runbooks or sign-off.
 - Detection-only backup products are inventory signals, not coverage proof.
 - A passing score does not replace workload-specific DR runbooks, RTO validation, or business-impact testing.

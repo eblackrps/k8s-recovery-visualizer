@@ -37,6 +37,18 @@ func renderRemediationBody(step model.RemediationStep, dark bool) string {
 	}
 
 	buf.WriteString(`<div class="rem-body">`)
+	if step.OwnerHint != "" || step.Effort != "" {
+		buf.WriteString(`<section class="rem-section"><div class="rem-section-title">Execution Notes</div><p>`)
+		meta := []string{}
+		if step.OwnerHint != "" {
+			meta = append(meta, fmt.Sprintf("Likely owner: %s", step.OwnerHint))
+		}
+		if step.Effort != "" {
+			meta = append(meta, fmt.Sprintf("Estimated effort: %s", step.Effort))
+		}
+		buf.WriteString(e(strings.Join(meta, " · ")))
+		buf.WriteString(`</p></section>`)
+	}
 	if step.Detail != "" {
 		buf.WriteString(`<p class="rem-detail">`)
 		buf.WriteString(e(step.Detail))

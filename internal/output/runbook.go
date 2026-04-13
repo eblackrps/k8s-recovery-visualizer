@@ -312,13 +312,27 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 		}
 		wf(`<p style="margin-bottom:8px">Total PVC data: <strong>%.1f GB</strong> &nbsp; Coverage by volume: <strong>%s</strong> &nbsp; %s: <strong class="%s">%d</strong></p>`,
 			sim.TotalPVCsGB, coverageVolumeText, coverageCountLabel, coverageCountClass, coverageCount)
-		w(`<table><thead><tr><th>Namespace</th><th>Coverage</th><th>RPO (h)</th><th>PVC Data (GB)</th><th>Blockers</th><th>Warnings</th></tr></thead><tbody>`)
+		wf(`<p style="margin-bottom:8px">Ready namespaces: <strong class="ok">%d</strong> &nbsp; Blocked namespaces: <strong class="bad">%d</strong> &nbsp; Warning namespaces: <strong>%d</strong> &nbsp; Unknown namespaces: <strong>%d</strong> &nbsp; Estimated data at risk: <strong>%.1f GB</strong></p>`,
+			sim.ReadyNamespaces, sim.BlockedNamespaces, sim.WarningNamespaces, sim.UnknownNamespaces, sim.EstimatedDataAtRiskGB)
+		if len(sim.BlockingReasons) > 0 {
+			wf(`<p class="subtle" style="margin-bottom:8px">Top blocking reasons: %s</p>`, e(strings.Join(sim.BlockingReasons, " • ")))
+		}
+		w(`<table><thead><tr><th>Namespace</th><th>Readiness</th><th>Coverage</th><th>RPO (h)</th><th>PVC Data (GB)</th><th>Blockers</th><th>Warnings</th></tr></thead><tbody>`)
 		for _, ns := range sim.Namespaces {
 			covCell := `<span class="bad">none</span>`
 			if !ns.CoverageKnown {
 				covCell = `<span style="color:var(--warning-medium)">unverified</span>`
 			} else if ns.HasCoverage {
 				covCell = `<span class="ok">covered</span>`
+			}
+			readinessCell := `<span style="color:var(--muted)">unknown</span>`
+			switch ns.Readiness {
+			case "ready":
+				readinessCell = `<span class="ok">ready</span>`
+			case "warning", "uncovered":
+				readinessCell = `<span style="color:var(--warning-medium)">` + e(ns.Readiness) + `</span>`
+			case "blocked":
+				readinessCell = `<span class="bad">blocked</span>`
 			}
 			rpoCell := "unknown"
 			if ns.RPOHours >= 0 {
@@ -332,8 +346,24 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 			if len(ns.Warnings) > 0 {
 				warningsCell = `<span class="c-MEDIUM">` + e(strings.Join(ns.Warnings, "; ")) + `</span>`
 			}
-			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%.1f</td><td>%s</td><td>%s</td></tr>`,
-				e(ns.Namespace), covCell, rpoCell, ns.PVCSizeGB, blockersCell, warningsCell)
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%.1f</td><td>%s</td><td>%s</td></tr>`,
+				e(ns.Namespace), readinessCell, covCell, rpoCell, ns.PVCSizeGB, blockersCell, warningsCell)
+		}
+		w(`</tbody></table>`)
+	}
+	if len(inv.DrillPlan) > 0 {
+		w(`<h3 style="margin-top:1rem">Recommended Restore Drill Plan</h3><table><thead><tr><th>Phase</th><th>Step</th><th>Owner</th><th>Detail</th><th>Validation</th></tr></thead><tbody>`)
+		for _, step := range inv.DrillPlan {
+			owner := step.OwnerHint
+			if owner == "" {
+				owner = "—"
+			}
+			validation := "—"
+			if len(step.Validation) > 0 {
+				validation = strings.Join(step.Validation, "; ")
+			}
+			wf(`<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(step.Phase), e(step.Title), e(owner), e(step.Detail), e(validation))
 		}
 		w(`</tbody></table>`)
 	}
@@ -347,6 +377,9 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 		sorted := make([]model.Finding, len(b.Inventory.Findings))
 		copy(sorted, b.Inventory.Findings)
 		sort.Slice(sorted, func(i, j int) bool {
+			if sorted[i].Rank > 0 && sorted[j].Rank > 0 && sorted[i].Rank != sorted[j].Rank {
+				return sorted[i].Rank < sorted[j].Rank
+			}
 			oi := sevOrder[sorted[i].Severity]
 			oj := sevOrder[sorted[j].Severity]
 			if oi != oj {
@@ -373,10 +406,26 @@ func buildRunbook(buf *bytes.Buffer, b *model.Bundle) {
 <span class="chip" style="border-color:var(--warning-medium);color:var(--warning-medium)">MEDIUM: %d</span>
 <span class="chip">LOW/INFO: %d</span>
 </p>`, crit, high, med, low)
-		w(`<table><thead><tr><th>Severity</th><th>Resource</th><th>Finding</th><th>Recommendation</th></tr></thead><tbody>`)
+		w(`<table><thead><tr><th>Rank</th><th>Severity</th><th>Owner</th><th>Impact</th><th>Effort</th><th>Resource</th><th>Finding</th><th>Recommendation</th></tr></thead><tbody>`)
 		for _, f := range sorted {
-			wf(`<tr><td class="c-%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
-				e(f.Severity), e(f.Severity), e(f.ResourceID), e(f.Message), e(f.Recommendation))
+			rank := "—"
+			if f.Rank > 0 {
+				rank = fmt.Sprintf("%d", f.Rank)
+			}
+			owner := f.OwnerHint
+			if owner == "" {
+				owner = "—"
+			}
+			impact := f.Impact
+			if impact == "" {
+				impact = "—"
+			}
+			effort := f.Effort
+			if effort == "" {
+				effort = "—"
+			}
+			wf(`<tr><td>%s</td><td class="c-%s">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`,
+				e(rank), e(f.Severity), e(f.Severity), e(owner), e(impact), e(effort), e(f.ResourceID), e(f.Message), e(f.Recommendation))
 		}
 		w(`</tbody></table>`)
 	}

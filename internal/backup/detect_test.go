@@ -1,11 +1,23 @@
 package backup
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"k8s-recovery-visualizer/internal/model"
 )
+
+func TestSignatureCollectorDefaultsUnsupportedInspection(t *testing.T) {
+	collector := signatureCollector{spec: toolSpec{Name: "rubrik"}}
+	got := collector.inspect(context.Background(), nil)
+	if got.Status != model.BackupCoverageStatusUnsupported {
+		t.Fatalf("inspect() status = %q, want unsupported", got.Status)
+	}
+	if !strings.Contains(got.Reason, "does not yet inspect") {
+		t.Fatalf("inspect() reason = %q, want unsupported guidance", got.Reason)
+	}
+}
 
 func TestCoveredNamespacesFromPolicies(t *testing.T) {
 	b := model.Bundle{

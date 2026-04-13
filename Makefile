@@ -71,10 +71,18 @@ dev-gui:
 	cd $(GUI_DIR) && $(WAILS) dev
 
 build-gui: frontend-build
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Set-Location 'desktop'; $(WAILS) build $(GUI_BUILD_FLAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
+else
 	cd $(GUI_DIR) && $(WAILS) build $(GUI_BUILD_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
+endif
 
 package-gui: frontend-build
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "$$nsisPaths=@('C:\\Program Files (x86)\\NSIS','C:\\Program Files (x86)\\NSIS\\Bin'); $$existing=$$nsisPaths | Where-Object { Test-Path $$_ }; if ($$existing) { $$env:PATH=(($$existing -join ';') + ';' + $$env:PATH) }; Set-Location 'desktop'; $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags \"$(LDFLAGS)\""
+else
 	cd $(GUI_DIR) && $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
+endif
 
 build-linux:
 ifeq ($(OS),Windows_NT)
@@ -129,25 +137,25 @@ race:
 	go test -race ./...
 
 schema-validate:
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/recovery-scan.json
-	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./out/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./out/recovery-enriched.json
 
 schema-samples:
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.sample.json
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./schemas/examples/recovery-scan-3.0.0.unverified.sample.json
-	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./schemas/examples/recovery-enriched-1.1.0.sample.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./schemas/examples/recovery-scan-3.1.0.sample.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./schemas/examples/recovery-scan-3.1.0.unverified.sample.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./schemas/examples/recovery-enriched-1.2.0.sample.json
 
 smoke: build-cli
 ifeq ($(OS),Windows_NT)
 	powershell -NoProfile -Command "if (Test-Path 'out\\smoke') { Remove-Item -LiteralPath 'out\\smoke' -Recurse -Force }; New-Item -ItemType Directory -Force -Path 'out\\smoke' | Out-Null; & '.\\$(HOST_BINARY)' --dry-run --summary --runbook --redact --csv --out .\\out\\smoke --min-score 0"
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/smoke/recovery-scan.json
-	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/smoke/recovery-enriched.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./out/smoke/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./out/smoke/recovery-enriched.json
 else
 	rm -rf out/smoke
 	mkdir -p out/smoke
 	./$(HOST_BINARY) --dry-run --summary --runbook --redact --csv --out ./out/smoke --min-score 0
-	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/smoke/recovery-scan.json
-	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/smoke/recovery-enriched.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./out/smoke/recovery-scan.json
+	go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./out/smoke/recovery-enriched.json
 endif
 
 docker-build:

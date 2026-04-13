@@ -4,7 +4,24 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-- Refreshed the main README and supporting docs so the public desktop-only release posture, CLI source-build story, and support language read consistently across the repo.
+Release candidate changes for the next minor line focus on operator actionability, compare/history depth, restore-readiness evidence, and stronger shared-core policy/reporting behavior.
+
+### Improved
+
+- Added finding prioritization metadata across the shared bundle model, reports, runbook, and desktop results workspace, including `rank`, `impact`, `ownerHint`, `effort`, and `priorityScore`.
+- Expanded restore-readiness evidence to classify namespaces as ready, warning, blocked, uncovered, or unknown and to calculate namespace counts, blocking reasons, and estimated data at risk.
+- Added a generated restore drill plan to backup inventory so scan bundles, reports, runbooks, and desktop views can turn evidence into an executable recovery checklist.
+- Expanded compare summaries with per-domain score deltas, severity deltas, inventory deltas, regressed findings, improved findings, and persistent finding counts.
+- Expanded history/trend data so bundle history now carries per-domain scores and finding counts, plus a richer history dashboard in the desktop workspace.
+- Refactored backup detection behind pluggable collectors to make future backup integrations easier to add without rewriting the main detection loop.
+- Improved desktop bundle loading so archive imports are validated earlier and surface clearer corruption, ambiguity, and mispackaging diagnostics.
+- Expanded `cmd/check` policy gates with domain thresholds, severity budgets, new-finding budgets, and regression budgets.
+- Strengthened desktop/frontend regression coverage with focused view tests for findings, compare, restore readiness, and preflight remediation rendering.
+
+### Docs
+
+- Refreshed the main README and supporting docs so the public desktop-only release posture, CLI source-build story, schema references, and support language read consistently across the repo.
+- Updated schema docs, committed examples, and CI/release workflow validation to the published `recovery-scan 3.1.0` and `recovery-enriched 1.2.0` contracts.
 - Replaced older report-era README screenshots with the maintained deterministic desktop screenshot set and removed deprecated screenshot references.
 
 ## [1.6.1] - 2026-04-13

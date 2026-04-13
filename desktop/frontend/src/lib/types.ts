@@ -56,8 +56,12 @@ export type PreflightCheck = {
   title: string;
   status: "pass" | "warn" | "fail";
   required: boolean;
+  scope?: string;
+  resource?: string;
   detail: string;
   hint?: string;
+  manifest?: string;
+  commands?: string[];
 };
 
 export type PreflightReport = {
@@ -88,6 +92,11 @@ export type ArtifactPaths = {
 export type HistoryEntry = {
   timestampUtc: string;
   overall: number;
+  storage?: number;
+  workload?: number;
+  config?: number;
+  backup?: number;
+  findings?: number;
   maturity: string;
   clusterName?: string;
   environment?: string;
@@ -99,14 +108,25 @@ export type HistoryDashboard = {
   entries: HistoryEntry[];
   trendLabel?: string;
   trendDelta?: number;
+  averageScore?: number;
+  bestScore?: number;
+  worstScore?: number;
+  runCount?: number;
+  domainTrends?: Array<{ name: string; current: number; delta: number; direction: string }>;
 };
 
 export type Finding = {
   id?: string;
+  title?: string;
   severity: string;
   resourceId: string;
   message: string;
   recommendation: string;
+  impact?: string;
+  effort?: string;
+  ownerHint?: string;
+  priorityScore?: number;
+  rank?: number;
 };
 
 export type RemediationStep = {
@@ -114,6 +134,8 @@ export type RemediationStep = {
   category: string;
   title: string;
   detail: string;
+  ownerHint?: string;
+  effort?: string;
   whyItMatters?: string;
   drImpact?: string;
   validation?: string[];
@@ -140,6 +162,7 @@ export type RestoreNamespace = {
   hasCoverage: boolean;
   rpoHours: number;
   pvcSizeGb: number;
+  readiness?: string;
   blockers?: string[];
   warnings?: string[];
 };
@@ -179,11 +202,22 @@ export type Bundle = {
   profile?: string;
   scanNamespaces?: string[];
   collectorSkips?: Array<{ name: string; reason: string; rbac: boolean }>;
-  trendHistory?: Array<{ ts: string; score: number; maturity: string }>;
+  trendHistory?: Array<{
+    ts: string;
+    score: number;
+    storage?: number;
+    workload?: number;
+    config?: number;
+    backup?: number;
+    findings?: number;
+    maturity: string;
+  }>;
   comparison?: {
     previousScannedAt?: string;
     previousScore?: number;
     previousMaturity?: string;
+    currentScore?: number;
+    currentMaturity?: string;
     scoreDelta?: number;
     namespacesAdded?: string[];
     namespacesRemoved?: string[];
@@ -195,6 +229,36 @@ export type Bundle = {
     imagesRemoved?: string[];
     findingsNew?: Finding[];
     findingsResolved?: Finding[];
+    domainDeltas?: Array<{ name: string; previous: number; current: number; delta: number }>;
+    severityDeltas?: Array<{ severity: string; previous: number; current: number; delta: number }>;
+    inventoryDeltas?: Array<{ name: string; added: number; removed: number }>;
+    findingsRegressed?: Array<{
+      id: string;
+      title?: string;
+      resourceId: string;
+      message: string;
+      recommendation?: string;
+      previousSeverity?: string;
+      currentSeverity?: string;
+      change: string;
+      ownerHint?: string;
+      impact?: string;
+      effort?: string;
+    }>;
+    findingsImproved?: Array<{
+      id: string;
+      title?: string;
+      resourceId: string;
+      message: string;
+      recommendation?: string;
+      previousSeverity?: string;
+      currentSeverity?: string;
+      change: string;
+      ownerHint?: string;
+      impact?: string;
+      effort?: string;
+    }>;
+    persistentFindingCount?: number;
     backupToolPrevious?: string;
     backupToolCurrent?: string;
     backupToolChanged?: boolean;
@@ -251,10 +315,17 @@ export type Bundle = {
         summary?: string;
         signals?: Array<{ id: string; status: string; confidence?: string; summary: string; detail?: string }>;
       };
+      drillPlan?: Array<{ phase: string; title: string; detail: string; ownerHint?: string; validation?: string[] }>;
       restoreSim?: {
         namespaces: RestoreNamespace[];
         totalPvcsGb: number;
         coveredPvcsGb: number;
+        estimatedDataAtRiskGb?: number;
+        readyNamespaces?: number;
+        blockedNamespaces?: number;
+        warningNamespaces?: number;
+        unknownNamespaces?: number;
+        blockingReasons?: string[];
         uncoveredNamespaces?: string[];
       };
     };

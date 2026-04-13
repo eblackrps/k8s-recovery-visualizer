@@ -47,8 +47,8 @@ What to do:
 Validate emitted JSON against the published contracts:
 
 ```bash
-go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.0.0.schema.json -input ./out/recovery-scan.json
-go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.1.0.schema.json -input ./out/recovery-enriched.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-scan-3.1.0.schema.json -input ./out/recovery-scan.json
+go run ./cmd/schema-validate -schema ./schemas/recovery-enriched-1.2.0.schema.json -input ./out/recovery-enriched.json
 ```
 
 ## Secret metadata was not collected

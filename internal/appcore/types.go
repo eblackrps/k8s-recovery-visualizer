@@ -85,15 +85,32 @@ type HistoryEntry struct {
 	ClusterName  string `json:"clusterName,omitempty"`
 	Environment  string `json:"environment,omitempty"`
 	Overall      int    `json:"overall"`
+	Storage      int    `json:"storage,omitempty"`
+	Workload     int    `json:"workload,omitempty"`
+	Config       int    `json:"config,omitempty"`
+	Backup       int    `json:"backup,omitempty"`
+	Findings     int    `json:"findings,omitempty"`
 	Maturity     string `json:"maturity"`
 	JSONPath     string `json:"jsonPath,omitempty"`
 	HTMLPath     string `json:"htmlPath,omitempty"`
 }
 
+type HistoryDomainTrend struct {
+	Name      string `json:"name"`
+	Current   int    `json:"current"`
+	Delta     int    `json:"delta"`
+	Direction string `json:"direction"`
+}
+
 type HistoryDashboard struct {
-	Entries    []HistoryEntry `json:"entries"`
-	TrendLabel string         `json:"trendLabel,omitempty"`
-	TrendDelta int            `json:"trendDelta,omitempty"`
+	Entries      []HistoryEntry       `json:"entries"`
+	TrendLabel   string               `json:"trendLabel,omitempty"`
+	TrendDelta   int                  `json:"trendDelta,omitempty"`
+	AverageScore int                  `json:"averageScore,omitempty"`
+	BestScore    int                  `json:"bestScore,omitempty"`
+	WorstScore   int                  `json:"worstScore,omitempty"`
+	RunCount     int                  `json:"runCount,omitempty"`
+	DomainTrends []HistoryDomainTrend `json:"domainTrends,omitempty"`
 }
 
 type Workspace struct {
@@ -127,12 +144,16 @@ type PreflightReport struct {
 }
 
 type PreflightCheck struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Status   string `json:"status"`
-	Required bool   `json:"required"`
-	Detail   string `json:"detail"`
-	Hint     string `json:"hint,omitempty"`
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Status   string   `json:"status"`
+	Required bool     `json:"required"`
+	Scope    string   `json:"scope,omitempty"`
+	Resource string   `json:"resource,omitempty"`
+	Detail   string   `json:"detail"`
+	Hint     string   `json:"hint,omitempty"`
+	Manifest string   `json:"manifest,omitempty"`
+	Commands []string `json:"commands,omitempty"`
 }
 
 type RunEvent struct {

@@ -1,0 +1,476 @@
+{
+  "checks": [
+    {
+      "id": "cluster.nodes.present",
+      "title": "Nodes discovered",
+      "category": "",
+      "score": 0,
+      "status": "PASS",
+      "weight": 1,
+      "message": "Cluster: Found 2 node(s)."
+    },
+    {
+      "id": "cluster.nodes.ready",
+      "title": "Node readiness",
+      "category": "",
+      "score": 0,
+      "status": "PASS",
+      "weight": 1,
+      "message": "Cluster: 2/2 node(s) Ready."
+    },
+    {
+      "id": "storage.classes.default",
+      "title": "Default StorageClass",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Storage: No StorageClasses found, cannot determine default."
+    },
+    {
+      "id": "storage.classes.present",
+      "title": "StorageClasses discovered",
+      "category": "",
+      "score": 0,
+      "status": "FAIL",
+      "weight": 1,
+      "message": "Storage: No StorageClasses found. Either storageclass collection is not implemented yet or dynamic provisioning is not configured."
+    }
+  ],
+  "schemaVersion": "3.1.0",
+  "metadata": {
+    "toolVersion": "dev",
+    "generatedAt": "2026-04-13T16:52:52Z"
+  },
+  "tool": {
+    "name": "k8s-recovery-visualizer",
+    "version": "dev",
+    "buildDate": "2026-04-13"
+  },
+  "scan": {
+    "scanId": "bb046456-f864-4d60-a8d3-a8886449eca0",
+    "startedAt": "2026-04-13T16:52:52.651313Z",
+    "endedAt": "2026-04-13T16:52:52.6518584Z",
+    "durationSeconds": 0,
+    "mode": "auto"
+  },
+  "cluster": {
+    "apiServer": {},
+    "platform": {
+      "provider": ""
+    }
+  },
+  "inventory": {
+    "namespaces": [
+      {
+        "id": "ns:default",
+        "name": "default"
+      },
+      {
+        "id": "ns:payments",
+        "name": "payments"
+      }
+    ],
+    "pvcs": [
+      {
+        "id": "pvc:payments/postgres-data",
+        "name": "postgres-data",
+        "namespace": "payments",
+        "storageClass": "fast-ssd",
+        "requestedSize": "200Gi"
+      }
+    ],
+    "pvs": [
+      {
+        "name": "pv-payments-postgres",
+        "storageClass": "fast-ssd",
+        "capacity": "200Gi",
+        "reclaimPolicy": "Delete",
+        "backend": "EBS",
+        "claimRef": "payments/postgres-data"
+      }
+    ],
+    "pods": [],
+    "statefulSets": [
+      {
+        "namespace": "payments",
+        "name": "postgres",
+        "replicas": 1,
+        "hasVolumeClaim": true
+      }
+    ],
+    "nodes": [
+      {
+        "name": "demo-control-plane",
+        "roles": [
+          "control-plane"
+        ],
+        "ready": true,
+        "kubeletVersion": "v1.30.0",
+        "osImage": "Ubuntu 24.04"
+      },
+      {
+        "name": "demo-worker-1",
+        "roles": [
+          "worker"
+        ],
+        "ready": true,
+        "kubeletVersion": "v1.30.0",
+        "osImage": "Ubuntu 24.04"
+      }
+    ],
+    "storageClasses": [],
+    "deployments": [
+      {
+        "namespace": "default",
+        "name": "frontend",
+        "replicas": 3,
+        "ready": 3,
+        "images": [
+          "ghcr.io/example/frontend:1.8.4"
+        ]
+      }
+    ],
+    "helmReleases": [
+      {
+        "namespace": "default",
+        "name": "platform",
+        "chart": "platform",
+        "version": "2.6.0",
+        "appVersion": "2.6.0",
+        "status": "deployed"
+      }
+    ],
+    "images": [
+      {
+        "image": "ghcr.io/example/frontend:1.8.4",
+        "registry": "ghcr.io",
+        "isPublic": false,
+        "workloads": [
+          "default/frontend"
+        ]
+      },
+      {
+        "image": "postgres:16.4",
+        "registry": "docker.io",
+        "isPublic": true,
+        "workloads": [
+          "payments/postgres"
+        ]
+      }
+    ],
+    "backup": {
+      "tools": [],
+      "primaryTool": "velero",
+      "coverageVerified": true,
+      "coverageStatus": "verified",
+      "coveredNamespaces": [
+        "payments"
+      ],
+      "hasOffsite": false,
+      "restoreSim": {
+        "namespaces": [
+          {
+            "namespace": "payments",
+            "coverageKnown": true,
+            "hasCoverage": true,
+            "rpoHours": -1,
+            "pvcSizeGb": 200,
+            "readiness": "warning",
+            "warnings": [
+              "StorageClass 'fast-ssd' not present in cluster"
+            ],
+            "confidence": "inferred"
+          }
+        ],
+        "totalPvcsGb": 200,
+        "coveredPvcsGb": 200,
+        "warningNamespaces": 1
+      },
+      "drillPlan": [
+        {
+          "phase": "prepare",
+          "title": "Freeze the recovery scope and evidence set",
+          "detail": "Use the standard profile bundle for cluster unknown cluster and confirm the target is vm before the drill starts.",
+          "ownerHint": "Platform / incident lead",
+          "validation": [
+            "Confirm the latest recovery-scan.json is attached to the drill ticket.",
+            "Record the target cluster, namespace scope, and declared recovery destination."
+          ]
+        },
+        {
+          "phase": "backup",
+          "title": "Validate backup and offsite evidence",
+          "detail": "Validate velero policies, last-success timestamps, and offsite destinations before touching workloads.",
+          "ownerHint": "Platform / backup owner",
+          "validation": [
+            "Review backup schedule scope and RPO assumptions.",
+            "Confirm the most recent successful run and its offsite/export destination."
+          ]
+        },
+        {
+          "phase": "restore",
+          "title": "Execute a dependency-aware restore sequence",
+          "detail": "Restore cluster-scoped dependencies first, then stateful namespaces, then stateless services. Suggested namespace order: payments.",
+          "ownerHint": "Platform engineering",
+          "validation": [
+            "Restore CRDs, storage classes, and RBAC prerequisites before namespaced workloads.",
+            "Restore data-bearing namespaces before frontend or integration tiers."
+          ]
+        },
+        {
+          "phase": "validate",
+          "title": "Prove application readiness after data restore",
+          "detail": "Validate recovered workloads against the estimated 200.0 GiB protected volume and compare service endpoints, certificates, and policies with the source bundle.",
+          "ownerHint": "Application owner",
+          "validation": [
+            "Run namespace smoke checks and confirm PVC binding, service endpoints, and secrets/config are present.",
+            "Capture any warning or blocker differences in a follow-up bundle."
+          ]
+        },
+        {
+          "phase": "closeout",
+          "title": "Re-scan the recovered environment and compare the results",
+          "detail": "Generate a fresh bundle from the restored target and compare it to the pre-drill baseline to record regressions, resolved gaps, and evidence drift.",
+          "ownerHint": "Platform / incident lead",
+          "validation": [
+            "Run cmd/check or load the new bundle into K8V compare view.",
+            "Record new, resolved, and regressed findings in the drill retro."
+          ]
+        }
+      ],
+      "assurance": {
+        "conclusion": "coverage_gap",
+        "confidence": "confirmed",
+        "summary": "Verified backup evidence has gaps or blockers that need attention.",
+        "signals": [
+          {
+            "id": "coverage",
+            "status": "confirmed",
+            "confidence": "confirmed",
+            "summary": "Backup namespace coverage was verified from inspected policies."
+          },
+          {
+            "id": "recent-success",
+            "status": "unknown",
+            "confidence": "unknown",
+            "summary": "Recent successful backup evidence was not exposed by the inspected tool."
+          },
+          {
+            "id": "offsite",
+            "status": "missing",
+            "confidence": "confirmed",
+            "summary": "Offsite or secondary backup evidence is incomplete for the verified coverage set."
+          },
+          {
+            "id": "snapshot-readiness",
+            "status": "missing",
+            "confidence": "confirmed",
+            "summary": "No VolumeSnapshotClass is available for point-in-time volume protection."
+          },
+          {
+            "id": "coverage-gaps",
+            "status": "confirmed",
+            "confidence": "confirmed",
+            "summary": "No uncovered stateful namespaces were found in verified policy scope."
+          },
+          {
+            "id": "restore-dependencies",
+            "status": "warning",
+            "confidence": "confirmed",
+            "summary": "Restore simulation found dependency warnings that should be reviewed before DR."
+          }
+        ]
+      }
+    },
+    "remediationSteps": [
+      {
+        "priority": 1,
+        "category": "Backup",
+        "title": "Configure offsite backup replication or export",
+        "detail": "A backup target exists, but the scanner did not find evidence of an offsite or secondary copy.",
+        "ownerHint": "Platform / backup owner",
+        "effort": "M",
+        "whyItMatters": "Primary-site-only backups do not protect against region, datacenter, or storage-system loss.",
+        "drImpact": "A site-wide incident can destroy both production data and the only restore source.",
+        "validation": [
+          "Inspect backup export targets and replication jobs.",
+          "Confirm the secondary target is reachable and contains recent restore points."
+        ],
+        "fixSteps": [
+          "Configure an offsite object store, secondary cluster, or replicated target.",
+          "Test restore from the secondary location instead of only local snapshots."
+        ],
+        "commands": [
+          "velero backup-location get",
+          "velero schedule describe \u003cschedule-name\u003e",
+          "# Ensure the schedule writes to an object store outside the primary cluster or site."
+        ],
+        "findingId": "BACKUP_NO_OFFSITE"
+      },
+      {
+        "priority": 2,
+        "category": "Storage",
+        "title": "Change PV reclaim policy to Retain: pv-payments-postgres",
+        "detail": "Delete policy means the PV is deleted when the PVC is deleted, making restore impossible.",
+        "ownerHint": "Storage platform",
+        "effort": "M",
+        "whyItMatters": "Delete reclaim policy increases the chance of permanent data loss during cleanup, migration, or failed restore attempts.",
+        "drImpact": "Operators can unintentionally delete the only remaining copy of a volume while trying to recover it.",
+        "validation": [
+          "Inspect the reclaim policy on production PVs and StorageClasses.",
+          "Review storage lifecycle automation that may delete PVCs during maintenance."
+        ],
+        "fixSteps": [
+          "Switch recoverable data paths to Retain.",
+          "Document the manual cleanup process for retained PVs."
+        ],
+        "commands": [
+          "kubectl patch pv pv-payments-postgres -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
+        ],
+        "findingId": "PV_DELETE_POLICY"
+      },
+      {
+        "priority": 2,
+        "category": "Config",
+        "title": "Mirror public container images to a private registry",
+        "detail": "Public registry images may be unavailable in an air-gapped or restricted DR environment.",
+        "ownerHint": "Platform / backup owner",
+        "effort": "L",
+        "whyItMatters": "Recovery often happens in constrained networks where public registries are slow, blocked, or unavailable.",
+        "drImpact": "Pods can be restored but stay Pending or ImagePullBackOff because the target cluster cannot pull the image.",
+        "validation": [
+          "Inventory public image dependencies for critical workloads.",
+          "Confirm whether the DR environment can reach those registries."
+        ],
+        "fixSteps": [
+          "Mirror critical images into a private registry reachable from the recovery environment.",
+          "Update manifests and Helm values to use mirrored references."
+        ],
+        "commands": [
+          "# List all public images used:",
+          "# kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{\"\\n\"}{end}' | sort -u | grep -v \u003cprivate-registry\u003e"
+        ],
+        "targetNotes": "VM target: use a registry in the same cloud region or VPN-accessible private registry to reduce pull latency.",
+        "findingId": "IMAGE_EXTERNAL_REGISTRY"
+      },
+      {
+        "priority": 2,
+        "category": "Config",
+        "title": "Mirror 1 public image(s) to a private registry",
+        "detail": "Public registry images may be unavailable in the DR environment if network access is restricted.",
+        "ownerHint": "Platform engineering",
+        "effort": "M",
+        "commands": [
+          "# List all public images:\nkubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{\"\\n\"}{end}' | sort -u",
+          "# Pull and push to private registry:\n# docker pull \u003cimage\u003e \u0026\u0026 docker tag \u003cimage\u003e \u003cprivate-registry\u003e/\u003cimage\u003e \u0026\u0026 docker push \u003cprivate-registry\u003e/\u003cimage\u003e"
+        ],
+        "targetNotes": "VM target: use a registry in the same cloud region or VPN-accessible private registry to reduce pull latency."
+      },
+      {
+        "priority": 3,
+        "category": "Config",
+        "title": "Back up values for 1 Helm release(s)",
+        "detail": "Helm release values are required to reinstall applications in the DR environment.",
+        "ownerHint": "Application owner",
+        "effort": "S",
+        "commands": [
+          "# Export values for each Helm release:",
+          "helm get values platform -n default \u003e platform-values.yaml",
+          "# Store these files in a safe external location (git, S3, etc.)"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "id": "PV_DELETE_POLICY",
+        "title": "PV delete reclaim policy",
+        "domain": "storage",
+        "severity": "HIGH",
+        "resourceId": "pv-payments-postgres",
+        "message": "PV reclaimPolicy is Delete",
+        "recommendation": "Consider Retain for DR recoverability",
+        "impact": "data loss risk",
+        "effort": "M",
+        "ownerHint": "Storage platform",
+        "priorityScore": 113,
+        "rank": 1,
+        "penalty": 15,
+        "confidence": "confirmed"
+      },
+      {
+        "id": "BACKUP_NO_OFFSITE",
+        "title": "No offsite backup target",
+        "domain": "backup",
+        "severity": "HIGH",
+        "resourceId": "velero",
+        "message": "Backup tool detected but no offsite/export location configured",
+        "recommendation": "Configure an offsite or cloud export target to protect against site-level failures",
+        "impact": "coverage gap",
+        "effort": "M",
+        "ownerHint": "Platform / backup owner",
+        "priorityScore": 109,
+        "rank": 2,
+        "penalty": 15,
+        "confidence": "confirmed"
+      },
+      {
+        "id": "SNAPSHOT_NO_CLASS",
+        "title": "No VolumeSnapshotClass",
+        "domain": "storage",
+        "severity": "MEDIUM",
+        "resourceId": "cluster",
+        "message": "No VolumeSnapshotClass found — CSI snapshot capability not configured",
+        "recommendation": "Install a CSI driver that supports snapshots and create a VolumeSnapshotClass",
+        "impact": "data loss risk",
+        "effort": "S",
+        "ownerHint": "Storage platform",
+        "priorityScore": 82,
+        "rank": 3,
+        "penalty": 10,
+        "confidence": "confirmed"
+      },
+      {
+        "id": "IMAGE_EXTERNAL_REGISTRY",
+        "title": "Public registry dependency",
+        "domain": "backup",
+        "severity": "MEDIUM",
+        "resourceId": "images",
+        "message": "Workloads depend on public container registries",
+        "recommendation": "Mirror critical images to a private registry accessible from the DR environment",
+        "impact": "coverage gap",
+        "effort": "L",
+        "ownerHint": "Platform / backup owner",
+        "priorityScore": 65,
+        "rank": 4,
+        "penalty": 5,
+        "confidence": "confirmed"
+      }
+    ]
+  },
+  "score": {
+    "storage": {
+      "max": 100,
+      "final": 75
+    },
+    "workload": {
+      "max": 100,
+      "final": 100
+    },
+    "config": {
+      "max": 100,
+      "final": 100
+    },
+    "backup": {
+      "max": 100,
+      "final": 80
+    },
+    "overall": {
+      "max": 100,
+      "final": 85
+    },
+    "maturity": "GOLD"
+  },
+  "target": "vm",
+  "profile": "standard"
+}

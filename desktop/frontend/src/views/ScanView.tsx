@@ -168,11 +168,16 @@ export function ScanView(props: {
               {props.preflight.checks.map((check) => (
                 <div key={check.id} className={`status-card ${check.status}`}>
                   <div className="status-card-head">
-                    <strong>{check.title}</strong>
+                    <div>
+                      <strong>{check.title}</strong>
+                      {check.resource ? <p className="muted">{titleForProbe(check.scope, check.resource)}</p> : null}
+                    </div>
                     <span className={`chip chip-${check.status}`}>{check.status}</span>
                   </div>
                   <p>{check.detail}</p>
                   {check.hint ? <p className="muted">{check.hint}</p> : null}
+                  {check.commands?.length ? <p className="muted">Check with: {check.commands[0]}</p> : null}
+                  {check.manifest ? <code className="mono-block">{check.manifest}</code> : null}
                 </div>
               ))}
             </div>
@@ -183,4 +188,11 @@ export function ScanView(props: {
       </section>
     </section>
   );
+}
+
+function titleForProbe(scope?: string, resource?: string) {
+  if (!resource) {
+    return "";
+  }
+  return `${scope === "cluster" ? "Cluster-scope" : "Namespace-scope"} access for ${resource}`;
 }

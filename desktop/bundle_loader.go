@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"k8s-recovery-visualizer/internal/appcore"
+	"k8s-recovery-visualizer/internal/model"
 )
 
 func (a *App) OpenBundle(path string) (appcore.Workspace, error) {
@@ -24,7 +26,14 @@ func (a *App) OpenBundle(path string) (appcore.Workspace, error) {
 	if err != nil {
 		return appcore.Workspace{}, err
 	}
-	return a.service.LoadWorkspace(resolvedPath)
+	if err := validateBundleJSON(resolvedPath); err != nil {
+		return appcore.Workspace{}, err
+	}
+	workspace, err := a.service.LoadWorkspace(resolvedPath)
+	if err != nil {
+		return appcore.Workspace{}, annotateBundleLoadError(filepath.Dir(resolvedPath), err)
+	}
+	return workspace, nil
 }
 
 func (a *App) resolveBundlePath(path string) (string, error) {
@@ -236,6 +245,8 @@ func findBundleJSON(root string) (string, error) {
 	}
 
 	matches := []string{}
+	jsonCandidates := []string{}
+	reportCandidates := []string{}
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -245,6 +256,10 @@ func findBundleJSON(root string) (string, error) {
 		}
 		if strings.EqualFold(filepath.Base(path), "recovery-scan.json") {
 			matches = append(matches, path)
+		} else if strings.HasSuffix(strings.ToLower(filepath.Base(path)), ".json") {
+			jsonCandidates = append(jsonCandidates, path)
+		} else if strings.EqualFold(filepath.Base(path), "recovery-report.html") {
+			reportCandidates = append(reportCandidates, path)
 		}
 		return nil
 	})
@@ -252,9 +267,60 @@ func findBundleJSON(root string) (string, error) {
 		return "", err
 	}
 	if len(matches) == 0 {
-		return "", fmt.Errorf("recovery-scan.json was not found in %s", root)
+		extra := []string{}
+		if len(jsonCandidates) > 0 {
+			sort.Strings(jsonCandidates)
+			extra = append(extra, "JSON candidates: "+strings.Join(relPaths(root, jsonCandidates), ", "))
+		}
+		if len(reportCandidates) > 0 {
+			sort.Strings(reportCandidates)
+			extra = append(extra, "HTML reports: "+strings.Join(relPaths(root, reportCandidates), ", "))
+		}
+		if len(extra) == 0 {
+			return "", fmt.Errorf("recovery-scan.json was not found in %s", root)
+		}
+		return "", fmt.Errorf("recovery-scan.json was not found in %s. %s", root, strings.Join(extra, ". "))
+	}
+	if len(matches) > 1 {
+		sort.Strings(matches)
+		return "", fmt.Errorf("multiple recovery-scan.json files were found in %s: %s", root, strings.Join(relPaths(root, matches), ", "))
 	}
 
 	sort.Strings(matches)
 	return matches[0], nil
+}
+
+func relPaths(root string, paths []string) []string {
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if rel, err := filepath.Rel(root, path); err == nil {
+			out = append(out, filepath.ToSlash(rel))
+			continue
+		}
+		out = append(out, filepath.ToSlash(path))
+	}
+	return out
+}
+
+func validateBundleJSON(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var bundle model.Bundle
+	if err := json.Unmarshal(raw, &bundle); err != nil {
+		return fmt.Errorf("%s is not a readable recovery-scan.json bundle: %w", filepath.Base(path), err)
+	}
+	if strings.TrimSpace(bundle.SchemaVersion) == "" || strings.TrimSpace(bundle.Tool.Name) == "" {
+		return fmt.Errorf("%s does not look like a recovery-scan.json bundle", filepath.Base(path))
+	}
+	return nil
+}
+
+func annotateBundleLoadError(root string, err error) error {
+	reportPath := filepath.Join(root, "recovery-report.html")
+	if _, statErr := os.Stat(reportPath); statErr == nil {
+		return fmt.Errorf("%w (bundle report is present at %s)", err, reportPath)
+	}
+	return err
 }

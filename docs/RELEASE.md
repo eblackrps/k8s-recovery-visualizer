@@ -8,6 +8,7 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 - Keep source-level version references aligned with the release you are cutting.
 - Bump schema versions only when the JSON contract changes.
 - Use a minor or major release only when the user-visible surface justifies it.
+- Current published schema pair: `recovery-scan 3.1.0`, `recovery-enriched 1.2.0`.
 
 ## Public Release Scope
 
@@ -55,6 +56,7 @@ Also confirm:
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
 - README, screenshots, changelog, and release notes all match the actual shipped artifacts
+- schema docs and committed examples match the schema files named in CI and release workflows
 - no public-release docs or workflow paths still imply CLI binaries, macOS packages, or GHCR container publishing
 
 ## Local Build Notes
