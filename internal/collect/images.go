@@ -4,12 +4,12 @@ import (
 	"context"
 	"strings"
 
-	"k8s.io/client-go/kubernetes"
 	"k8s-recovery-visualizer/internal/model"
+	"k8s.io/client-go/kubernetes"
 )
 
 var publicRegistries = map[string]struct{}{
-	"docker.io":             {},
+	"docker.io":            {},
 	"registry-1.docker.io": {},
 	"ghcr.io":              {},
 	"quay.io":              {},

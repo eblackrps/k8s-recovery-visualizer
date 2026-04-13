@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s-recovery-visualizer/internal/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s-recovery-visualizer/internal/model"
 )
 
 func ClusterRoles(ctx context.Context, cs *kubernetes.Clientset, b *model.Bundle) error {

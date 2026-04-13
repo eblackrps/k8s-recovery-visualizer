@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"k8s-recovery-visualizer/internal/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s-recovery-visualizer/internal/model"
 )
 
 // EtcdBackup looks for evidence that etcd state is being backed up.

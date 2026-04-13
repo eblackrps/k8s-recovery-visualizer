@@ -10,7 +10,7 @@ import (
 func TestAssessAssuranceUsesEvidenceConfirmedConclusion(t *testing.T) {
 	b := model.Bundle{
 		Inventory: model.Inventory{
-			PVCs: []model.PersistentVolumeClaim{{Namespace: "prod", Name: "db"}},
+			PVCs:                  []model.PersistentVolumeClaim{{Namespace: "prod", Name: "db"}},
 			VolumeSnapshotClasses: []model.VolumeSnapshotClass{{Name: "snap"}},
 			VolumeSnapshots:       []model.VolumeSnapshot{{Namespace: "prod", Name: "db-snap", PVCName: "db"}},
 			Backup: model.BackupInventory{

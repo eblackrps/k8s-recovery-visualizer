@@ -59,10 +59,10 @@ The desktop app can:
 
 ## Settings Behavior
 
-- startup now surfaces saved-settings load failures instead of silently swallowing them
-- settings-save failures are reported back through the desktop UI without destroying the in-memory session state
-- Linux defaults prefer XDG-friendly locations when available
-- persisted settings files are written with tighter per-user permissions
+- Startup now surfaces saved-settings load failures instead of silently swallowing them.
+- Settings-save failures are reported back through the desktop UI without destroying the in-memory session state.
+- Linux defaults prefer XDG-friendly locations when available.
+- Persisted settings files are written with tighter per-user permissions.
 
 ## Accessibility And Navigation
 
@@ -115,4 +115,4 @@ The frontend supports a deterministic mock backend for tests, local previews, an
 - fixture timestamps, locale, timezone, and motion settings are fixed so the screenshot set stays reproducible
 - no live cluster access is required for the screenshot workflow
 
-Screenshot workflow: [SCREENSHOTS.md](SCREENSHOTS.md)
+The maintained public screenshot set is the current `gui-*` desktop capture set documented in [SCREENSHOTS.md](SCREENSHOTS.md).

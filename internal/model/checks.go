@@ -5,13 +5,11 @@ package model
 type Check struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
-  Category string `json:"category"`
-  Score    int    `json:"score"`
-  Note     string `json:"note,omitempty"`
+	Category    string `json:"category"`
+	Score       int    `json:"score"`
+	Note        string `json:"note,omitempty"`
 	Status      string `json:"status"` // PASS/WARN/FAIL
 	Weight      int    `json:"weight,omitempty"`
 	Message     string `json:"message,omitempty"`
 	Remediation string `json:"remediation,omitempty"`
 }
-
-

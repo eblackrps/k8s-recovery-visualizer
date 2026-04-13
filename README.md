@@ -5,14 +5,16 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product ships in-app as `K8V`: a Wails desktop workspace for guided scans, live progress, bundle review, history, compare workflows, and offline exports. The Go CLI remains in-repo for contributors, CI gates, smoke tests, automation, and source builds.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for guided scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
-  <img alt="K8V live run progress" src="images/gui-live-run.png" width="49%" />
+  <img alt="K8V findings workspace" src="images/gui-results-findings.png" width="49%" />
 </p>
 
-## Public Release Support
+`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, `.zip`, `.tar.gz`, or `.tgz` bundle without cluster access.
+
+## Public Release
 
 Public GitHub releases publish exactly four files:
 
@@ -31,7 +33,7 @@ Supported public release platforms:
 | Prebuilt CLI binaries | Deprecated public release | Build from source with `make build`, `make build-cli-cross`, or `go run` |
 | GHCR container image | Deprecated public release | No public container image is published |
 
-## Get Started
+## Choose Your Path
 
 | Path | Best for | How |
 | --- | --- | --- |
@@ -57,8 +59,6 @@ Build the current-host desktop app:
 ```bash
 make build-gui
 ```
-
-`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, or supported bundle archive without cluster access.
 
 ### CLI Source Builds
 
@@ -86,20 +86,15 @@ Build a host-specific CLI binary into `dist/`:
 make build
 ```
 
-## Screenshot Gallery
+## Latest Desktop Screenshots
 
 <p align="center">
   <img alt="K8V guided scan wizard" src="images/gui-scan-wizard.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
-  <img alt="K8V results and findings workspace" src="images/gui-results-findings.png" width="32%" />
+  <img alt="K8V compare workflow" src="images/gui-compare.png" width="32%" />
 </p>
 
-<p align="center">
-  <img alt="K8V compare view" src="images/gui-compare.png" width="49%" />
-  <img alt="Offline HTML report summary" src="images/report-summary.png" width="49%" />
-</p>
-
-The desktop screenshots are generated from deterministic fixture data so the README stays current with the shipped experience. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow.
+The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
 
 ## CLI And Desktop At A Glance
 
@@ -133,14 +128,6 @@ The desktop screenshots are generated from deterministic fixture data so the REA
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - Schemas and compatibility: [docs/SCHEMAS.md](docs/SCHEMAS.md)
 - Screenshots: [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
-
-## Trust And Compatibility
-
-- The supported CLI code remains in [`cmd/scan`](cmd/scan) and [`cmd/check`](cmd/check).
-- The desktop app uses the shared backend in [`internal/appcore`](internal/appcore) and does not shell out to CLI binaries for normal runs.
-- Published schema versions remain [`3.0.0`](schemas/recovery-scan-3.0.0.schema.json) for `recovery-scan.json` and [`1.1.0`](schemas/recovery-enriched-1.1.0.schema.json) for `recovery-enriched.json`.
-- Generated HTML outputs stay self-contained and offline-friendly.
-- Backup detection is not treated as proof of recoverability. Unsupported or permission-limited tooling is surfaced explicitly in both JSON and HTML outputs.
 
 ## Community
 

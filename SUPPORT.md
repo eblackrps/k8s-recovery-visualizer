@@ -22,6 +22,8 @@ Please check:
 
 Public GitHub releases currently support Linux amd64 and Windows amd64 desktop packages only. If you are using the CLI, report the source-build command or workflow you ran rather than a missing release binary.
 
+If the problem is release-related, include the exact asset name you downloaded and whether the issue happened during install, launch, bundle open, scan, or export.
+
 Please include:
 
 - the version or tag you used

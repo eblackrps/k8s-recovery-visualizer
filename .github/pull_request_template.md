@@ -11,6 +11,7 @@
 - [ ] `make vet`
 - [ ] `make test`
 - [ ] `make race`
+- [ ] `make frontend-install`
 - [ ] `make frontend-build`
 - [ ] `make frontend-test`
 - [ ] `make smoke`
@@ -22,7 +23,7 @@
 
 - [ ] README updated if install, assets, or terminology changed
 - [ ] docs updated if workflows or behavior changed
-- [ ] screenshots refreshed if the desktop UI changed
+- [ ] maintained desktop screenshots refreshed if the desktop UI changed
 
 ## Reviewer Notes
 
