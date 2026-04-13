@@ -2,9 +2,6 @@
 /out/
 /dist/
 /history/
-/scan-linux-amd64
-/scan.exe
-/scan
 recovery-*.json
 recovery-*.html
 recovery-*.md

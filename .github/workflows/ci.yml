@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  verify:
-    name: Build, test, smoke, docs, screenshots, desktop
+  quality-gate:
+    name: Quality gate (Go, frontend, smoke, docs, Linux desktop)
     runs-on: ubuntu-latest
 
     steps:
@@ -72,23 +72,23 @@ jobs:
           go test ./cmd/scan ./internal/appcore ./internal/backup ./internal/restore ./internal/analyze ./internal/output
           -run "TestWritePersistsUnsupportedBackupCoverageArtifacts|TestApplyInspectionResultsPrefersVerifiedCoverageSource|TestApplyInspectionResultsSurfacesPermissionDeniedReason|TestSimulateLeavesCoverageUnknownWhenPoliciesAreUnverified|TestEvaluateBackupCoverageUnverified|TestBuildReportMarksDetectionOnlyBackupCoverageAsUnverified|TestSharedOutputCSSUsesSharedThemePalette|TestDryRunFinalizationMatchesSinglePass|TestExportBundleWritesOnlyRequestedArtifacts|TestExportBundleRequiresSelectedOutput"
 
-      - name: Build Linux binary (GOOS=linux GOARCH=amd64)
+      - name: Build CLI smoke binary (linux amd64)
         run: |
           mkdir -p dist
-          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-linux-amd64 ./cmd/scan
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o dist/cli-smoke-linux-amd64 ./cmd/scan
 
-      - name: Build Windows binary (GOOS=windows GOARCH=amd64)
-        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/scan-windows-amd64.exe ./cmd/scan
+      - name: Build CLI source validation binary (windows amd64)
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o dist/cli-source-windows-amd64.exe ./cmd/scan
 
-      - name: Verify binary formats
+      - name: Verify CLI binary formats
         run: |
-          file dist/scan-linux-amd64 | grep -q "ELF 64-bit" || { echo "ERROR: scan-linux-amd64 is not a Linux ELF binary"; exit 1; }
-          file dist/scan-windows-amd64.exe | grep -q "PE32+" || { echo "ERROR: scan-windows-amd64.exe is not a Windows PE32+ binary"; exit 1; }
+          file dist/cli-smoke-linux-amd64 | grep -q "ELF 64-bit" || { echo "ERROR: cli-smoke-linux-amd64 is not a Linux ELF binary"; exit 1; }
+          file dist/cli-source-windows-amd64.exe | grep -q "PE32+" || { echo "ERROR: cli-source-windows-amd64.exe is not a Windows PE32+ binary"; exit 1; }
 
       - name: Smoke test -- dry-run
         run: |
           mkdir -p /tmp/smoke
-          ./dist/scan-linux-amd64 --dry-run --summary --runbook --redact --csv --out /tmp/smoke --min-score 0
+          ./dist/cli-smoke-linux-amd64 --dry-run --summary --runbook --redact --csv --out /tmp/smoke --min-score 0
 
       - name: Smoke test -- verify JSON output
         run: |
@@ -141,5 +141,105 @@ jobs:
         working-directory: desktop
         run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o K8V
 
-      - name: Smoke test -- container build
-        run: docker build -t k8vis-smoke .
+  desktop-package-linux:
+    name: Supported desktop package validation (Linux amd64)
+    runs-on: ubuntu-latest
+    needs: quality-gate
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev
+          mkdir -p "$RUNNER_TEMP/pkgconfig"
+          ln -sf "$(dpkg -L libwebkit2gtk-4.1-dev | grep '/webkit2gtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/webkit2gtk-4.0.pc"
+          ln -sf "$(dpkg -L libjavascriptcoregtk-4.1-dev | grep '/javascriptcoregtk-4.1.pc$' | head -n 1)" "$RUNNER_TEMP/pkgconfig/javascriptcoregtk-4.0.pc"
+          echo "PKG_CONFIG_PATH=$RUNNER_TEMP/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+
+      - name: Install Wails CLI
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build Linux desktop package
+        working-directory: desktop
+        run: wails build -clean -skipbindings -s -platform linux/amd64 -o K8V
+
+      - name: Archive Linux desktop package
+        run: |
+          mkdir -p release
+          tar -czf release/k8s-recovery-visualizer-desktop-linux-amd64.tar.gz -C desktop/build/bin .
+          test -f release/k8s-recovery-visualizer-desktop-linux-amd64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux-validation
+          path: release/k8s-recovery-visualizer-desktop-linux-amd64.tar.gz
+
+  desktop-package-windows:
+    name: Supported desktop package validation (Windows amd64)
+    runs-on: windows-latest
+    needs: quality-gate
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Install Wails CLI
+        shell: pwsh
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          "$((go env GOPATH))\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build Windows desktop package
+        shell: pwsh
+        working-directory: desktop
+        run: wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe
+
+      - name: Archive Windows desktop package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path desktop\build\bin\* -DestinationPath release\k8s-recovery-visualizer-desktop-windows-amd64.zip -Force
+          if (-not (Test-Path release\k8s-recovery-visualizer-desktop-windows-amd64.zip)) {
+            throw "Windows desktop package archive was not created."
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-validation
+          path: release/k8s-recovery-visualizer-desktop-windows-amd64.zip

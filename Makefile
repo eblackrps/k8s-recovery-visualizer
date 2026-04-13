@@ -10,6 +10,8 @@ NPM           ?= npm
 PLAYWRIGHT    ?= npx playwright
 WAILS         ?= wails
 GOFMT_FILES   := $(shell git ls-files '*.go' ':!:desktop/frontend/*' ':!:vendor/*')
+NPM_PREFIX    := $(NPM) --prefix $(FRONTEND_DIR)
+NPX_PREFIX    := npx --prefix $(FRONTEND_DIR)
 
 ifeq ($(OS),Windows_NT)
   HOST_GOOS   := windows
@@ -39,27 +41,31 @@ else
 endif
 
 .PHONY: build build-cli build-gui package-gui dev-gui frontend-install frontend-build frontend-test screenshots
-.PHONY: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows release-cli release
+.PHONY: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows build-cli-cross release
 .PHONY: test race schema-validate schema-samples docker-build vet fmt smoke docs-check ci clean help
 
 build: build-cli
 
 build-cli:
+ifeq ($(OS),Windows_NT)
+	go build -ldflags "$(LDFLAGS)" -o $(HOST_BINARY) $(PKG)
+else
 	GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH) go build -ldflags "$(LDFLAGS)" -o $(HOST_BINARY) $(PKG)
+endif
 	@echo "Built $(HOST_BINARY) (GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH))"
 
 frontend-install:
-	cd $(FRONTEND_DIR) && $(NPM) ci
+	$(NPM_PREFIX) ci
 
 frontend-build:
-	cd $(FRONTEND_DIR) && $(NPM) run build
+	$(NPM_PREFIX) run build
 
 frontend-test:
-	cd $(FRONTEND_DIR) && $(NPM) test
+	$(NPM_PREFIX) test
 
 screenshots: frontend-build
-	cd $(FRONTEND_DIR) && $(PLAYWRIGHT) install chromium
-	cd $(FRONTEND_DIR) && $(NPM) run screenshots
+	$(NPX_PREFIX) playwright install chromium
+	$(NPM_PREFIX) run screenshots
 
 dev-gui:
 	cd $(GUI_DIR) && $(WAILS) dev
@@ -71,25 +77,47 @@ package-gui: frontend-build
 	cd $(GUI_DIR) && $(WAILS) build -clean -skipbindings -s $(GUI_PACKAGE_FLAGS) -o $(GUI_OUTPUT) -ldflags "$(LDFLAGS)"
 
 build-linux:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "$$env:GOOS='linux'; $$env:GOARCH='amd64'; go build -ldflags \"$(LDFLAGS)\" -o dist/scan-linux-amd64 $(PKG)"
+else
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/scan-linux-amd64 $(PKG)
+endif
 
 build-linux-arm64:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "$$env:GOOS='linux'; $$env:GOARCH='arm64'; go build -ldflags \"$(LDFLAGS)\" -o dist/scan-linux-arm64 $(PKG)"
+else
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/scan-linux-arm64 $(PKG)
+endif
 
 build-darwin:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "$$env:GOOS='darwin'; $$env:GOARCH='amd64'; go build -ldflags \"$(LDFLAGS)\" -o dist/scan-darwin-amd64 $(PKG)"
+else
 	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/scan-darwin-amd64 $(PKG)
+endif
 
 build-darwin-arm64:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "$$env:GOOS='darwin'; $$env:GOARCH='arm64'; go build -ldflags \"$(LDFLAGS)\" -o dist/scan-darwin-arm64 $(PKG)"
+else
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o dist/scan-darwin-arm64 $(PKG)
+endif
 
 build-windows:
+ifeq ($(OS),Windows_NT)
+	go build -ldflags "$(LDFLAGS)" -o dist/scan-windows-amd64.exe $(PKG)
+else
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o dist/scan-windows-amd64.exe $(PKG)
+endif
 
-release-cli: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows
+build-cli-cross: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows
 	@echo ""
-	@echo "Release binaries written to dist/"
+	@echo "Cross-platform CLI binaries written to dist/"
 
-release: release-cli package-gui
+release: package-gui
+	@echo ""
+	@echo "Current-host desktop package written by Wails. Public release artifacts are published by GitHub Actions."
 
 fmt:
 	gofmt -w $(GOFMT_FILES)
@@ -146,12 +174,12 @@ help:
 	@echo "  build-gui           Build the desktop app for the current host"
 	@echo "  package-gui         Package the desktop app for the current host"
 	@echo "  dev-gui             Run the Wails desktop app in dev mode"
+	@echo "  build-cli-cross     Build cross-platform CLI source binaries into dist/"
 	@echo "  frontend-install    Install frontend dependencies with npm ci"
 	@echo "  frontend-build      Build the desktop frontend"
 	@echo "  frontend-test       Run frontend tests"
 	@echo "  screenshots         Generate deterministic GUI screenshots"
-	@echo "  release-cli         Build all CLI release binaries"
-	@echo "  release             Build CLI release binaries plus the current-host GUI package"
+	@echo "  release             Package the current-host desktop app"
 	@echo "  fmt                 Run gofmt -w across Go sources"
 	@echo "  test                Run go test ./..."
 	@echo "  race                Run go test -race ./..."
