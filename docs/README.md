@@ -4,17 +4,17 @@ Use this index to find the right starting point for operating, evaluating, or co
 
 ## Start Here
 
-- Repository overview and install paths: [../README.md](../README.md)
-- CLI quickstart and flag guidance: [CLI.md](CLI.md)
-- Desktop app workflow and accessibility notes: [GUI.md](GUI.md)
+- Repository overview and public release posture: [../README.md](../README.md)
+- CLI usage and source-build guidance: [CLI.md](CLI.md)
+- Desktop app workflow and supported desktop platforms: [GUI.md](GUI.md)
 - Architecture and shared-core design: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Operator Guides
 
+- Platform and public support policy: [SUPPORT-MATRIX.md](SUPPORT-MATRIX.md)
 - RBAC and degraded-mode behavior: [RBAC.md](RBAC.md)
-- Troubleshooting common scan and packaging issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- Troubleshooting scan, packaging, and bundle-open issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - Backup capability coverage: [CAPABILITY-MATRIX.md](CAPABILITY-MATRIX.md)
-- Platform and scope support posture: [SUPPORT-MATRIX.md](SUPPORT-MATRIX.md)
 - JSON contracts and compatibility rules: [SCHEMAS.md](SCHEMAS.md)
 
 ## Contributor Guides
@@ -26,5 +26,5 @@ Use this index to find the right starting point for operating, evaluating, or co
 
 ## Release Maintainers
 
-- Release checklist and publishing flow: [RELEASE.md](RELEASE.md)
+- Release checklist and public artifact policy: [RELEASE.md](RELEASE.md)
 - Deterministic screenshot workflow: [SCREENSHOTS.md](SCREENSHOTS.md)

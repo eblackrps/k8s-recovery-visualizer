@@ -5,32 +5,62 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is a Kubernetes disaster recovery assessment tool for platform teams, SREs, consultants, and audit-driven operators. It combines a Go CLI for automation and CI policy gates with the `K8V` Wails desktop app for guided scans, live progress, bundle review, history, and exports. Both surfaces run on the same shared Go service layer and produce offline-friendly reports, versioned JSON contracts, compare/diff views, and remediation guidance.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product ships in-app as `K8V`: a Wails desktop workspace for guided scans, live progress, bundle review, history, compare workflows, and offline exports. The Go CLI remains in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
-  <img alt="Offline HTML report summary" src="images/report-summary.png" width="49%" />
+  <img alt="K8V live run progress" src="images/gui-live-run.png" width="49%" />
 </p>
 
-## What You Get
+## Public Release Support
 
-- A supported Go CLI for scripted scans, CI/CD gates, and air-gapped workflows
-- A desktop app with Home, Projects, New Scan, Live Run, Results, and Settings views
-- Offline HTML reports, executive summaries, runbooks, JSON bundles, CSV exports, and redacted artifacts
-- Conservative backup evidence scoring, compare/history workflows, and schema-validated output contracts
+Public GitHub releases publish exactly four files:
 
-## Install Options
+- `k8s-recovery-visualizer-desktop-linux-amd64.tar.gz`
+- `k8s-recovery-visualizer-desktop-windows-amd64.zip`
+- `checksums.txt`
+- `k8s-recovery-visualizer.spdx.json`
 
-| Option | Best for | How |
+Supported public release platforms:
+
+| Platform | Status | Notes |
 | --- | --- | --- |
-| GitHub Releases | Operators and evaluators | Download the matching CLI binary or desktop package from [Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) |
-| Build the CLI locally | Contributors and air-gapped environments | `make build` |
-| Run the desktop app in dev mode | UI iteration and local evaluation | `make frontend-install && make dev-gui` |
-| Build the desktop app locally | Packaging validation | `make frontend-install && make build-gui` |
+| Linux desktop amd64 | Supported | Public tarball release artifact |
+| Windows desktop amd64 | Supported | Public zip release artifact |
+| macOS desktop package | Deprecated public release | Source builds may still work, but no public package is published |
+| Prebuilt CLI binaries | Deprecated public release | Build from source with `make build`, `make build-cli-cross`, or `go run` |
+| GHCR container image | Deprecated public release | No public container image is published |
+
+## Get Started
+
+| Path | Best for | How |
+| --- | --- | --- |
+| Download the desktop app | Operators and evaluators | Grab the Linux or Windows desktop package from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) |
+| Build the CLI from source | Contributors, CI, air-gapped workflows | `make build` |
+| Build cross-platform CLI binaries locally | Contributor validation and internal packaging | `make build-cli-cross` |
+| Run the desktop app in dev mode | Frontend and UX iteration | `make frontend-install && make dev-gui` |
+| Build the current-host desktop app | Local packaging validation | `make frontend-install && make build-gui` |
 
 ## Quickstart
 
-### CLI
+### Desktop
+
+Install frontend dependencies and launch the desktop app in development mode:
+
+```bash
+make frontend-install
+make dev-gui
+```
+
+Build the current-host desktop app:
+
+```bash
+make build-gui
+```
+
+`K8V` can scan a live cluster or open an existing bundle directory, `recovery-scan.json`, or supported bundle archive without cluster access.
+
+### CLI Source Builds
 
 Run a deterministic dry run:
 
@@ -50,28 +80,13 @@ Evaluate the generated bundle in CI:
 go run ./cmd/check --current ./out/recovery-scan.json --min-score 85 --format json
 ```
 
-If you prefer prebuilt binaries, use the release asset for your platform. `make build` writes a host-specific binary into `dist/`.
-
-### Desktop
-
-Install frontend dependencies and start the desktop app in dev mode:
+Build a host-specific CLI binary into `dist/`:
 
 ```bash
-make frontend-install
-make dev-gui
+make build
 ```
 
-Build the current-host desktop app:
-
-```bash
-make build-gui
-```
-
-Do not run `go build` directly inside `desktop/`. Wails desktop binaries must be produced with `make build-gui`, `make package-gui`, or `wails build`.
-
-The `K8V` desktop app can scan a live cluster or open an existing output bundle without cluster access.
-
-## Screenshots
+## Screenshot Gallery
 
 <p align="center">
   <img alt="K8V guided scan wizard" src="images/gui-scan-wizard.png" width="32%" />
@@ -81,17 +96,17 @@ The `K8V` desktop app can scan a live cluster or open an existing output bundle 
 
 <p align="center">
   <img alt="K8V compare view" src="images/gui-compare.png" width="49%" />
-  <img alt="Offline report DR score" src="images/report-dr-score.png" width="49%" />
+  <img alt="Offline HTML report summary" src="images/report-summary.png" width="49%" />
 </p>
 
-The desktop screenshots are generated from deterministic fixture data so the README and release gallery stay current. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow.
+The desktop screenshots are generated from deterministic fixture data so the README stays current with the shipped experience. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow.
 
 ## CLI And Desktop At A Glance
 
 | Surface | Best for | Strengths |
 | --- | --- | --- |
-| CLI (`cmd/scan`) | CI/CD, repeatable ops workflows, scripting | Stable flags, schema-validated bundles, easy automation, policy gating with `cmd/check` |
-| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, export controls, accessible tabbed workspace |
+| CLI (`cmd/scan`, `cmd/check`) | CI/CD, repeatable ops workflows, scripting, source builds | Stable flags, schema-validated bundles, policy gating, deterministic smoke flows |
+| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, offline bundle inspection |
 
 ## Output Artifacts
 
@@ -106,30 +121,23 @@ The desktop screenshots are generated from deterministic fixture data so the REA
 | `csv/` | Optional CSV exports for spreadsheet or downstream analysis |
 | `*-redacted.*` | Optional share-safe exports with masked identifiers |
 
-## Who This Tool Is For
-
-- Platform and SRE teams who need a repeatable DR readiness baseline
-- Consultants and MSPs who need offline deliverables for customer reviews
-- Security, audit, and resilience owners who want evidence-backed reporting instead of optimistic backup claims
-- CI/CD owners who want release gates based on real recovery posture signals
-
 ## Documentation
 
 - Start here: [docs/README.md](docs/README.md)
-- CLI usage: [docs/CLI.md](docs/CLI.md)
-- Desktop app: [docs/GUI.md](docs/GUI.md)
+- CLI usage and source builds: [docs/CLI.md](docs/CLI.md)
+- Desktop app guide: [docs/GUI.md](docs/GUI.md)
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Development: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- Release process: [docs/RELEASE.md](docs/RELEASE.md)
+- Support policy: [docs/SUPPORT-MATRIX.md](docs/SUPPORT-MATRIX.md)
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- RBAC guidance: [docs/RBAC.md](docs/RBAC.md)
 - Schemas and compatibility: [docs/SCHEMAS.md](docs/SCHEMAS.md)
 - Screenshots: [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md)
-- Release process: [docs/RELEASE.md](docs/RELEASE.md)
 
 ## Trust And Compatibility
 
-- The supported CLI implementation remains [`cmd/scan`](cmd/scan).
-- The desktop app uses the same shared backend in [`internal/appcore`](internal/appcore) and does not shell out to the CLI for normal runs.
+- The supported CLI code remains in [`cmd/scan`](cmd/scan) and [`cmd/check`](cmd/check).
+- The desktop app uses the shared backend in [`internal/appcore`](internal/appcore) and does not shell out to CLI binaries for normal runs.
 - Published schema versions remain [`3.0.0`](schemas/recovery-scan-3.0.0.schema.json) for `recovery-scan.json` and [`1.1.0`](schemas/recovery-enriched-1.1.0.schema.json) for `recovery-enriched.json`.
 - Generated HTML outputs stay self-contained and offline-friendly.
 - Backup detection is not treated as proof of recoverability. Unsupported or permission-limited tooling is surfaced explicitly in both JSON and HTML outputs.

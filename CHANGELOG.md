@@ -6,6 +6,31 @@ All notable changes to this project are documented in this file.
 
 - No unreleased changes yet.
 
+## [1.6.0] - 2026-04-13
+
+Desktop-only public release for `k8s-recovery-visualizer`: this release narrows the published artifact surface to supported Linux and Windows desktop packages, keeps the CLI source-first for contributors and automation, refactors the desktop runtime for maintainability, hardens settings behavior, and refreshes the repository landing page, screenshots, and release documentation to match the supported product.
+
+### Improved
+
+- Simplified GitHub Actions so public releases publish only the Linux amd64 and Windows amd64 desktop packages plus checksums and an SPDX SBOM.
+- Updated CI to validate both supported desktop packaging paths before release instead of waiting for tag-only packaging coverage.
+- Refactored the desktop backend into focused settings, scan-control, dialog, bundle-loading, and window helpers.
+- Improved bundle-open UX so the desktop app can open bundle directories, `recovery-scan.json`, and supported bundle archives.
+- Standardized frontend dependency installation on `npm ci` across Wails, local workflows, CI, and release packaging.
+
+### Fixed
+
+- Replaced desktop scan and preflight `context.Background()` usage with app-lifecycle-derived contexts so active runs cancel more coherently.
+- Hardened settings load/save behavior so failures are surfaced to the desktop UI instead of being silently ignored.
+- Tightened desktop settings file permissions to safer per-user defaults where supported.
+- Improved Linux default workspace behavior to prefer XDG-friendly locations when available.
+
+### Docs
+
+- Rewrote the main README to present `K8V` as the desktop product while keeping `k8s-recovery-visualizer` as the repository and archive identity.
+- Refreshed the screenshot-backed landing page and aligned README, support, development, GUI, and release docs with the new public support policy.
+- Documented the deprecation of public macOS desktop packages, prebuilt CLI binaries, and the GHCR container image.
+
 ## [1.5.2] - 2026-04-13
 
 Maintenance release for `k8s-recovery-visualizer`: this patch release brings the latest tag back in sync with `main` after the post-`v1.5.1` automation follow-up and keeps the GitHub Actions stack aligned with GitHub's Node 24 migration path.

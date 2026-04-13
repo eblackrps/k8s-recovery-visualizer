@@ -20,6 +20,8 @@ Please check:
 - documentation is stale or contradictory
 - a release asset, installer, checksum, or workflow appears broken
 
+Public GitHub releases currently support Linux amd64 and Windows amd64 desktop packages only. If you are using the CLI, report the source-build command or workflow you ran rather than a missing release binary.
+
 Please include:
 
 - the version or tag you used
