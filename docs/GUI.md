@@ -1,6 +1,6 @@
 # Desktop App
 
-The desktop app lives in [`desktop/`](../desktop) and uses Wails v2 for the shell plus React + TypeScript for the frontend. It shares the same Go execution path as the CLI, so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
+The desktop app ships to users as `K8V`. It lives in [`desktop/`](../desktop) and uses Wails v2 for the shell plus React + TypeScript for the frontend. It shares the same Go execution path as the CLI, so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
 
 ## What The Desktop App Is For
 
@@ -74,6 +74,8 @@ Build the current-host app:
 ```bash
 make build-gui
 ```
+
+The packaged executable name is `K8V` on supported desktop targets.
 
 Do not use `go build` directly in [`desktop/`](../desktop). Wails requires its own build path, and a plain Go build will produce a binary that exits with a build-tags error dialog instead of launching the app.
 

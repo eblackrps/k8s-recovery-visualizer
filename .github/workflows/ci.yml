@@ -139,7 +139,7 @@ jobs:
 
       - name: Build Wails desktop app
         working-directory: desktop
-        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop
+        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o K8V
 
       - name: Smoke test -- container build
         run: docker build -t k8vis-smoke .

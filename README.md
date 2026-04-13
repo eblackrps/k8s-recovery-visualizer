@@ -5,10 +5,10 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is a Kubernetes disaster recovery assessment tool for platform teams, SREs, consultants, and audit-driven operators. It combines a Go CLI for automation and CI policy gates with a Wails desktop app for guided scans, live progress, bundle review, history, and exports. Both surfaces run on the same shared Go service layer and produce offline-friendly reports, versioned JSON contracts, compare/diff views, and remediation guidance.
+`k8s-recovery-visualizer` is a Kubernetes disaster recovery assessment tool for platform teams, SREs, consultants, and audit-driven operators. It combines a Go CLI for automation and CI policy gates with the `K8V` Wails desktop app for guided scans, live progress, bundle review, history, and exports. Both surfaces run on the same shared Go service layer and produce offline-friendly reports, versioned JSON contracts, compare/diff views, and remediation guidance.
 
 <p align="center">
-  <img alt="Desktop dashboard" src="images/gui-dashboard.png" width="49%" />
+  <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
   <img alt="Offline HTML report summary" src="images/report-summary.png" width="49%" />
 </p>
 
@@ -69,7 +69,22 @@ make build-gui
 
 Do not run `go build` directly inside `desktop/`. Wails desktop binaries must be produced with `make build-gui`, `make package-gui`, or `wails build`.
 
-The desktop app can scan a live cluster or open an existing output bundle without cluster access.
+The `K8V` desktop app can scan a live cluster or open an existing output bundle without cluster access.
+
+## Screenshots
+
+<p align="center">
+  <img alt="K8V guided scan wizard" src="images/gui-scan-wizard.png" width="32%" />
+  <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
+  <img alt="K8V results and findings workspace" src="images/gui-results-findings.png" width="32%" />
+</p>
+
+<p align="center">
+  <img alt="K8V compare view" src="images/gui-compare.png" width="49%" />
+  <img alt="Offline report DR score" src="images/report-dr-score.png" width="49%" />
+</p>
+
+The desktop screenshots are generated from deterministic fixture data so the README and release gallery stay current. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow.
 
 ## CLI And Desktop At A Glance
 

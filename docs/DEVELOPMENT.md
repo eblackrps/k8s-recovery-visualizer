@@ -1,6 +1,6 @@
 # Development Guide
 
-This project ships a supported Go CLI and a Wails desktop app backed by the same shared Go service layer. The most useful contributor workflow is to keep both surfaces healthy together.
+This project ships a supported Go CLI and a Wails desktop app, packaged as `K8V`, backed by the same shared Go service layer. The most useful contributor workflow is to keep both surfaces healthy together.
 
 ## Prerequisites
 

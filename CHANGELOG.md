@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file.
 
 - No unreleased changes yet.
 
+## [1.5.1] - 2026-04-13
+
+Desktop polish release for `k8s-recovery-visualizer`: this patch release tightens the Windows desktop shell, brings the app back into alignment with the shipped report visual language, fixes broken bundle-open actions, and refreshes the public README gallery to match the current product.
+
+### Improved
+
+- Tightened the Windows desktop shell so the title bar stays visible on smaller displays and the packaged app presents itself consistently as `K8V`.
+- Refined the desktop workspace styling to better match the supported report palette and reduce the earlier website-in-a-window feel.
+- Updated the main README screenshot gallery so GitHub now shows the current guided scan, live run, results, compare, and report visuals.
+
+### Fixed
+
+- Corrected desktop bundle-open flows so top-level open actions launch the file picker instead of falling back to stale demo bundle paths.
+- Improved disabled and error states for desktop actions such as run cancellation and bundle open so unavailable actions no longer fail silently.
+- Cleaned up the scan wizard stepper, metric cards, empty states, and desktop icon resources for a more production-ready Windows experience.
+
+### Docs
+
+- Refreshed release-facing docs and issue templates to target the current patch release.
+- Added the updated desktop screenshot set to the main repository landing page.
+
 ## [1.5.0] - 2026-04-12
 
 Desktop workspace release for `k8s-recovery-visualizer`: the project now ships as a polished dual-surface product with a supported Go CLI, a Wails desktop app, shared backend execution, refreshed public docs, and a more professional GitHub/release presentation.

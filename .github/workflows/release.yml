@@ -143,7 +143,7 @@ jobs:
 
       - name: Build Wails desktop app
         working-directory: desktop
-        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop
+        run: wails build -clean -nopackage -skipbindings -s -platform linux/amd64 -o K8V
 
       - name: Smoke test -- container build
         run: docker build -t k8vis-smoke .
@@ -223,7 +223,7 @@ jobs:
         run: |
           BUILD_DATE="$(date -u +%F)"
           LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE}'"
-          wails build -clean -skipbindings -s -platform linux/amd64 -o k8s-recovery-visualizer-desktop -ldflags "$LDFLAGS"
+          wails build -clean -skipbindings -s -platform linux/amd64 -o K8V -ldflags "$LDFLAGS"
 
       - name: Archive Linux desktop output
         run: |
@@ -275,7 +275,7 @@ jobs:
         run: |
           $buildDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
           $ldflags = "-s -w -X 'k8s-recovery-visualizer/internal/model.Version=$($env:VERSION.TrimStart('v'))' -X 'k8s-recovery-visualizer/internal/model.BuildDate=$buildDate'"
-          wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o k8s-recovery-visualizer-desktop.exe -ldflags $ldflags
+          wails build -clean -skipbindings -s -nsis -platform windows/amd64 -o K8V.exe -ldflags $ldflags
 
       - name: Archive Windows desktop output
         shell: pwsh
@@ -323,7 +323,7 @@ jobs:
         run: |
           BUILD_DATE="$(date -u +%F)"
           LDFLAGS="-s -w -X 'k8s-recovery-visualizer/internal/model.Version=${VERSION#v}' -X 'k8s-recovery-visualizer/internal/model.BuildDate=${BUILD_DATE}'"
-          wails build -clean -skipbindings -s -platform darwin/amd64 -o k8s-recovery-visualizer-desktop -ldflags "$LDFLAGS"
+          wails build -clean -skipbindings -s -platform darwin/amd64 -o K8V -ldflags "$LDFLAGS"
 
       - name: Archive macOS desktop output
         run: |
