@@ -97,6 +97,19 @@ What to do:
 
 The GitHub release workflow installs NSIS automatically on the Windows packaging runner.
 
+## Desktop app does nothing on launch (Windows)
+
+If `K8V.exe` does nothing when double-clicked:
+
+1. Confirm you extracted the zip and are not running from inside the archive.
+2. Verify WebView2 is installed by checking for:
+   - `C:\Program Files (x86)\Microsoft\EdgeWebView\Application\msedgewebview2.exe`
+   - `C:\Program Files\Microsoft\EdgeWebView\Application\msedgewebview2.exe`
+3. Open the startup log created by the app:
+   - `%APPDATA%\k8s-recovery-visualizer\logs\k8v-startup.log`
+
+If the log file is missing or shows WebView2 not found, install the Evergreen WebView2 runtime and retry. If the log shows a startup error, attach the log when reporting the issue.
+
 ## Desktop app opens without recent projects
 
 The desktop home screen discovers bundles under the configured workspace root.

@@ -37,6 +37,14 @@ Hotfix release to address Windows launch failures on Win11 by switching the pack
 
 - Built the Windows desktop package with the legacy WebView2 loader tag to improve launch reliability on Windows 11 machines where the new loader silently failed.
 
+## [1.7.2] - 2026-04-13
+
+Follow-on hotfix to improve Windows launch diagnostics and gather actionable logs when startup fails.
+
+### Fixed
+
+- Added a desktop startup log on Windows to capture early launch failures and WebView2 detection results.
+
 ## [1.6.1] - 2026-04-13
 
 Patch follow-up for `v1.6.0`: this release ships the post-release review fixes by moving GitHub Actions fully onto Node 24 and tightening the desktop runtime so scan and preflight work only from the app lifecycle context.
