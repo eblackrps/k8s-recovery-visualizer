@@ -4,9 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+- No unreleased changes yet.
+
+## [1.5.2] - 2026-04-13
+
+Maintenance release for `k8s-recovery-visualizer`: this patch release brings the latest tag back in sync with `main` after the post-`v1.5.1` automation follow-up and keeps the GitHub Actions stack aligned with GitHub's Node 24 migration path.
+
 ### Fixed
 
-- Updated GitHub Actions workflows to use `actions/setup-node@v6` so CI and release automation are aligned with GitHub's Node 24 migration path and no longer rely on the deprecated Node 20-based action runtime.
+- Updated GitHub Actions workflows to use `actions/setup-node@v6` so CI and release automation no longer depend on the deprecated Node 20-based action runtime.
+- Cut a follow-up maintenance release so the latest published tag matches the current `main` branch state.
 
 ## [1.5.1] - 2026-04-13
 
