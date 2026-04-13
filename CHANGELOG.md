@@ -24,6 +24,11 @@ Release candidate changes for the next minor line focus on operator actionabilit
 - Updated schema docs, committed examples, and CI/release workflow validation to the published `recovery-scan 3.1.0` and `recovery-enriched 1.2.0` contracts.
 - Replaced older report-era README screenshots with the maintained deterministic desktop screenshot set and removed deprecated screenshot references.
 
+### Fixed
+
+- Restored usable `cmd/check --help` output so the current gate set can be audited directly from the terminal instead of failing with a bare help error.
+- Hardened the release workflow so tagged releases validate the exact four supported assets and prune stale uploaded assets before publishing, preventing stale release-surface drift on reruns.
+
 ## [1.6.1] - 2026-04-13
 
 Patch follow-up for `v1.6.0`: this release ships the post-release review fixes by moving GitHub Actions fully onto Node 24 and tightening the desktop runtime so scan and preflight work only from the app lifecycle context.

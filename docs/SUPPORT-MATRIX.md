@@ -8,11 +8,18 @@ This project is conservative about support claims. The matrix below describes co
 | --- | --- | --- |
 | Linux desktop amd64 | Supported | Public tarball release artifact, validated in CI and release workflow |
 | Windows desktop amd64 | Supported | Public zip release artifact, validated in CI and release workflow |
-| macOS desktop package | Deprecated public release | Source builds may still exist, but no public package is published |
+| macOS desktop package | Deprecated public release | Contributor source builds remain possible, but no public package is published |
 | Prebuilt CLI binaries | Deprecated public release | CLI is supported via `make build`, `make build-cli-cross`, and `go run` |
 | GHCR container image | Deprecated public release | No public container image is published |
 
 The public release promise is intentionally narrower than the full source tree. The repository still contains contributor paths, source-build tooling, and compatibility assets that are not advertised as public release artifacts.
+
+Expected GitHub release assets are exactly:
+
+- `k8s-recovery-visualizer-desktop-linux-amd64.tar.gz`
+- `k8s-recovery-visualizer-desktop-windows-amd64.zip`
+- `checksums.txt`
+- `k8s-recovery-visualizer.spdx.json`
 
 ## Kubernetes API Expectations
 

@@ -51,6 +51,7 @@ Also confirm:
 
 - Linux desktop packaging is validated before release
 - Windows desktop packaging is validated before release
+- the main README leads with the supported desktop release path before contributor-only build paths
 - screenshot references in the docs resolve correctly
 - the main README only uses the maintained desktop screenshot set from `images/gui-*.png`
 - the desktop app opens existing bundles and refreshes exports
@@ -107,7 +108,9 @@ The release workflow:
 3. builds the Windows desktop package
 4. generates the SPDX SBOM
 5. generates release checksums
-6. publishes the GitHub release using notes derived from `CHANGELOG.md`
+6. validates that the release staging directory contains only the supported four-file asset set
+7. prunes any previously uploaded stale release assets for the tag before re-uploading the expected set
+8. publishes the GitHub release using notes derived from `CHANGELOG.md`
 
 ## Asset Verification
 
@@ -117,6 +120,8 @@ Expected release outputs:
 - `k8s-recovery-visualizer-desktop-windows-amd64.zip`
 - `checksums.txt`
 - `k8s-recovery-visualizer.spdx.json`
+
+The workflow now prunes stale uploaded assets for the tag before upload, so a rerun cannot accumulate older files while still preserving the expected asset names until they are replaced.
 
 Deprecated screenshot files should not be reintroduced into the main README or release-facing docs when refreshing the gallery.
 

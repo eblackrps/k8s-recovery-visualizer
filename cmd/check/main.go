@@ -57,7 +57,22 @@ func run(args []string, stdout io.Writer, readFile func(string) ([]byte, error))
 		failOnMissingBackupPolicy = fs.Bool("fail-on-missing-backup-policies", false, "Fail if no backup policies or schedules are present")
 	)
 	fs.SetOutput(io.Discard)
+	fs.Usage = func() {
+		fmt.Fprintln(stdout, "Usage of check:")
+		fmt.Fprintln(stdout, "  go run ./cmd/check --current ./out/recovery-scan.json [flags]")
+		fmt.Fprintln(stdout, "  go run ./cmd/check --in ./out/recovery-enriched.json [flags]  # legacy input path")
+		fmt.Fprintln(stdout)
+		fmt.Fprintln(stdout, "Validate scan bundles against score floors, domain thresholds, finding budgets, and regression budgets.")
+		fmt.Fprintln(stdout)
+		originalOutput := fs.Output()
+		fs.SetOutput(stdout)
+		fs.PrintDefaults()
+		fs.SetOutput(originalOutput)
+	}
 	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
 		fmt.Fprintf(stdout, "CHECK FAIL: %v\n", err)
 		return 2
 	}

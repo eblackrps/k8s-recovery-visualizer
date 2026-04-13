@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,6 +174,23 @@ func TestRunSupportsDomainThresholdsAndFindingBudgets(t *testing.T) {
 	assertHasGate(t, eval, "high-finding-budget")
 	assertHasGate(t, eval, "new-finding-budget")
 	assertHasGate(t, eval, "regressed-finding-budget")
+}
+
+func TestRunHelpPrintsUsage(t *testing.T) {
+	var out bytes.Buffer
+	code := run([]string{"--help"}, &out, os.ReadFile)
+	if code != 0 {
+		t.Fatalf("run() exit code = %d, want 0\n%s", code, out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("Usage of check:")) {
+		t.Fatalf("expected usage header, got %q", out.String())
+	}
+	if strings.Count(out.String(), "Usage of check:") != 1 {
+		t.Fatalf("expected usage to print once, got %q", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("max-regressed-findings")) {
+		t.Fatalf("expected extended gate help, got %q", out.String())
+	}
 }
 
 func writeJSONFixture(t *testing.T, name string, value any) string {
