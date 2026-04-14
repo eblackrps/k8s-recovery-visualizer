@@ -15,10 +15,10 @@ func (a *App) PickBundleFile() (string, error) {
 
 func (a *App) PickKubeconfigFile() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Choose kubeconfig file",
+		Title: "Choose kubeconfig file (validated by content)",
 		Filters: []runtime.FileFilter{
-			{DisplayName: "Kubeconfig files", Pattern: "*.yaml;*.yml;*.conf;*.config"},
 			{DisplayName: "All files", Pattern: "*"},
+			{DisplayName: "Common kubeconfig names", Pattern: "config;kubeconfig;*.yaml;*.yml;*.conf;*.config"},
 		},
 	})
 }

@@ -3,6 +3,28 @@ import { ResultsView } from "./ResultsView";
 import { mockWorkspace } from "../lib/backend";
 
 describe("ResultsView", () => {
+  it("shows the bundle and report handoff paths", () => {
+    render(
+      <ResultsView
+        workspace={mockWorkspace}
+        resultTab="Overview"
+        setResultTab={() => undefined}
+        findingFilter="ALL"
+        setFindingFilter={() => undefined}
+        exportNotice=""
+        onExport={() => undefined}
+        onOpenPath={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Bundle and reports on disk")).toBeInTheDocument();
+    expect(screen.getByText("Reopen later")).toBeInTheDocument();
+    expect(screen.getAllByText("./demo-out/recovery-scan.json").length).toBeGreaterThan(0);
+    expect(screen.getByText("HTML report")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open output folder" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open bundle JSON" })).toBeInTheDocument();
+  });
+
   it("renders prioritized findings and richer compare data", () => {
     render(
       <ResultsView
@@ -13,6 +35,7 @@ describe("ResultsView", () => {
         setFindingFilter={() => undefined}
         exportNotice=""
         onExport={() => undefined}
+        onOpenPath={() => undefined}
       />,
     );
 
@@ -31,6 +54,7 @@ describe("ResultsView", () => {
         setFindingFilter={() => undefined}
         exportNotice=""
         onExport={() => undefined}
+        onOpenPath={() => undefined}
       />,
     );
 

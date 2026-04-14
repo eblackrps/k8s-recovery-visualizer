@@ -49,20 +49,34 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 
 	connection, err := kube.ResolveConfig(kubeOptionsFromRequest(req))
 	if err != nil {
+		diagnosis := diagnoseFailure(req, err.Error())
 		return PreflightReport{
 			CanRun:      false,
 			Degraded:    true,
 			ContextName: req.ContextName,
 			Scope:       scope,
+			Diagnosis:   &diagnosis,
 			Checks: []PreflightCheck{
-				{ID: "config", Title: "Kubernetes credentials", Status: "fail", Required: true, Detail: err.Error(), Hint: connectionHint(req)},
+				{ID: "config", Title: "Kubernetes credentials", Status: "fail", Required: true, Detail: err.Error(), Hint: diagnosis.NextAction},
 			},
 		}, nil
 	}
 
 	clientset, err := kubernetes.NewForConfig(connection.Config)
 	if err != nil {
-		return PreflightReport{}, fmt.Errorf("create kube client: %w", err)
+		diagnosis := diagnoseFailure(req, err.Error())
+		return PreflightReport{
+			CanRun:      false,
+			Degraded:    true,
+			Server:      connection.Config.Host,
+			ContextName: connection.ContextName,
+			Scope:       scope,
+			Diagnosis:   &diagnosis,
+			Checks: []PreflightCheck{
+				{ID: "config", Title: "Kubernetes credentials", Status: "pass", Required: true, Detail: connectionStatusDetail(connection.Source)},
+				{ID: "client", Title: "API client creation", Status: "fail", Required: true, Detail: err.Error(), Hint: diagnosis.NextAction},
+			},
+		}, nil
 	}
 
 	checks := []PreflightCheck{
@@ -80,11 +94,22 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 		Detail:   fmt.Sprintf("Connected to %s.", connection.Config.Host),
 	}
 	if _, err := clientset.Discovery().ServerVersion(); err != nil {
+		diagnosis := diagnoseFailure(req, err.Error())
 		discoveryCheck.Status = "fail"
 		discoveryCheck.Detail = err.Error()
-		discoveryCheck.Hint = "Verify cluster reachability and kubeconfig credentials."
+		discoveryCheck.Hint = diagnosis.NextAction
 		canRun = false
 		degraded = true
+		return PreflightReport{
+			CanRun:      canRun,
+			Degraded:    degraded,
+			Server:      connection.Config.Host,
+			ContextName: connection.ContextName,
+			Scope:       scope,
+			Diagnosis:   &diagnosis,
+			Checks:      append(checks, discoveryCheck),
+			Warnings:    warnings,
+		}, nil
 	}
 	checks = append(checks, discoveryCheck)
 

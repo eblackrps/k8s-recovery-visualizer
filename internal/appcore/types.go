@@ -171,6 +171,7 @@ type PreflightReport struct {
 	Server      string           `json:"server,omitempty"`
 	ContextName string           `json:"contextName,omitempty"`
 	Scope       string           `json:"scope"`
+	Diagnosis   *FailureDiagnosis `json:"diagnosis,omitempty"`
 	Checks      []PreflightCheck `json:"checks"`
 	Warnings    []string         `json:"warnings,omitempty"`
 }
@@ -179,6 +180,69 @@ type ContextCatalog struct {
 	Contexts       []string `json:"contexts,omitempty"`
 	CurrentContext string   `json:"currentContext,omitempty"`
 	Source         string   `json:"source,omitempty"`
+}
+
+type ConnectionAdvisor struct {
+	RecommendedMethod               string `json:"recommendedMethod,omitempty"`
+	RecommendedReason               string `json:"recommendedReason,omitempty"`
+	KubectlAvailable                bool   `json:"kubectlAvailable,omitempty"`
+	KubectlPath                     string `json:"kubectlPath,omitempty"`
+	CurrentLoginAvailable           bool   `json:"currentLoginAvailable,omitempty"`
+	CurrentContext                  string `json:"currentContext,omitempty"`
+	CurrentLoginDetail              string `json:"currentLoginDetail,omitempty"`
+	CurrentLoginWarning             string `json:"currentLoginWarning,omitempty"`
+	DefaultKubeconfigAvailable      bool   `json:"defaultKubeconfigAvailable,omitempty"`
+	DefaultKubeconfigPath           string `json:"defaultKubeconfigPath,omitempty"`
+	DefaultKubeconfigCurrentContext string `json:"defaultKubeconfigCurrentContext,omitempty"`
+	DefaultKubeconfigDetail         string `json:"defaultKubeconfigDetail,omitempty"`
+	DefaultKubeconfigPortable       bool   `json:"defaultKubeconfigPortable,omitempty"`
+	DefaultKubeconfigWarning        string `json:"defaultKubeconfigWarning,omitempty"`
+}
+
+type KubeconfigInspection struct {
+	Source                       string   `json:"source,omitempty"`
+	Path                         string   `json:"path,omitempty"`
+	CurrentContext               string   `json:"currentContext,omitempty"`
+	Contexts                     []string `json:"contexts,omitempty"`
+	ClusterCount                 int      `json:"clusterCount"`
+	UserCount                    int      `json:"userCount"`
+	UsesExecAuth                 bool     `json:"usesExecAuth,omitempty"`
+	UsesClientCertificate        bool     `json:"usesClientCertificate,omitempty"`
+	UsesCertificateAuthorityFile bool     `json:"usesCertificateAuthorityFile,omitempty"`
+	UsesCertificateAuthorityData bool     `json:"usesCertificateAuthorityData,omitempty"`
+	ReferencedFiles              []string `json:"referencedFiles,omitempty"`
+	MissingReferencedFiles       []string `json:"missingReferencedFiles,omitempty"`
+	Summary                      string   `json:"summary,omitempty"`
+	NextAction                   string   `json:"nextAction,omitempty"`
+}
+
+type ConnectionTestCheck struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+	Detail string `json:"detail"`
+	Hint   string `json:"hint,omitempty"`
+}
+
+type FailureDiagnosis struct {
+	Code       string `json:"code,omitempty"`
+	Label      string `json:"label,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	NextAction string `json:"nextAction,omitempty"`
+}
+
+type ConnectionTestReport struct {
+	CanConnect    bool                  `json:"canConnect"`
+	Source        string                `json:"source,omitempty"`
+	Server        string                `json:"server,omitempty"`
+	ContextName   string                `json:"contextName,omitempty"`
+	Summary       string                `json:"summary,omitempty"`
+	NextAction    string                `json:"nextAction,omitempty"`
+	Diagnosis     *FailureDiagnosis     `json:"diagnosis,omitempty"`
+	FieldErrors   map[string]string     `json:"fieldErrors,omitempty"`
+	FieldWarnings map[string]string     `json:"fieldWarnings,omitempty"`
+	Checks        []ConnectionTestCheck `json:"checks,omitempty"`
 }
 
 type PreflightCheck struct {

@@ -2,28 +2,36 @@ import { startTransition, useEffect, useState } from "react";
 import { backend, mockWorkspace } from "./lib/backend";
 import type {
   AppAlert,
+  ConnectionAdvisor,
+  ConnectionTestReport,
   ContextCatalog,
   ExportRequest,
+  FailureDiagnosis,
+  KubeconfigInspection,
   PreflightReport,
   ProjectSummary,
   RunEvent,
+  RunCompletionSummary,
   ScanRequest,
+  ScanStage,
   Settings,
   Workspace,
 } from "./lib/types";
 import type { ScanFieldName } from "./lib/scanForm";
-import { haveContextInputsChanged, inspectScanForm, prepareScanRequest, sanitizeScanForm, validateContextDiscovery } from "./lib/scanForm";
+import { diagnoseFailure as diagnoseUiFailure } from "./lib/diagnostics";
+import { haveConnectionInputsChanged, haveContextInputsChanged, inspectConnectionSetup, inspectScanForm, prepareScanRequest, sanitizeScanForm, validateContextDiscovery } from "./lib/scanForm";
 import { Badge, applyTheme, exportMessage, titleCase, toneForMaturity } from "./components/ui";
 import { HomeView, ProjectsView } from "./views/HomeProjectsView";
 import { ScanView } from "./views/ScanView";
 import { LiveView } from "./views/LiveView";
+import { CompletionView } from "./views/CompletionView";
 import { ResultsView } from "./views/ResultsView";
 import { SettingsView } from "./views/SettingsView";
 
-type View = "home" | "projects" | "scan" | "live" | "results" | "settings";
+type View = "home" | "projects" | "scan" | "live" | "complete" | "results" | "settings";
 type BannerTone = AppAlert["tone"];
 
-const navItems: Array<{ id: View; label: string }> = [
+const navItems: Array<{ id: Exclude<View, "complete">; label: string }> = [
   { id: "home", label: "Home" },
   { id: "projects", label: "Projects" },
   { id: "scan", label: "New Scan" },
@@ -38,10 +46,24 @@ function searchParams() {
 
 function initialView(): View {
   const value = searchParams().get("view");
+  if (value === "complete") {
+    return "complete";
+  }
   if (value && navItems.some((item) => item.id === value)) {
     return value as View;
   }
   return "home";
+}
+
+function initialScanStage(): ScanStage {
+  switch (searchParams().get("scanStage")) {
+    case "validate":
+    case "outputs":
+    case "launch":
+      return searchParams().get("scanStage") as ScanStage;
+    default:
+      return "connect";
+  }
 }
 
 function normalizeResultTab(value: string | null | undefined) {
@@ -61,6 +83,14 @@ const demoTimestamp = "2026-04-12T14:11:00Z";
 
 function isBrowserDemo() {
   return typeof window !== "undefined" && !window.go?.main?.App;
+}
+
+function isFirstRunDemo() {
+  return searchParams().get("firstRun") === "1";
+}
+
+function isCompletionDemo() {
+  return searchParams().get("view") === "complete";
 }
 
 function initialLiveEvents(): RunEvent[] {
@@ -131,9 +161,98 @@ function defaultScanForm(browserDemo: boolean): ScanRequest {
   };
 }
 
+const scanFieldOrder: ScanFieldName[] = [
+  "apiServerEndpoint",
+  "bearerToken",
+  "caTrust",
+  "insecureAcknowledgement",
+  "contextName",
+  "kubeconfigPath",
+  "kubeconfigContent",
+  "outputDir",
+  "timeoutSeconds",
+];
+
+function mergeFieldFeedback(
+  base: ReturnType<typeof inspectScanForm>,
+  fieldErrors: Partial<Record<ScanFieldName, string>>,
+  fieldWarnings: Partial<Record<ScanFieldName, string>>,
+) {
+  const mergedErrors = { ...base.fieldErrors };
+  const mergedWarnings = { ...base.fieldWarnings };
+  const errors = [...base.errors];
+
+  for (const [field, message] of Object.entries(fieldErrors)) {
+    const resolvedField = field as ScanFieldName;
+    if (!message) {
+      continue;
+    }
+    if (!mergedErrors[resolvedField]) {
+      mergedErrors[resolvedField] = message;
+      errors.push(message);
+    }
+  }
+
+  for (const [field, message] of Object.entries(fieldWarnings)) {
+    const resolvedField = field as ScanFieldName;
+    if (!message || mergedWarnings[resolvedField]) {
+      continue;
+    }
+    mergedWarnings[resolvedField] = message;
+  }
+
+  return {
+    ...base,
+    errors,
+    fieldErrors: mergedErrors,
+    fieldWarnings: mergedWarnings,
+    firstInvalidField: scanFieldOrder.find((field) => Boolean(mergedErrors[field])) || base.firstInvalidField,
+  };
+}
+
+function normalizeFieldMap(source?: Record<string, string>) {
+  const next: Partial<Record<ScanFieldName, string>> = {};
+  if (!source) {
+    return next;
+  }
+  for (const [field, message] of Object.entries(source)) {
+    next[field as ScanFieldName] = message;
+  }
+  return next;
+}
+
+function buildRunCompletionSummary(runId: string, workspace: Workspace): RunCompletionSummary {
+  return {
+    runId,
+    clusterName: workspace.bundle.metadata.clusterName,
+    environment: workspace.bundle.metadata.environment,
+    generatedAt: workspace.bundle.metadata.generatedAt,
+    score: workspace.bundle.score.overall.final,
+    findingCount: workspace.bundle.inventory.findings?.length || 0,
+    hasComparison: Boolean(workspace.bundle.comparison),
+    artifacts: workspace.artifacts,
+  };
+}
+
+function demoCompletionSummary(browserDemo: boolean, firstRunDemo: boolean) {
+  if (!browserDemo || firstRunDemo || !isCompletionDemo()) {
+    return null;
+  }
+  return buildRunCompletionSummary("demo-run", mockWorkspace);
+}
+
+function describeView(view: View) {
+  if (view === "complete") {
+    return "Scan Complete";
+  }
+  return navItems.find((item) => item.id === view)?.label || "Workspace";
+}
+
 export default function App() {
   const browserDemo = isBrowserDemo();
+  const firstRunDemo = browserDemo && isFirstRunDemo();
   const [view, setView] = useState<View>(initialView);
+  const [scanStage, setScanStage] = useState<ScanStage>(initialScanStage);
   const [resultTab, setResultTab] = useState(normalizeResultTab(searchParams().get("tab")));
   const [settings, setSettings] = useState<Settings>({
     workspaceRoot: ".",
@@ -146,8 +265,11 @@ export default function App() {
     csvExport: true,
   });
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [workspace, setWorkspace] = useState<Workspace | null>(browserDemo ? mockWorkspace : null);
+  const [workspace, setWorkspace] = useState<Workspace | null>(browserDemo && !firstRunDemo ? mockWorkspace : null);
   const [preflight, setPreflight] = useState<PreflightReport | null>(null);
+  const [connectionAdvisor, setConnectionAdvisor] = useState<ConnectionAdvisor | null>(null);
+  const [kubeconfigInspection, setKubeconfigInspection] = useState<KubeconfigInspection | null>(null);
+  const [connectionTest, setConnectionTest] = useState<ConnectionTestReport | null>(null);
   const [contextCatalog, setContextCatalog] = useState<ContextCatalog | null>(null);
   const [events, setEvents] = useState<RunEvent[]>(initialLiveEvents());
   const [activeRunId, setActiveRunId] = useState<string | null>(
@@ -157,23 +279,65 @@ export default function App() {
   const [detectingContexts, setDetectingContexts] = useState(false);
   const [insecureAcknowledged, setInsecureAcknowledged] = useState(false);
   const [scanValidationRequest, setScanValidationRequest] = useState<{ version: number; field?: ScanFieldName }>({ version: 0 });
-  const [statusMessage, setStatusMessage] = useState("Workspace ready.");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ScanFieldName, string>>>({});
+  const [fieldWarnings, setFieldWarnings] = useState<Partial<Record<ScanFieldName, string>>>({});
+  const [statusMessage, setStatusMessage] = useState(
+    view === "scan"
+      ? "Choose a connection path and validate it before the scan."
+      : view === "complete"
+        ? "Scan complete. Review outputs or move into findings."
+        : firstRunDemo
+          ? "Connect to a cluster or open a saved bundle."
+          : "Start a new assessment or open a saved bundle.",
+  );
   const [actionBanner, setActionBanner] = useState<{ tone: BannerTone; message: string } | null>(null);
   const [openBundlePath, setOpenBundlePath] = useState(defaultBundleInputPath(browserDemo));
+  const [loadedKubeconfigLabel, setLoadedKubeconfigLabel] = useState("");
+  const [recentCompletion, setRecentCompletion] = useState<RunCompletionSummary | null>(() =>
+    demoCompletionSummary(browserDemo, firstRunDemo),
+  );
+  const [runFailure, setRunFailure] = useState<FailureDiagnosis | null>(null);
   const [exportNotice, setExportNotice] = useState("");
   const [findingFilter, setFindingFilter] = useState("ALL");
   const [scanForm, setScanForm] = useState<ScanRequest>(defaultScanForm(browserDemo));
-  const scanValidation = inspectScanForm(scanForm, { insecureAcknowledged });
+  const connectionValidation = mergeFieldFeedback(inspectConnectionSetup(scanForm, { insecureAcknowledged }), fieldErrors, fieldWarnings);
+  const scanValidation = mergeFieldFeedback(inspectScanForm(scanForm, { insecureAcknowledged }), fieldErrors, fieldWarnings);
 
   function updateScanForm(updater: (current: ScanRequest) => ScanRequest) {
-    const next = sanitizeScanForm(updater(scanForm));
+    const proposed = updater(scanForm);
+    const next = sanitizeScanForm({
+      ...proposed,
+      ...(proposed.connectionMethod === "kubeconfig_file" &&
+      proposed.connectionMethod !== scanForm.connectionMethod &&
+      !proposed.kubeconfigPath &&
+      connectionAdvisor?.defaultKubeconfigAvailable &&
+      connectionAdvisor.defaultKubeconfigPath
+        ? { kubeconfigPath: connectionAdvisor.defaultKubeconfigPath }
+        : {}),
+    });
     setPreflight(null);
+    if (haveConnectionInputsChanged(scanForm, next)) {
+      setConnectionTest(null);
+      setFieldErrors({});
+      setFieldWarnings({});
+      setKubeconfigInspection(null);
+      if (scanStage === "outputs" || scanStage === "launch") {
+        setScanStage("validate");
+      }
+      if (next.connectionMethod !== scanForm.connectionMethod) {
+        setScanStage("connect");
+      }
+    }
     if (haveContextInputsChanged(scanForm, next)) {
       setContextCatalog(null);
+    }
+    if (next.connectionMethod !== "kubeconfig_inline" || !next.kubeconfigContent) {
+      setLoadedKubeconfigLabel("");
     }
     if (next.connectionMethod !== "api_endpoint" || !next.insecure) {
       setInsecureAcknowledged(false);
     }
+    setRunFailure(null);
     setScanForm(next);
   }
 
@@ -230,13 +394,40 @@ export default function App() {
       try {
         const nextProjects = await backend.listProjects();
         if (active) {
-          setProjects(nextProjects);
+          setProjects(firstRunDemo ? [] : nextProjects);
         }
       } catch (error) {
         if (active) {
           showBanner("error", `Workspace discovery failed: ${formatActionError(error, "Could not load saved projects.")}`);
           setStatusMessage("Workspace discovery failed.");
         }
+      }
+
+      try {
+        const advisor = await backend.getConnectionAdvisor();
+        if (active) {
+          setConnectionAdvisor(advisor);
+          setScanForm((current) => {
+            const isUntouchedConnection =
+              (current.connectionMethod || "current") === "current" &&
+              !current.kubeconfigPath &&
+              !current.kubeconfigContent &&
+              !current.apiServerEndpoint;
+            if (!isUntouchedConnection || !advisor.recommendedMethod || advisor.recommendedMethod === "current") {
+              return current;
+            }
+            return sanitizeScanForm({
+              ...current,
+              connectionMethod: advisor.recommendedMethod,
+              kubeconfigPath:
+                advisor.recommendedMethod === "kubeconfig_file" && advisor.defaultKubeconfigPath
+                  ? advisor.defaultKubeconfigPath
+                  : current.kubeconfigPath,
+            });
+          });
+        }
+      } catch {
+        // Connection advice is optional and should not block startup.
       }
     })();
 
@@ -255,7 +446,7 @@ export default function App() {
 
   const bundle = workspace?.bundle;
   const activePercent = events.length > 0 ? events[events.length - 1].percent || 0 : 0;
-  const currentViewLabel = navItems.find((item) => item.id === view)?.label || "Workspace";
+  const currentViewLabel = describeView(view);
   const environmentLabel = bundle?.metadata.environment || (browserDemo ? "production" : "ready");
   const clusterLabel = bundle?.metadata.clusterName || (browserDemo ? "demo-workspace" : "no bundle");
   const providerLabel = bundle?.cluster.platform?.provider || (browserDemo ? "fixture bundle" : "no bundle");
@@ -263,8 +454,12 @@ export default function App() {
   const statusDetail = bundle
     ? `${bundle.cluster.platform?.provider || "Unknown platform"} ${bundle.cluster.platform?.k8sVersion || ""}`.trim()
     : browserDemo
-      ? "Fixture bundle loaded for preview."
-      : "Open an existing bundle or start a new scan.";
+      ? firstRunDemo
+        ? "A live scan writes a portable bundle and report to your chosen output directory."
+        : view === "complete"
+          ? "The portable bundle and offline reports are ready for review and handoff."
+          : "Fixture bundle loaded for preview."
+      : "A live scan writes a portable bundle and report to your chosen output directory.";
 
   function showBanner(tone: BannerTone, message: string) {
     setActionBanner({ tone, message });
@@ -274,9 +469,112 @@ export default function App() {
     setActionBanner(null);
   }
 
+  function applyFieldFeedback(
+    errors?: Partial<Record<ScanFieldName, string>>,
+    warnings?: Partial<Record<ScanFieldName, string>>,
+  ) {
+    setFieldErrors(errors || {});
+    setFieldWarnings(warnings || {});
+  }
+
+  async function inspectSelectedKubeconfig(request: ScanRequest) {
+    const inspection = await backend.inspectKubeconfig(request);
+    setKubeconfigInspection(inspection);
+    applyFieldFeedback({}, {});
+    return inspection;
+  }
+
+  async function handleInspectKubeconfig(request: ScanRequest) {
+    clearBanner();
+    setBusy(true);
+    try {
+      const inspection = await inspectSelectedKubeconfig(request);
+      setStatusMessage(inspection.summary || "Kubeconfig looks valid.");
+    } catch (error) {
+      const message = formatActionError(error, "Could not inspect the kubeconfig.");
+      const targetField = request.connectionMethod === "kubeconfig_inline" ? "kubeconfigContent" : "kubeconfigPath";
+      setKubeconfigInspection(null);
+      applyFieldFeedback({ [targetField]: message }, {});
+      setScanValidationRequest((current) => ({ version: current.version + 1, field: targetField }));
+      showBanner("error", message);
+      setStatusMessage(`Kubeconfig validation failed: ${message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUseDetectedKubeconfig() {
+    if (!connectionAdvisor?.defaultKubeconfigPath) {
+      return;
+    }
+    const nextRequest = sanitizeScanForm({
+      ...scanForm,
+      connectionMethod: "kubeconfig_file",
+      kubeconfigPath: connectionAdvisor.defaultKubeconfigPath,
+    });
+    setScanForm(nextRequest);
+    setScanStage("validate");
+    await handleInspectKubeconfig(nextRequest);
+  }
+
+  async function handleTestConnection() {
+    const request = prepareScanRequest(scanForm);
+    const validation = inspectConnectionSetup(request, { insecureAcknowledged });
+    if (validation.errors.length > 0) {
+      setScanValidationRequest((current) => ({ version: current.version + 1, field: validation.firstInvalidField }));
+      showBanner("info", validation.errors[0]);
+      setStatusMessage("Connection details need attention before testing.");
+      return;
+    }
+
+    clearBanner();
+    applyFieldFeedback({}, {});
+    setBusy(true);
+    try {
+      if (request.connectionMethod === "kubeconfig_file" || request.connectionMethod === "kubeconfig_inline") {
+        try {
+          await inspectSelectedKubeconfig(request);
+        } catch (error) {
+          const message = formatActionError(error, "Could not inspect the kubeconfig.");
+          const targetField = request.connectionMethod === "kubeconfig_inline" ? "kubeconfigContent" : "kubeconfigPath";
+          applyFieldFeedback({ [targetField]: message }, {});
+          setScanValidationRequest((current) => ({ version: current.version + 1, field: targetField }));
+          setStatusMessage(`Connection test failed: ${message}`);
+          showBanner("error", message);
+          setConnectionTest(null);
+          return;
+        }
+      }
+
+      const report = await backend.testConnection(request);
+      setConnectionTest(report);
+      applyFieldFeedback(normalizeFieldMap(report.fieldErrors), normalizeFieldMap(report.fieldWarnings));
+      if (report.canConnect) {
+        showBanner("info", report.summary || "Connection test succeeded.");
+        setStatusMessage(report.summary || "Connection test succeeded.");
+        if (scanStage === "validate") {
+          setScanStage("outputs");
+        }
+      } else {
+        const firstField = scanFieldOrder.find((field) => Boolean(report.fieldErrors?.[field]));
+        if (firstField) {
+          setScanValidationRequest((current) => ({ version: current.version + 1, field: firstField }));
+        }
+        showBanner("error", report.summary || "Connection test failed.");
+        setStatusMessage(report.summary || "Connection test failed.");
+      }
+    } catch (error) {
+      const message = formatActionError(error, "Could not test the connection.");
+      showBanner("error", `Connection test failed: ${message}`);
+      setStatusMessage(`Connection test failed: ${message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePreflight() {
     const request = prepareScanRequest(scanForm);
-    const validation = inspectScanForm(request, { insecureAcknowledged });
+    const validation = scanValidation;
     if (validation.errors.length > 0) {
       setScanValidationRequest((current) => ({ version: current.version + 1, field: validation.firstInvalidField }));
       showBanner("info", validation.errors[0]);
@@ -289,11 +587,12 @@ export default function App() {
       setScanForm(request);
       const report = await backend.runPreflight(request);
       setPreflight(report);
+      setScanStage("launch");
       setStatusMessage(report.canRun ? "Preflight checks passed." : "Preflight found blocking issues.");
     } catch (error) {
       const message = formatActionError(error, "Could not run preflight.");
       showBanner("error", `Preflight failed: ${message}`);
-      setStatusMessage("Preflight failed.");
+      setStatusMessage(`Preflight failed: ${message}`);
     } finally {
       setBusy(false);
     }
@@ -301,7 +600,7 @@ export default function App() {
 
   async function handleStartScan() {
     const request = prepareScanRequest(scanForm);
-    const validation = inspectScanForm(request, { insecureAcknowledged });
+    const validation = scanValidation;
     if (validation.errors.length > 0) {
       setScanValidationRequest((current) => ({ version: current.version + 1, field: validation.firstInvalidField }));
       showBanner("info", validation.errors[0]);
@@ -313,6 +612,7 @@ export default function App() {
     setEvents([]);
     setActiveRunId(runId);
     setExportNotice("");
+    setRunFailure(null);
     clearBanner();
     startTransition(() => setView("live"));
     try {
@@ -320,6 +620,8 @@ export default function App() {
       const result = await backend.runScan({ ...request, runId });
       setPreflight(result.preflight);
       setWorkspace(result.workspace);
+      setRecentCompletion(buildRunCompletionSummary(runId, result.workspace));
+      setRunFailure(null);
       setProjects((current) => {
         const nextProject: ProjectSummary = {
           name: result.workspace.bundle.metadata.clusterName || "latest-run",
@@ -335,16 +637,19 @@ export default function App() {
         return [nextProject, ...current.filter((item) => item.lastScanPath !== nextProject.lastScanPath)];
       });
       setResultTab("Overview");
-      startTransition(() => setView("results"));
-      setStatusMessage("Scan finished. Results workspace is ready.");
+      startTransition(() => setView("complete"));
+      setStatusMessage(`Scan finished. Bundle and report outputs were written to ${result.artifacts.outputDir}.`);
     } catch (error) {
       if (isCanceledError(error)) {
+        setRunFailure(null);
         showBanner("info", "Scan canceled.");
         setStatusMessage("Scan canceled.");
       } else {
         const message = formatActionError(error, "Could not complete the scan.");
-        showBanner("error", `Scan failed: ${message}`);
-        setStatusMessage("Scan failed.");
+        const diagnosis = diagnoseUiFailure(request, message);
+        setRunFailure(diagnosis);
+        showBanner("error", `Scan failed: ${diagnosis.summary || message}`);
+        setStatusMessage(`Scan failed: ${diagnosis.summary || message}`);
       }
     } finally {
       setBusy(false);
@@ -383,10 +688,12 @@ export default function App() {
     try {
       const loaded = await backend.openBundle(resolved);
       setWorkspace(loaded);
+      setRecentCompletion(null);
+      setRunFailure(null);
       setOpenBundlePath(resolved);
       setResultTab("Overview");
       startTransition(() => setView("results"));
-      setStatusMessage("Existing bundle loaded into the workspace.");
+      setStatusMessage(`Loaded bundle from ${resolved}.`);
     } catch (error) {
       const message = formatActionError(error, "Could not open the selected bundle.");
       showBanner("error", `Open bundle failed: ${message}`);
@@ -438,8 +745,10 @@ export default function App() {
     try {
       const kubeconfigPath = await backend.pickKubeconfigFile();
       if (kubeconfigPath) {
-        updateScanForm((current) => ({ ...current, kubeconfigPath }));
-        setStatusMessage("Kubeconfig file updated.");
+        const nextRequest = sanitizeScanForm({ ...scanForm, connectionMethod: "kubeconfig_file", kubeconfigPath });
+        setScanForm(nextRequest);
+        setScanStage("validate");
+        await handleInspectKubeconfig(nextRequest);
         return;
       }
       showBanner("info", "Kubeconfig selection canceled.");
@@ -480,6 +789,9 @@ export default function App() {
     clearBanner();
     setDetectingContexts(true);
     try {
+      if (request.connectionMethod === "kubeconfig_file" || request.connectionMethod === "kubeconfig_inline") {
+        await inspectSelectedKubeconfig(request);
+      }
       const catalog = await backend.listConnectionContexts(request);
       setContextCatalog(catalog);
       const nextForm = catalog.currentContext && !request.contextName
@@ -494,10 +806,70 @@ export default function App() {
       }
     } catch (error) {
       const message = formatActionError(error, "Could not load connection contexts.");
+      const field = request.connectionMethod === "kubeconfig_inline" ? "kubeconfigContent" : request.connectionMethod === "kubeconfig_file" ? "kubeconfigPath" : undefined;
+      if (field) {
+        applyFieldFeedback({ [field]: message }, {});
+      }
       showBanner("error", `Context discovery failed: ${message}`);
       setStatusMessage("Context discovery failed.");
     } finally {
       setDetectingContexts(false);
+    }
+  }
+
+  async function handleOpenPath(path: string, label: string) {
+    const target = path.trim();
+    if (!target) {
+      showBanner("info", `No ${label} is available yet.`);
+      setStatusMessage(`No ${label} is available yet.`);
+      return;
+    }
+    clearBanner();
+    try {
+      await backend.openPath(target);
+      setStatusMessage(`Opened ${label}.`);
+    } catch (error) {
+      const message = formatActionError(error, `Could not open the ${label}.`);
+      showBanner("error", message);
+      setStatusMessage(`Open ${label} failed.`);
+    }
+  }
+
+  async function handleLoadDroppedKubeconfig(fileName: string, content: string) {
+    const label = fileName.trim() || "kubeconfig file";
+    clearBanner();
+    const nextRequest = sanitizeScanForm({
+      ...scanForm,
+      connectionMethod: "kubeconfig_inline",
+      kubeconfigPath: "",
+      kubeconfigContent: content,
+      contextName: "",
+    });
+    setLoadedKubeconfigLabel(label);
+    setConnectionTest(null);
+    setPreflight(null);
+    setContextCatalog(null);
+    applyFieldFeedback({}, {});
+    setScanForm(nextRequest);
+    setScanStage("validate");
+    setBusy(true);
+    try {
+      const inspection = await inspectSelectedKubeconfig(nextRequest);
+      const dependencyNote = inspection.referencedFiles?.length
+        ? " Review the inspection note for local CA or client-certificate dependencies."
+        : "";
+      showBanner("info", `Loaded ${label} into paste kubeconfig mode.${dependencyNote}`);
+      setStatusMessage(`Loaded ${label} into paste kubeconfig mode.`);
+    } catch (error) {
+      const message = formatActionError(error, "Could not inspect the dropped kubeconfig.");
+      setLoadedKubeconfigLabel("");
+      setKubeconfigInspection(null);
+      applyFieldFeedback({ kubeconfigContent: message }, {});
+      setScanValidationRequest((current) => ({ version: current.version + 1, field: "kubeconfigContent" }));
+      showBanner("error", message);
+      setStatusMessage(`Dropped kubeconfig validation failed: ${message}`);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -541,6 +913,19 @@ export default function App() {
     }
   }
 
+  function handleOpenScan(stage: ScanStage = "connect") {
+    clearBanner();
+    setConnectionTest(null);
+    setPreflight(null);
+    setFieldErrors({});
+    setFieldWarnings({});
+    setRecentCompletion(null);
+    setRunFailure(null);
+    setScanStage(stage);
+    setStatusMessage("Choose a connection path and validate it before the scan.");
+    setView("scan");
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -553,7 +938,13 @@ export default function App() {
         </div>
         <nav className="nav">
           {navItems.map((item) => (
-            <button key={item.id} type="button" className={`nav-link ${view === item.id ? "is-active" : ""}`} onClick={() => setView(item.id)} aria-current={view === item.id ? "page" : undefined}>
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-link ${view === item.id || (view === "complete" && item.id === "results") ? "is-active" : ""}`}
+              onClick={() => (item.id === "scan" ? handleOpenScan("connect") : setView(item.id))}
+              aria-current={view === item.id || (view === "complete" && item.id === "results") ? "page" : undefined}
+            >
               {item.label}
             </button>
           ))}
@@ -572,19 +963,28 @@ export default function App() {
             <p className="muted">{statusDetail}</p>
           </div>
           <div className="topbar-actions">
-            <div className="context-strip" aria-label="Active bundle context">
-              <div className="context-cluster">
-                <strong>{clusterLabel}</strong>
-                <span className="muted">{environmentLabel}</span>
+            {bundle ? (
+              <div className="context-strip" aria-label="Active bundle context">
+                <div className="context-cluster">
+                  <strong>{clusterLabel}</strong>
+                  <span className="muted">{environmentLabel}</span>
+                </div>
+                <div className="context-meta">
+                  <Badge>{providerLabel}</Badge>
+                  <Badge>{versionLabel}</Badge>
+                  <Badge tone={toneForMaturity(bundle.score.maturity || (browserDemo ? "GOLD" : ""))}>
+                    {`${bundle.score.maturity} ${bundle.score.overall.final}`}
+                  </Badge>
+                </div>
               </div>
-              <div className="context-meta">
-                <Badge>{providerLabel}</Badge>
-                <Badge>{versionLabel}</Badge>
-                <Badge tone={toneForMaturity(bundle?.score.maturity || (browserDemo ? "GOLD" : ""))}>
-                  {bundle ? `${bundle.score.maturity} ${bundle.score.overall.final}` : "No bundle"}
-                </Badge>
+            ) : (
+              <div className="context-strip empty" aria-label="Bundle status">
+                <div className="context-cluster">
+                  <strong>No bundle loaded yet</strong>
+                </div>
+                <p className="muted">Run a scan to create a portable bundle, or open an existing bundle for offline review.</p>
               </div>
-            </div>
+            )}
             <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy}>
               Open Existing Bundle
             </button>
@@ -597,11 +997,12 @@ export default function App() {
             <HomeView
               workspace={workspace}
               projects={projects}
+              connectionAdvisor={connectionAdvisor}
               busy={busy}
               onViewProjects={() => setView("projects")}
               onPickBundle={handlePickBundle}
               onOpenProject={handleOpenBundlePath}
-              onStartScan={() => setView("scan")}
+              onStartScan={() => handleOpenScan("connect")}
               onReviewFindings={() => {
                 setResultTab("Findings");
                 setView("results");
@@ -614,24 +1015,86 @@ export default function App() {
               busy={busy}
               scanForm={scanForm}
               setScanForm={updateScanForm}
+              scanStage={scanStage}
+              onSetScanStage={setScanStage}
+              connectionAdvisor={connectionAdvisor}
+              kubeconfigInspection={kubeconfigInspection}
+              connectionTest={connectionTest}
               preflight={preflight}
               contextCatalog={contextCatalog}
               detectingContexts={detectingContexts}
+              connectionValidation={connectionValidation}
               validation={scanValidation}
               showValidationErrors={scanValidationRequest.version > 0}
               validationRequest={scanValidationRequest}
               insecureAcknowledged={insecureAcknowledged}
               onSetInsecureAcknowledged={setInsecureAcknowledged}
+              onTestConnection={handleTestConnection}
+              onInspectKubeconfig={() => handleInspectKubeconfig(prepareScanRequest(scanForm))}
+              onUseDetectedKubeconfig={handleUseDetectedKubeconfig}
               onPreflight={handlePreflight}
               onStartScan={handleStartScan}
               onDetectContexts={handleDetectContexts}
               onBrowseOutput={handleBrowseOutput}
               onBrowseKubeconfig={handleBrowseKubeconfig}
               onBrowseCACert={handleBrowseCACert}
+              onLoadDroppedKubeconfig={handleLoadDroppedKubeconfig}
+              loadedKubeconfigLabel={loadedKubeconfigLabel}
             />
           )}
-          {view === "live" && <LiveView events={events} activeRunId={activeRunId} activePercent={activePercent} onCancel={handleCancelRun} />}
-          {view === "results" && workspace && <ResultsView workspace={workspace} resultTab={resultTab} setResultTab={setResultTab} findingFilter={findingFilter} setFindingFilter={setFindingFilter} exportNotice={exportNotice} onExport={handleExport} />}
+          {view === "live" && (
+            <LiveView
+              events={events}
+              activeRunId={activeRunId}
+              activePercent={activePercent}
+              outputDir={scanForm.outputDir || settings.defaultOutputDir}
+              completionSummary={recentCompletion}
+              runFailure={runFailure}
+              onCancel={handleCancelRun}
+              onViewResults={() => setView("results")}
+              onFixScan={() =>
+                handleOpenScan(
+                  runFailure?.code === "output_path" || runFailure?.code === "artifact_write" ? "outputs" : "validate",
+                )
+              }
+              onOpenPath={handleOpenPath}
+            />
+          )}
+          {view === "complete" && workspace && recentCompletion && (
+            <CompletionView
+              workspace={workspace}
+              summary={recentCompletion}
+              onOpenPath={handleOpenPath}
+              onReviewResults={() => setView("results")}
+              onReviewFindings={() => {
+                setResultTab("Findings");
+                setView("results");
+              }}
+              onReviewCompare={
+                workspace.bundle.comparison
+                  ? () => {
+                      setResultTab("Compare");
+                      setView("results");
+                    }
+                  : undefined
+              }
+              onStartAnotherScan={() => handleOpenScan("connect")}
+            />
+          )}
+          {view === "results" && workspace && (
+            <ResultsView
+              workspace={workspace}
+              resultTab={resultTab}
+              setResultTab={setResultTab}
+              findingFilter={findingFilter}
+              setFindingFilter={setFindingFilter}
+              exportNotice={exportNotice}
+              completionSummary={recentCompletion}
+              onExport={handleExport}
+              onOpenPath={handleOpenPath}
+              onDismissCompletion={() => setRecentCompletion(null)}
+            />
+          )}
           {view === "settings" && <SettingsView settings={settings} busy={busy} setSettings={setSettings} openBundlePath={openBundlePath} setOpenBundlePath={setOpenBundlePath} onSave={handleSaveSettings} onOpenBundle={() => handleOpenBundlePath(openBundlePath)} />}
         </main>
       </div>

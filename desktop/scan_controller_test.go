@@ -21,8 +21,20 @@ func (s *blockingDesktopService) ListProjects(string) ([]appcore.ProjectSummary,
 	return nil, nil
 }
 
+func (s *blockingDesktopService) ConnectionAdvisor() appcore.ConnectionAdvisor {
+	return appcore.ConnectionAdvisor{}
+}
+
+func (s *blockingDesktopService) InspectKubeconfig(appcore.ScanRequest) (appcore.KubeconfigInspection, error) {
+	return appcore.KubeconfigInspection{}, nil
+}
+
 func (s *blockingDesktopService) ListContexts(req appcore.ScanRequest) (appcore.ContextCatalog, error) {
 	return appcore.ContextCatalog{CurrentContext: req.ContextName}, nil
+}
+
+func (s *blockingDesktopService) TestConnection(ctx context.Context, req appcore.ScanRequest) (appcore.ConnectionTestReport, error) {
+	return appcore.ConnectionTestReport{CanConnect: ctx.Err() == nil, Summary: req.OutputDir}, ctx.Err()
 }
 
 func (s *blockingDesktopService) Preflight(ctx context.Context, req appcore.ScanRequest) (appcore.PreflightReport, error) {

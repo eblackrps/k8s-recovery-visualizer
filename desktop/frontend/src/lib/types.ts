@@ -70,6 +70,7 @@ export type PreflightReport = {
   server?: string;
   contextName?: string;
   scope: string;
+  diagnosis?: FailureDiagnosis;
   checks: PreflightCheck[];
   warnings?: string[];
 };
@@ -78,6 +79,69 @@ export type ContextCatalog = {
   contexts?: string[];
   currentContext?: string;
   source?: string;
+};
+
+export type ConnectionAdvisor = {
+  recommendedMethod?: ConnectionMethod;
+  recommendedReason?: string;
+  kubectlAvailable?: boolean;
+  kubectlPath?: string;
+  currentLoginAvailable?: boolean;
+  currentContext?: string;
+  currentLoginDetail?: string;
+  currentLoginWarning?: string;
+  defaultKubeconfigAvailable?: boolean;
+  defaultKubeconfigPath?: string;
+  defaultKubeconfigCurrentContext?: string;
+  defaultKubeconfigDetail?: string;
+  defaultKubeconfigPortable?: boolean;
+  defaultKubeconfigWarning?: string;
+};
+
+export type KubeconfigInspection = {
+  source?: string;
+  path?: string;
+  currentContext?: string;
+  contexts?: string[];
+  clusterCount: number;
+  userCount: number;
+  usesExecAuth?: boolean;
+  usesClientCertificate?: boolean;
+  usesCertificateAuthorityFile?: boolean;
+  usesCertificateAuthorityData?: boolean;
+  referencedFiles?: string[];
+  missingReferencedFiles?: string[];
+  summary?: string;
+  nextAction?: string;
+};
+
+export type ConnectionTestCheck = {
+  id: string;
+  title: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+  hint?: string;
+};
+
+export type FailureDiagnosis = {
+  code?: string;
+  label?: string;
+  summary?: string;
+  detail?: string;
+  nextAction?: string;
+};
+
+export type ConnectionTestReport = {
+  canConnect: boolean;
+  source?: string;
+  server?: string;
+  contextName?: string;
+  summary?: string;
+  nextAction?: string;
+  diagnosis?: FailureDiagnosis;
+  fieldErrors?: Record<string, string>;
+  fieldWarnings?: Record<string, string>;
+  checks?: ConnectionTestCheck[];
 };
 
 export type ArtifactPaths = {
@@ -346,6 +410,17 @@ export type Workspace = {
   loadedAt: string;
 };
 
+export type RunCompletionSummary = {
+  runId: string;
+  clusterName?: string;
+  environment?: string;
+  generatedAt?: string;
+  score?: number;
+  findingCount?: number;
+  hasComparison?: boolean;
+  artifacts: ArtifactPaths;
+};
+
 export type RunEvent = {
   type: string;
   runId: string;
@@ -374,6 +449,8 @@ export type ConnectionMethod =
   | "kubeconfig_file"
   | "kubeconfig_inline"
   | "api_endpoint";
+
+export type ScanStage = "connect" | "validate" | "outputs" | "launch";
 
 export type ScanRequest = {
   runId?: string;

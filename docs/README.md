@@ -1,6 +1,6 @@
 # Documentation
 
-Use this index to find the right starting point for operating, evaluating, or contributing to `k8s-recovery-visualizer`. The current desktop guidance and screenshots describe the quieter operator-console UX shipped in the `v1.8.1` release line.
+Use this index to find the right starting point for operating, evaluating, or contributing to `k8s-recovery-visualizer`. The current desktop guidance and screenshots describe the guided operator-console UX shipped in the `v1.9.0` release line.
 
 ## Start Here
 

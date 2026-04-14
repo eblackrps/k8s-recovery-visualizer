@@ -97,7 +97,7 @@ export function prepareScanRequest(scanForm: ScanRequest): ScanRequest {
   return sanitizeScanForm(scanForm);
 }
 
-export function inspectScanForm(scanForm: ScanRequest, options: ScanValidationOptions = {}): ScanValidation {
+export function inspectConnectionSetup(scanForm: ScanRequest, options: ScanValidationOptions = {}): ScanValidation {
   const sanitized = sanitizeScanForm(scanForm);
   const errors: string[] = [];
   const fieldErrors: Partial<Record<ScanFieldName, string>> = {};
@@ -117,17 +117,10 @@ export function inspectScanForm(scanForm: ScanRequest, options: ScanValidationOp
     }
   };
 
-  if (!sanitized.outputDir) {
-    addError("outputDir", "Choose an output directory for the scan bundle and reports.");
-  }
-  if ((sanitized.timeoutSeconds || 0) < 10) {
-    addError("timeoutSeconds", "Set the timeout to at least 10 seconds.");
-  }
-
   switch (sanitized.connectionMethod) {
     case "kubeconfig_file":
       if (!sanitized.kubeconfigPath) {
-        addError("kubeconfigPath", "Choose a kubeconfig file or switch to Current login.");
+        addError("kubeconfigPath", "Choose a kubeconfig file or switch to Use existing access.");
       }
       break;
     case "kubeconfig_inline":
@@ -156,12 +149,43 @@ export function inspectScanForm(scanForm: ScanRequest, options: ScanValidationOp
         addWarning("caTrust", "If this cluster uses an internal or self-signed certificate, add the issuing CA before preflight.");
         riskFlags.push("No CA material is configured for a likely private or internal API endpoint.");
       }
-      if (!sanitized.namespaces?.length) {
-        riskFlags.push("The scan will use all readable namespaces.");
-      }
       break;
     default:
       break;
+  }
+
+  return {
+    errors,
+    fieldErrors,
+    fieldWarnings,
+    riskFlags,
+    firstInvalidField: validationFieldOrder.find((field) => Boolean(fieldErrors[field])),
+  };
+}
+
+export function inspectScanForm(scanForm: ScanRequest, options: ScanValidationOptions = {}): ScanValidation {
+  const sanitized = sanitizeScanForm(scanForm);
+  const validation = inspectConnectionSetup(sanitized, options);
+  const errors = [...validation.errors];
+  const fieldErrors = { ...validation.fieldErrors };
+  const fieldWarnings = { ...validation.fieldWarnings };
+  const riskFlags = [...validation.riskFlags];
+
+  const addError = (field: ScanFieldName, message: string) => {
+    if (!fieldErrors[field]) {
+      fieldErrors[field] = message;
+    }
+    errors.push(message);
+  };
+
+  if (!sanitized.outputDir) {
+    addError("outputDir", "Choose an output directory for the scan bundle and reports.");
+  }
+  if ((sanitized.timeoutSeconds || 0) < 10) {
+    addError("timeoutSeconds", "Set the timeout to at least 10 seconds.");
+  }
+  if (sanitized.connectionMethod === "api_endpoint" && !sanitized.namespaces?.length) {
+    riskFlags.push("The scan will use all readable namespaces.");
   }
 
   return {
@@ -179,24 +203,11 @@ export function validateScanForm(scanForm: ScanRequest, options: ScanValidationO
 
 export function validateContextDiscovery(scanForm: ScanRequest) {
   const sanitized = sanitizeScanForm(scanForm);
-  const errors: string[] = [];
-
-  switch (sanitized.connectionMethod) {
-    case "kubeconfig_file":
-      if (!sanitized.kubeconfigPath) {
-        errors.push("Choose a kubeconfig file before loading contexts.");
-      }
-      break;
-    case "kubeconfig_inline":
-      if (!sanitized.kubeconfigContent) {
-        errors.push("Paste a kubeconfig before loading contexts.");
-      }
-      break;
-    default:
-      break;
+  const validation = inspectConnectionSetup(sanitized);
+  if (validation.errors.length > 0) {
+    return validation.errors;
   }
-
-  return errors;
+  return [];
 }
 
 export function haveContextInputsChanged(previous: ScanRequest, next: ScanRequest) {
@@ -207,6 +218,22 @@ export function haveContextInputsChanged(previous: ScanRequest, next: ScanReques
     before.kubeconfigPath !== after.kubeconfigPath ||
     before.kubeconfigContent !== after.kubeconfigContent ||
     before.apiServerEndpoint !== after.apiServerEndpoint
+  );
+}
+
+export function haveConnectionInputsChanged(previous: ScanRequest, next: ScanRequest) {
+  const before = sanitizeScanForm(previous);
+  const after = sanitizeScanForm(next);
+  return (
+    before.connectionMethod !== after.connectionMethod ||
+    before.kubeconfigPath !== after.kubeconfigPath ||
+    before.kubeconfigContent !== after.kubeconfigContent ||
+    before.contextName !== after.contextName ||
+    before.apiServerEndpoint !== after.apiServerEndpoint ||
+    before.bearerToken !== after.bearerToken ||
+    before.caCertPath !== after.caCertPath ||
+    before.caCertContent !== after.caCertContent ||
+    before.insecure !== after.insecure
   );
 }
 

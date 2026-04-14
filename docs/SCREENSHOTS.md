@@ -1,16 +1,18 @@
 # Desktop Screenshot Workflow
 
-The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current five-image set reflects the flatter, operator-console desktop UX shipped in the `v1.8.1` release line.
+The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current six-image set reflects the guided operator-console desktop UX shipped in the `v1.9.0` release line.
 
 ## Current Screenshot Set
 
 - `images/gui-dashboard.png`
-- `images/gui-scan-setup.png` (`?view=scan&scanConnection=api_endpoint` guided API endpoint assistant state)
+- `images/gui-dashboard.png` now uses the first-run onboarding state (`?view=home&firstRun=1`)
+- `images/gui-scan-setup.png` (`?view=scan&scanConnection=api_endpoint&scanStage=connect` guided API endpoint assistant state)
 - `images/gui-live-run.png`
+- `images/gui-scan-complete.png` (`?view=complete` post-run handoff state)
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`
 
-These five files are the maintained public screenshot set for the README and documentation. Refresh them whenever the desktop UI, results IA, or landing-page gallery changes.
+These six files are the maintained public screenshot set for the README and documentation. Refresh them whenever the desktop UI, results IA, or landing-page gallery changes.
 
 Deprecated screenshots that are no longer part of the maintained desktop gallery should be removed from docs and repo references instead of carried forward indefinitely.
 

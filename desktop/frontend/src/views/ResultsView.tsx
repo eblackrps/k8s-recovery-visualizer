@@ -1,11 +1,12 @@
 import { useState } from "react";
-import type { Bundle, Finding, Workspace } from "../lib/types";
+import type { Bundle, Finding, RunCompletionSummary, Workspace } from "../lib/types";
 import {
   Badge,
   Card,
   DataTable,
   KeyValueGrid,
   MetricCard,
+  RunCompletionCallout,
   SectionHeader,
   TrendRail,
   formatDelta,
@@ -37,7 +38,10 @@ export function ResultsView(props: {
   findingFilter: string;
   setFindingFilter: (value: string) => void;
   exportNotice: string;
+  completionSummary?: RunCompletionSummary | null;
   onExport: (kind: "report" | "summary" | "runbook" | "json" | "csv" | "redacted") => void;
+  onOpenPath: (path: string, label: string) => void | Promise<void>;
+  onDismissCompletion?: () => void;
 }) {
   const bundle = props.workspace.bundle;
   const availablePrimaryTabs = bundle.comparison ? primaryTabs : primaryTabs.filter((tab) => tab !== "Compare");
@@ -78,6 +82,16 @@ export function ResultsView(props: {
       />
 
       {props.exportNotice ? <p className="notice notice-info">{props.exportNotice}</p> : null}
+      {props.completionSummary ? (
+        <RunCompletionCallout
+          summary={props.completionSummary}
+          onOpenPath={props.onOpenPath}
+          onReviewFindings={() => props.setResultTab("Findings")}
+          onReviewCompare={bundle.comparison ? () => props.setResultTab("Compare") : undefined}
+          onDismiss={props.onDismissCompletion}
+        />
+      ) : null}
+      <ArtifactHandoffPanel workspace={props.workspace} onOpenPath={props.onOpenPath} />
 
       <div className="tab-row" role="tablist" aria-label="Results sections">
         {availablePrimaryTabs.map((tab, index) => {
@@ -142,6 +156,78 @@ export function ResultsView(props: {
         {activePrimary === "Remediation" && <RemediationPanel bundle={bundle} />}
       </section>
     </section>
+  );
+}
+
+function ArtifactHandoffPanel(props: { workspace: Workspace; onOpenPath: (path: string, label: string) => void | Promise<void> }) {
+  const artifacts = summarizeArtifacts(props.workspace);
+  if (!props.workspace.artifacts.outputDir && !artifacts.length) {
+    return null;
+  }
+
+  return (
+    <Card
+      title="Bundle and reports on disk"
+      description="This assessment is already written to the output directory below. Reopen the bundle JSON later to return to the same findings, compare view, and restore-readiness analysis."
+      actions={
+        <div className="toolbar wrap-toolbar">
+          {props.workspace.artifacts.outputDir ? (
+            <button
+              type="button"
+              className="button secondary quiet"
+              onClick={() => void props.onOpenPath(props.workspace.artifacts.outputDir || "", "output folder")}
+            >
+              Open output folder
+            </button>
+          ) : null}
+          {props.workspace.artifacts.htmlReport ? (
+            <button
+              type="button"
+              className="button secondary quiet"
+              onClick={() => void props.onOpenPath(props.workspace.artifacts.htmlReport || "", "primary report")}
+            >
+              Open primary report
+            </button>
+          ) : null}
+          {props.workspace.artifacts.bundleJson || props.workspace.artifacts.loadedBundlePath ? (
+            <button
+              type="button"
+              className="button secondary quiet"
+              onClick={() =>
+                void props.onOpenPath(
+                  props.workspace.artifacts.bundleJson || props.workspace.artifacts.loadedBundlePath || "",
+                  "bundle JSON",
+                )
+              }
+            >
+              Open bundle JSON
+            </button>
+          ) : null}
+        </div>
+      }
+      className="results-handoff-card"
+    >
+      <div className="summary-two-up results-handoff-grid">
+        <KeyValueGrid
+          items={[
+            ["Output directory", <code className="path-chip">{props.workspace.artifacts.outputDir || "Not recorded"}</code>],
+            ["Reopen later", <code className="path-chip">{props.workspace.artifacts.bundleJson || props.workspace.artifacts.loadedBundlePath || "Bundle path not recorded"}</code>],
+            ["Primary report", <code className="path-chip">{props.workspace.artifacts.htmlReport || "HTML report not generated"}</code>],
+            ["Bundle source", props.workspace.source || "bundle"],
+          ]}
+          className="compact-kv-grid"
+        />
+        <div className="artifact-list results-artifact-list">
+          {artifacts.map((artifact) => (
+            <article key={artifact.name} className="artifact-row">
+              <strong>{artifact.name}</strong>
+              <p className="muted">{artifact.detail}</p>
+              <code className="path-chip">{artifact.path}</code>
+            </article>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -787,6 +873,54 @@ function RemediationPanel(props: { bundle: Bundle }) {
       ))}
     </div>
   );
+}
+
+function summarizeArtifacts(workspace: Workspace) {
+  const artifacts = workspace.artifacts;
+  return [
+    artifacts.bundleJson
+      ? {
+          name: "Bundle JSON",
+          detail: "Primary portable assessment bundle for reopening or comparing later.",
+          path: artifacts.bundleJson,
+        }
+      : null,
+    artifacts.htmlReport
+      ? {
+          name: "HTML report",
+          detail: "Operator-facing report for offline review and handoff.",
+          path: artifacts.htmlReport,
+        }
+      : null,
+    artifacts.summaryHtml
+      ? {
+          name: "Summary report",
+          detail: "Short-form output for quick leadership or ticket updates.",
+          path: artifacts.summaryHtml,
+        }
+      : null,
+    artifacts.runbookHtml
+      ? {
+          name: "Runbook",
+          detail: "Recovery-oriented checklist and follow-up guidance.",
+          path: artifacts.runbookHtml,
+        }
+      : null,
+    artifacts.csvDir
+      ? {
+          name: "CSV exports",
+          detail: "Tabular exports for spreadsheets, evidence packs, or downstream analysis.",
+          path: artifacts.csvDir,
+        }
+      : null,
+    artifacts.redactedHtml || artifacts.redactedJson
+      ? {
+          name: "Redacted outputs",
+          detail: "Shareable lower-sensitivity copies when redaction was enabled.",
+          path: artifacts.redactedHtml || artifacts.redactedJson || "",
+        }
+      : null,
+  ].filter(Boolean) as Array<{ name: string; detail: string; path: string }>;
 }
 
 function normalizeResultsTab(tab: string, hasComparison: boolean) {

@@ -1,10 +1,12 @@
-import type { ProjectSummary, Workspace } from "../lib/types";
+import type { ConnectionAdvisor, ProjectSummary, Workspace } from "../lib/types";
 import {
   Badge,
   Card,
   DataTable,
+  EmptyState,
   KeyValueGrid,
   MetricCard,
+  ReadinessList,
   SectionHeader,
   TrendRail,
   formatDelta,
@@ -16,6 +18,7 @@ import {
 export function HomeView(props: {
   workspace: Workspace | null;
   projects: ProjectSummary[];
+  connectionAdvisor: ConnectionAdvisor | null;
   busy: boolean;
   onViewProjects: () => void;
   onPickBundle: () => void;
@@ -30,114 +33,172 @@ export function HomeView(props: {
   const trendDelta = props.workspace?.history.trendDelta || 0;
   const trendTone = toneForDelta(trendDelta);
   const openFindings = (bundle?.inventory.findings || []).length;
+  const hasHistory = props.projects.length > 0;
+  const isFirstRun = !bundle && !hasHistory;
 
   return (
     <section className="page-grid home-grid">
-      <section className="panel home-actions-panel">
+      <section className="panel home-start-panel">
         <SectionHeader
-          eyebrow="Operator Workspace"
-          title="Choose the next task"
-          description="Start a new assessment, reopen an existing bundle, or jump directly into the findings that affect restore readiness."
+          eyebrow="Start Here"
+          title="Assess a cluster or reopen a saved bundle"
+          description="K8V checks Kubernetes disaster-recovery readiness. A live scan validates access, collects cluster evidence, and writes a portable bundle you can reopen later without cluster access."
         />
-        <div className="action-grid">
+        <div className="action-grid action-grid-two">
           <button type="button" className="action-tile action-primary" onClick={props.onStartScan}>
-            <span className="eyebrow">Primary</span>
-            <strong>Start New Scan</strong>
-            <p>Run a fresh remote assessment against a reachable cluster.</p>
-          </button>
-          <button type="button" className="action-tile" onClick={props.onReviewFindings} disabled={!bundle}>
-            <span className="eyebrow">Current Bundle</span>
-            <strong>Review Findings</strong>
-            <p>{bundle ? `${openFindings} active findings are ready for review.` : "Load a bundle to inspect current findings."}</p>
+            <span className="eyebrow">Primary path</span>
+            <strong>Connect to a cluster</strong>
+            <p>Choose the simplest connection that already works here, test it, run preflight, then collect a fresh recovery bundle.</p>
           </button>
           <button type="button" className="action-tile" onClick={props.onPickBundle} disabled={props.busy}>
-            <span className="eyebrow">Offline Analysis</span>
-            <strong>Open Existing Bundle</strong>
-            <p>Inspect a prior assessment without requiring live cluster access.</p>
+            <span className="eyebrow">Offline review</span>
+            <strong>Open an existing bundle</strong>
+            <p>Review prior findings, compare drift, or export reports without needing live cluster access.</p>
           </button>
         </div>
-        <div className="panel-footer-actions">
-          <button type="button" className="button secondary quiet" onClick={props.onViewProjects}>
-            Browse Bundle History
-          </button>
+        <div className="summary-three-up onboarding-grid">
+          <Card title="How K8V works">
+            <ol className="workflow-list">
+              <li>Choose the access path that is most likely to work on this machine.</li>
+              <li>Test the connection, then run preflight to check RBAC and collection readiness.</li>
+              <li>Run the scan to write a portable bundle and offline report outputs.</li>
+              <li>Reopen that bundle later for findings, compare, inventory, and exports.</li>
+            </ol>
+          </Card>
+          <Card title="What a scan produces">
+            <div className="artifact-list">
+              <div className="artifact-row">
+                <strong>Portable bundle</strong>
+                <p className="muted">`recovery-scan.json` plus enriched metadata for offline review and comparison.</p>
+              </div>
+              <div className="artifact-row">
+                <strong>Offline reports</strong>
+                <p className="muted">HTML and Markdown outputs that can be shared without staying connected to the cluster.</p>
+              </div>
+              <div className="artifact-row">
+                <strong>Optional extras</strong>
+                <p className="muted">Summary, runbook, CSV, and redacted exports when you need them.</p>
+              </div>
+            </div>
+          </Card>
+          <Card title="Machine readiness" description="K8V checks what is already available on this machine so first-time operators know where to start.">
+            <ReadinessList items={machineReadinessItems(props.connectionAdvisor)} />
+          </Card>
         </div>
       </section>
 
       <section className="panel home-posture-panel">
-        <SectionHeader
-          eyebrow="Current Posture"
-          title={bundle ? `${bundle.metadata.clusterName} · ${bundle.metadata.environment}` : "No bundle loaded"}
-          description={bundle ? "Recovery judgment from the latest loaded assessment bundle." : "Open a bundle or run a scan to populate the workspace."}
-          actions={
-            bundle ? (
-              <Badge tone={toneForMaturity(bundle.score.maturity)}>
-                {bundle.score.maturity} {bundle.score.overall.final}
-              </Badge>
-            ) : null
-          }
-        />
-        <div className="home-score-strip">
-          <div className="score-panel">
-            <span className="eyebrow">Overall readiness</span>
-            <strong>{bundle ? bundle.score.overall.final : "—"}</strong>
-            <p className="muted">
-              {bundle
-                ? `${bundle.cluster.platform?.provider || "Unknown"} ${bundle.cluster.platform?.k8sVersion || ""}`.trim()
-                : "No active assessment"}
-            </p>
-          </div>
-          <div className="metric-grid compact-grid">
-            <MetricCard label="Open findings" value={openFindings} tone={openFindings ? "high" : "success"} />
-            <MetricCard
-              label="Trend"
-              value={historyEntries.length > 1 ? formatDelta(trendDelta) : "First run"}
-              tone={trendTone === "critical" ? "critical" : trendTone === "success" ? "success" : "medium"}
+        {bundle ? (
+          <>
+            <SectionHeader
+              eyebrow="Current Bundle"
+              title={`${bundle.metadata.clusterName} · ${bundle.metadata.environment}`}
+              description="The latest loaded bundle is ready for findings, restore readiness, compare, and export work."
+              actions={
+                <Badge tone={toneForMaturity(bundle.score.maturity)}>
+                  {bundle.score.maturity} {bundle.score.overall.final}
+                </Badge>
+              }
             />
-            <MetricCard label="Ready namespaces" value={restoreSim?.readyNamespaces || 0} tone="success" />
-            <MetricCard
-              label="Data at risk GiB"
-              value={restoreSim?.estimatedDataAtRiskGb || 0}
-              tone={(restoreSim?.estimatedDataAtRiskGb || 0) > 0 ? "critical" : "success"}
-            />
-          </div>
-        </div>
-        <div className="summary-two-up">
-          <Card title="Bundle context">
-            <KeyValueGrid
-              items={[
-                ["Profile", bundle?.profile || "standard"],
-                ["Scope", (bundle?.scanNamespaces || []).join(", ") || "all namespaces"],
-                ["Generated", bundle?.metadata.generatedAt || "Not available"],
-                ["Output", props.workspace?.artifacts.outputDir || "Not available"],
-              ]}
-            />
-          </Card>
-          <Card title="Recovery signals">
-            <KeyValueGrid
-              items={[
-                ["Backup tool", bundle?.inventory.backup?.primaryTool || "none"],
-                ["Coverage", bundle?.inventory.backup?.coverageStatus || "unknown"],
-                ["Restore blockers", String(restoreSim?.blockedNamespaces || 0)],
-                ["Current maturity", bundle?.score.maturity || "Unknown"],
-              ]}
-            />
-          </Card>
-        </div>
+            <div className="home-score-strip">
+              <div className="score-panel">
+                <span className="eyebrow">Overall readiness</span>
+                <strong>{bundle.score.overall.final}</strong>
+                <p className="muted">
+                  {`${bundle.cluster.platform?.provider || "Unknown"} ${bundle.cluster.platform?.k8sVersion || ""}`.trim()}
+                </p>
+              </div>
+              <div className="metric-grid compact-grid">
+                <MetricCard label="Open findings" value={openFindings} tone={openFindings ? "high" : "success"} />
+                <MetricCard
+                  label="Trend"
+                  value={historyEntries.length > 1 ? formatDelta(trendDelta) : "First run"}
+                  tone={trendTone === "critical" ? "critical" : trendTone === "success" ? "success" : "medium"}
+                />
+                <MetricCard label="Ready namespaces" value={restoreSim?.readyNamespaces || 0} tone="success" />
+                <MetricCard
+                  label="Data at risk GiB"
+                  value={restoreSim?.estimatedDataAtRiskGb || 0}
+                  tone={(restoreSim?.estimatedDataAtRiskGb || 0) > 0 ? "critical" : "success"}
+                />
+              </div>
+            </div>
+            <div className="summary-two-up">
+              <Card title="Bundle context">
+                <KeyValueGrid
+                  items={[
+                    ["Profile", bundle.profile || "standard"],
+                    ["Scope", (bundle.scanNamespaces || []).join(", ") || "all namespaces"],
+                    ["Generated", bundle.metadata.generatedAt || "Not available"],
+                    ["Output", props.workspace?.artifacts.outputDir || "Not available"],
+                  ]}
+                />
+              </Card>
+              <Card title="Recovery signals">
+                <KeyValueGrid
+                  items={[
+                    ["Backup tool", bundle.inventory.backup?.primaryTool || "none"],
+                    ["Coverage", bundle.inventory.backup?.coverageStatus || "unknown"],
+                    ["Restore blockers", String(restoreSim?.blockedNamespaces || 0)],
+                    ["Current maturity", bundle.score.maturity || "Unknown"],
+                  ]}
+                />
+              </Card>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            eyebrow="First Run"
+            title="No active bundle loaded yet"
+            description="Start with a cluster connection if you want a fresh assessment, or open an existing bundle if someone already ran the scan."
+          >
+            <div className="results-stack">
+              {props.connectionAdvisor?.recommendedReason ? (
+                <div className="notice notice-info compact">
+                  <strong>Recommended on this machine</strong>
+                  <p className="muted">{props.connectionAdvisor.recommendedReason}</p>
+                </div>
+              ) : null}
+              <Card title="If the first connection fails">
+                <div className="stack-list compact-stack">
+                  <div className="empty-state-note">
+                    <strong>Use existing access</strong>
+                    <p className="muted">Best when `kubectl` or the default kubeconfig already works on this desktop or jumpbox.</p>
+                  </div>
+                  <div className="empty-state-note">
+                    <strong>Bring a kubeconfig</strong>
+                    <p className="muted">Use this when you were handed a kubeconfig file or raw kubeconfig text. K8V validates the contents, not the filename.</p>
+                  </div>
+                  <div className="empty-state-note">
+                    <strong>Direct API access</strong>
+                    <p className="muted">Use this only for manual endpoint, bearer token, and CA setup when kubeconfig mode is not the better fit.</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </EmptyState>
+        )}
       </section>
 
       <section className="panel home-bundles-panel">
         <SectionHeader
           eyebrow="Recent Bundles"
-          title="Assessment history"
-          description="Open a recent bundle directly from the workspace. The list stays compact so clusters, environments, and score changes are easy to scan."
+          title={hasHistory ? "Saved assessments" : "No saved bundles yet"}
+          description={
+            hasHistory
+              ? "Recent bundles stay available for offline review, comparisons, and export refreshes."
+              : "Once a scan succeeds, the bundle written to the output directory will show up here for reopening later."
+          }
           actions={
-            <button type="button" className="button secondary quiet" onClick={props.onViewProjects}>
-              Open Projects
-            </button>
+            hasHistory ? (
+              <button type="button" className="button secondary quiet" onClick={props.onViewProjects}>
+                Open Projects
+              </button>
+            ) : null
           }
         />
         <div className="project-list compact">
-          {props.projects.length ? (
+          {hasHistory ? (
             props.projects.map((project) => (
               <button
                 type="button"
@@ -164,34 +225,116 @@ export function HomeView(props: {
       </section>
 
       <section className="panel home-watch-panel">
-        <SectionHeader
-          eyebrow="Operational Watch"
-          title="What changed and what needs attention"
-          description="The watchlist keeps regressions, new gaps, and restore-readiness movement visible without forcing you into the full report first."
-        />
-        <div className="watch-grid">
-          <article className="watch-item">
-            <span>Regressed findings</span>
-            <strong>{comparison?.findingsRegressed?.length || 0}</strong>
-            <p>{comparison?.findingsRegressed?.[0]?.message || "No regressions detected in the loaded comparison set."}</p>
-          </article>
-          <article className="watch-item">
-            <span>New findings</span>
-            <strong>{comparison?.findingsNew?.length || 0}</strong>
-            <p>{comparison?.findingsNew?.[0]?.message || "No new findings in the current comparison set."}</p>
-          </article>
-          <article className="watch-item">
-            <span>Persistent issues</span>
-            <strong>{comparison?.persistentFindingCount || 0}</strong>
-            <p>Persistent issues stay visible across runs and usually deserve scheduling or ownership cleanup.</p>
-          </article>
-        </div>
-        <Card title="Trend history" className="compact-card">
-          <TrendRail entries={historyEntries} />
-        </Card>
+        {bundle ? (
+          <>
+            <SectionHeader
+              eyebrow="Operational Watch"
+              title="What changed and what needs attention"
+              description="The watchlist keeps regressions, new gaps, and restore-readiness movement visible without forcing you into the full report first."
+              actions={
+                <button type="button" className="button secondary quiet" onClick={props.onReviewFindings}>
+                  Review Findings
+                </button>
+              }
+            />
+            <div className="watch-grid">
+              <article className="watch-item">
+                <span>Regressed findings</span>
+                <strong>{comparison?.findingsRegressed?.length || 0}</strong>
+                <p>{comparison?.findingsRegressed?.[0]?.message || "No regressions detected in the loaded comparison set."}</p>
+              </article>
+              <article className="watch-item">
+                <span>New findings</span>
+                <strong>{comparison?.findingsNew?.length || 0}</strong>
+                <p>{comparison?.findingsNew?.[0]?.message || "No new findings in the current comparison set."}</p>
+              </article>
+              <article className="watch-item">
+                <span>Persistent issues</span>
+                <strong>{comparison?.persistentFindingCount || 0}</strong>
+                <p>Persistent issues stay visible across runs and usually deserve scheduling or ownership cleanup.</p>
+              </article>
+            </div>
+            <Card title="Trend history" className="compact-card">
+              <TrendRail entries={historyEntries} />
+            </Card>
+          </>
+        ) : (
+          <EmptyState
+            eyebrow="Why Bundles Matter"
+            title={isFirstRun ? "Scans are designed for offline follow-up" : "Load a bundle to unlock deeper review"}
+            description="K8V is built around portable bundle review so operators can compare, export, and triage recovery evidence without staying connected to the cluster."
+          >
+            <Card title="Bundle workflow">
+              <div className="stack-list compact-stack">
+                <div className="empty-state-note">
+                  <strong>Run a scan once</strong>
+                  <p className="muted">The scan writes bundle and report files into the output directory you choose.</p>
+                </div>
+                <div className="empty-state-note">
+                  <strong>Reopen it later</strong>
+                  <p className="muted">Use Open Existing Bundle to review findings, compare drift, and refresh exports without live access.</p>
+                </div>
+                <div className="empty-state-note">
+                  <strong>Share carefully</strong>
+                  <p className="muted">Optional summary, runbook, CSV, and redacted outputs are available when you need to hand off results.</p>
+                </div>
+              </div>
+            </Card>
+          </EmptyState>
+        )}
       </section>
     </section>
   );
+}
+
+function machineReadinessItems(connectionAdvisor: ConnectionAdvisor | null) {
+  if (!connectionAdvisor) {
+    return [
+      {
+        label: "Local access",
+        value: "Checking",
+        detail: "K8V is still checking whether current login or a default kubeconfig is available here.",
+        state: "neutral" as const,
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Existing access",
+      value: connectionAdvisor.currentContext || (connectionAdvisor.currentLoginAvailable ? "Detected" : "Not detected"),
+      detail:
+        connectionAdvisor.currentLoginWarning ||
+        connectionAdvisor.currentLoginDetail ||
+        "No working local Kubernetes access was detected yet on this machine.",
+      state: connectionAdvisor.currentLoginAvailable
+        ? connectionAdvisor.currentLoginWarning
+          ? ("caution" as const)
+          : ("ready" as const)
+        : ("missing" as const),
+    },
+    {
+      label: "Default kubeconfig",
+      value: connectionAdvisor.defaultKubeconfigPath || "Not found",
+      detail:
+        connectionAdvisor.defaultKubeconfigWarning ||
+        connectionAdvisor.defaultKubeconfigDetail ||
+        "No default kubeconfig was detected in the standard local locations.",
+      state: connectionAdvisor.defaultKubeconfigAvailable
+        ? connectionAdvisor.defaultKubeconfigPortable === false
+          ? ("caution" as const)
+          : ("ready" as const)
+        : ("missing" as const),
+    },
+    {
+      label: "kubectl CLI (optional)",
+      value: connectionAdvisor.kubectlAvailable ? "Detected" : "Not detected",
+      detail: connectionAdvisor.kubectlAvailable
+        ? connectionAdvisor.kubectlPath || "Useful for endpoint discovery and token commands, but not required for the scan itself."
+        : "Helpful for endpoint discovery and token commands, but K8V can still scan with a kubeconfig or direct API setup.",
+      state: connectionAdvisor.kubectlAvailable ? ("ready" as const) : ("neutral" as const),
+    },
+  ];
 }
 
 export function ProjectsView(props: {

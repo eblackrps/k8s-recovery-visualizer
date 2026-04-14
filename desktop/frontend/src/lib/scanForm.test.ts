@@ -70,7 +70,7 @@ describe("scanForm helpers", () => {
 
   it("validates context discovery inputs separately from the full scan launch", () => {
     expect(validateContextDiscovery({ connectionMethod: "kubeconfig_file" })).toEqual([
-      "Choose a kubeconfig file before loading contexts.",
+      "Choose a kubeconfig file or switch to Use existing access.",
     ]);
   });
 

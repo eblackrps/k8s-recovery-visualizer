@@ -23,21 +23,72 @@ go run ./cmd/scan --insecure --kubeconfig C:\path\to\config --out .\out
 If `API endpoint` mode in the desktop app is unclear or preflight keeps failing, check these in order:
 
 1. Confirm you are using the Kubernetes API server URL, not an ingress or application URL.
-2. If `kubectl` already works on that machine, print the active server directly:
+2. Use the in-app `Test connection` step first. It checks reachability, auth, and TLS before full preflight adds RBAC and collection-readiness checks.
+3. If `kubectl` already works on that machine, start with `Use existing access` instead of API endpoint mode.
+4. If `kubectl` already works on that machine, print the active server directly:
 
 ```bash
 kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
 ```
 
-3. Prefer a short-lived service-account token instead of a copied long-lived credential:
+5. Prefer a short-lived service-account token instead of a copied long-lived credential:
 
 ```bash
 kubectl create token <service-account> --namespace <namespace>
 ```
 
-4. If the cluster uses exec plugins, cloud auth helpers, SSO prompts, or client certificates, switch back to kubeconfig mode instead of forcing direct endpoint mode.
-5. If the API server certificate is signed by a private or internal CA, add that CA to the desktop form instead of leaving trust on system defaults.
-6. Use skip-TLS only as a temporary workaround in a trusted environment. The desktop review card and preflight panel intentionally flag this as a risk.
+6. If the cluster uses exec plugins, cloud auth helpers, SSO prompts, or client certificates, switch back to kubeconfig mode instead of forcing direct endpoint mode.
+7. If the API server certificate is signed by a private or internal CA, add that CA to the desktop form instead of leaving trust on system defaults.
+8. Use skip-TLS only as a temporary workaround in a trusted environment. The desktop review card and preflight panel intentionally flag this as a risk.
+
+## Desktop kubeconfig file mode seems to reject the file or starts talking about an endpoint
+
+Two things are easy to misread here:
+
+1. A valid kubeconfig does not need a `.config` extension. Common names are just `config`, `kubeconfig`, `.yaml`, `.yml`, `.backup`, or no extension at all. The desktop app now validates by content, not filename.
+2. Even in `Kubeconfig file` mode, the app still reads the cluster server address from inside that kubeconfig and uses it to connect. So a later error that mentions the API server or endpoint does not mean the app switched into direct `API endpoint` mode.
+
+What to check:
+
+1. Confirm the file is a real kubeconfig with `clusters`, `contexts`, and `users` entries.
+2. Print the server address from the file:
+
+```bash
+kubectl config view --kubeconfig /path/to/config --minify -o jsonpath='{.clusters[0].cluster.server}'
+```
+
+```powershell
+kubectl config view --kubeconfig C:\path\to\config --minify -o jsonpath='{.clusters[0].cluster.server}'
+```
+
+3. If the kubeconfig depends on an exec plugin, cloud auth helper, browser login, or client certificate flow, prefer `Current login` or another kubeconfig that already works with `kubectl` on that machine.
+4. If `kubectl --kubeconfig <path> cluster-info` fails, the desktop scan will fail for the same underlying reason.
+5. Use the desktop `Test connection` step before preflight when you want the fastest answer to whether the kubeconfig works on that machine at all.
+6. If the desktop inspector says the kubeconfig is valid but still lists missing local CA or client-certificate files, the YAML copied successfully but the supporting files did not. Bring those files with the kubeconfig or export a self-contained kubeconfig with embedded `*-data` fields.
+7. A copied kubeconfig often fails with `x509` or client-certificate errors when the original file referenced `certificate-authority`, `client-certificate`, or `client-key` paths on another machine. The desktop inspector now surfaces those path-based dependencies before the scan runs.
+8. If the file picker itself is getting in the way, drag the kubeconfig onto the desktop scan dropzone. K8V will load it into paste mode and validate the contents without caring about the filename extension.
+9. If the Home page or Step 1 shows an existing-access caution, trust that warning. It means K8V found local Kubernetes configuration, but the detected kubeconfig still depends on missing files or an external auth helper that may not work from this desktop session.
+
+## What is the difference between Test connection, Preflight, and Start scan?
+
+- `Test connection` answers whether the cluster is reachable with the current transport, credentials, and TLS settings.
+- `Preflight` answers whether the final scope, RBAC, and collectors are ready for the real scan.
+- `Start scan` collects evidence and writes the bundle/report artifacts into the chosen output directory.
+
+If a first attempt fails, use that order. It is usually faster and clearer than changing several things at once.
+
+## Desktop failure labels and what they mean
+
+Recent desktop builds classify common failures before showing the raw error text. These are the main labels to look for:
+
+- `Endpoint unreachable`: the API server URL is wrong for this machine, DNS cannot resolve it, or the control plane is not reachable from the current network path.
+- `TLS trust`: the cluster is reachable, but the API server certificate is not trusted on this machine. Add the issuing CA or confirm whether the kubeconfig references a CA file that was not copied over.
+- `External auth helper`: the kubeconfig depends on an exec plugin, SSO flow, cloud login helper, or another credential source that is not usable from this desktop session.
+- `Auth rejected`: the cluster answered, but the provided token or credentials were not accepted.
+- `RBAC denied`: transport and auth succeeded, but the current identity cannot read the resources the scan or preflight needs.
+- `Output path`: the app connected successfully, but it cannot create or write the requested output files on disk.
+
+The raw error detail still matters, but the label should tell you where to look first.
 
 ## Backup coverage shows `permission denied`
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { ArtifactPaths, Bundle } from "../lib/types";
+import type { ArtifactPaths, Bundle, RunCompletionSummary } from "../lib/types";
 
 type Tone =
   | "neutral"
@@ -98,6 +98,69 @@ export function Card(props: {
   );
 }
 
+export function EmptyState(props: {
+  eyebrow?: string;
+  title: ReactNode;
+  description: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cx("empty-state-panel", props.className)}>
+      <SectionHeader eyebrow={props.eyebrow} title={props.title} description={props.description} actions={props.actions} />
+      {props.children ? <div className="empty-state-body">{props.children}</div> : null}
+    </section>
+  );
+}
+
+export function Stepper(props: {
+  current: string;
+  steps: Array<{
+    id: string;
+    label: string;
+    description: string;
+    status: "current" | "complete" | "upcoming";
+  }>;
+  onSelect?: (id: string) => void;
+}) {
+  return (
+    <ol className="stepper" aria-label="Scan setup progress">
+      {props.steps.map((step, index) => {
+        const clickable = step.status !== "upcoming" && props.onSelect;
+        const content = (
+          <>
+            <span className="stepper-index" aria-hidden="true">{index + 1}</span>
+            <span className="stepper-copy">
+              <strong>{step.label}</strong>
+              <small>{step.description}</small>
+            </span>
+          </>
+        );
+
+        return (
+          <li key={step.id} className={cx("stepper-item", `is-${step.status}`)}>
+            {clickable ? (
+              <button
+                type="button"
+                className="stepper-button"
+                aria-current={props.current === step.id ? "step" : undefined}
+                onClick={() => props.onSelect?.(step.id)}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className="stepper-button" aria-current={props.current === step.id ? "step" : undefined}>
+                {content}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function Badge(props: { children: ReactNode; tone?: Tone; className?: string }) {
   return <span className={cx("badge", props.tone && `badge-${props.tone}`, props.className)}>{props.children}</span>;
 }
@@ -167,6 +230,126 @@ export function KeyValueGrid(props: { items: Array<[string, ReactNode]>; classNa
         </div>
       ))}
     </dl>
+  );
+}
+
+export function ReadinessList(props: {
+  items: Array<{
+    label: string;
+    value: ReactNode;
+    detail?: ReactNode;
+    state?: "ready" | "caution" | "missing" | "neutral";
+  }>;
+  className?: string;
+}) {
+  return (
+    <div className={cx("readiness-list", props.className)}>
+      {props.items.map((item) => (
+        <article key={item.label} className={cx("readiness-item", item.state && `is-${item.state}`)}>
+          <div className="readiness-copy">
+            <strong>{item.label}</strong>
+            {item.detail ? <p className="muted">{item.detail}</p> : null}
+          </div>
+          <div className="readiness-meta">
+            <span className="readiness-value">{item.value}</span>
+            <Badge tone={toneForReadiness(item.state)}>{labelForReadiness(item.state)}</Badge>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function RunCompletionCallout(props: {
+  summary: RunCompletionSummary;
+  title?: ReactNode;
+  description?: ReactNode;
+  onOpenPath?: (path: string, label: string) => void | Promise<void>;
+  onReviewResults?: () => void;
+  onReviewFindings?: () => void;
+  onReviewCompare?: () => void;
+  onStartAnotherScan?: () => void;
+  onDismiss?: () => void;
+}) {
+  const outputDir = props.summary.artifacts.outputDir;
+  const bundlePath = props.summary.artifacts.bundleJson || props.summary.artifacts.loadedBundlePath;
+  const reportPath = props.summary.artifacts.htmlReport;
+
+  return (
+    <Card
+      title={props.title || "Scan complete. Outputs ready."}
+      description={
+        props.description ||
+        "K8V finished writing the portable bundle and refreshed report artifacts below. Open the output directory, jump into findings, or review the primary report next."
+      }
+      className="completion-callout"
+      actions={
+        <div className="toolbar wrap-toolbar completion-actions">
+          {props.onReviewFindings ? (
+            <button type="button" className="button primary" onClick={props.onReviewFindings}>
+              Review findings
+            </button>
+          ) : null}
+          {props.onReviewCompare && props.summary.hasComparison ? (
+            <button type="button" className="button secondary" onClick={props.onReviewCompare}>
+              Review compare
+            </button>
+          ) : null}
+          {props.onReviewResults ? (
+            <button type="button" className="button secondary" onClick={props.onReviewResults}>
+              Review results
+            </button>
+          ) : null}
+          {props.onStartAnotherScan ? (
+            <button type="button" className="button secondary" onClick={props.onStartAnotherScan}>
+              Start another scan
+            </button>
+          ) : null}
+          {outputDir ? (
+            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(outputDir, "output folder")}>
+              Open output folder
+            </button>
+          ) : null}
+          {reportPath ? (
+            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(reportPath, "primary report")}>
+              Open primary report
+            </button>
+          ) : null}
+          {bundlePath ? (
+            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(bundlePath, "bundle JSON")}>
+              Open bundle JSON
+            </button>
+          ) : null}
+          {props.onDismiss ? (
+            <button type="button" className="button secondary quiet" onClick={props.onDismiss}>
+              Dismiss
+            </button>
+          ) : null}
+        </div>
+      }
+    >
+      <div className="completion-grid">
+        <div className="completion-metrics">
+          <MetricCard label="Cluster" value={props.summary.clusterName || "Unknown"} />
+          <MetricCard label="Environment" value={props.summary.environment || "Unknown"} />
+          <MetricCard label="Score" value={props.summary.score ?? "n/a"} tone="accent" />
+          <MetricCard
+            label="Findings"
+            value={props.summary.findingCount ?? 0}
+            tone={(props.summary.findingCount || 0) > 0 ? "high" : "success"}
+          />
+        </div>
+        <KeyValueGrid
+          className="compact-kv-grid"
+          items={[
+            ["Completed", formatCompletionTimestamp(props.summary.generatedAt)],
+            ["Output directory", <code className="path-chip">{outputDir || "Not recorded"}</code>],
+            ["Bundle JSON", <code className="path-chip">{bundlePath || "Not recorded"}</code>],
+            ["Primary report", <code className="path-chip">{reportPath || "Not generated"}</code>],
+          ]}
+        />
+      </div>
+    </Card>
   );
 }
 
@@ -476,6 +659,18 @@ export function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+export function formatCompletionTimestamp(value: string | undefined) {
+  if (!value) {
+    return "Just now";
+  }
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatDelta(value: number) {
   return `${value > 0 ? "+" : ""}${value}`;
 }
@@ -488,6 +683,32 @@ export function toneForDelta(value: number) {
     return "critical";
   }
   return "neutral";
+}
+
+function toneForReadiness(state?: "ready" | "caution" | "missing" | "neutral"): Tone {
+  switch (state) {
+    case "ready":
+      return "success";
+    case "caution":
+      return "warn";
+    case "missing":
+      return "fail";
+    default:
+      return "neutral";
+  }
+}
+
+function labelForReadiness(state?: "ready" | "caution" | "missing" | "neutral") {
+  switch (state) {
+    case "ready":
+      return "Ready";
+    case "caution":
+      return "Caution";
+    case "missing":
+      return "Needs setup";
+    default:
+      return "Info";
+  }
 }
 
 export function toneForMaturity(value: string | undefined): Tone {

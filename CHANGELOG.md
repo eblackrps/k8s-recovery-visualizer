@@ -6,6 +6,30 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.9.0] - 2026-04-14
+
+Minor release for `k8s-recovery-visualizer`: this release turns the desktop app into a more guided first-run product by making connection choice clearer, kubeconfig intake more forgiving, failure handling more actionable, and successful scan handoff much more explicit.
+
+### Improved
+
+- Reworked the desktop Home view so first-time operators immediately understand what K8V does, how scans work, what a bundle is, and which two starting actions matter most.
+- Reshaped `New Scan` into a guided four-step workflow for connection, validation, scope and outputs, then preflight and launch.
+- Added a mode-aware connection assistant with a much stronger direct API endpoint guide, including endpoint discovery, short-lived token guidance, trust/TLS explanation, and safer token handling.
+- Hardened kubeconfig intake so valid kubeconfig files work by content even when they use `.backup`, no extension, or other non-standard names.
+- Added a lightweight `Test connection` path before full preflight so operators can answer reachability, auth, and TLS questions quickly.
+- Added a machine-readiness summary that shows whether existing access, a default kubeconfig, or only manual connection paths are likely to work on the current machine.
+- Added a dedicated scan-complete handoff and stronger results/output path actions so operators know exactly what was produced and where it was written.
+- Classified common connection, preflight, and run failures into operator-facing labels such as `Endpoint unreachable`, `TLS trust`, `External auth helper`, `RBAC denied`, and `Output path`.
+
+### Docs
+
+- Refreshed the main README gallery, desktop guides, troubleshooting, screenshot workflow notes, and release-facing docs so the public repository now matches the guided onboarding, machine-readiness cues, and completion handoff shipped in this release.
+
+### Fixed
+
+- Replaced confusing generic desktop failure states with clearer next-action guidance while preserving raw error detail for troubleshooting.
+- Kept browser demo rendering, deterministic screenshot generation, build packaging, and existing export/bundle workflows aligned with the updated onboarding and connection flows.
+
 ## [1.8.1] - 2026-04-14
 
 Patch release for `k8s-recovery-visualizer`: this release brings the desktop frontend into line with the seriousness of the recovery workflow by flattening the visual system, reducing shell chrome, and reorganizing the workspace around operator priorities instead of report mirroring.

@@ -65,17 +65,33 @@ endif
 	@echo "Built $(HOST_BINARY) (GOOS=$(HOST_GOOS) GOARCH=$(HOST_GOARCH))"
 
 frontend-install:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Set-Location 'desktop/frontend'; & npm.cmd ci"
+else
 	$(NPM_PREFIX) ci
+endif
 
 frontend-build:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Set-Location 'desktop/frontend'; & npm.cmd run build"
+else
 	$(NPM_PREFIX) run build
+endif
 
 frontend-test:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Set-Location 'desktop/frontend'; & npm.cmd test"
+else
 	$(NPM_PREFIX) test
+endif
 
 screenshots: frontend-build
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Set-Location 'desktop/frontend'; & npx.cmd playwright install chromium; & npm.cmd run screenshots"
+else
 	$(NPX_PREFIX) playwright install chromium
 	$(NPM_PREFIX) run screenshots
+endif
 
 dev-gui:
 	cd $(GUI_DIR) && $(WAILS) dev

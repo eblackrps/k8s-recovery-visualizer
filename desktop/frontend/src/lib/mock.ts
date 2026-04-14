@@ -1,8 +1,11 @@
 import type {
   AppAlert,
   Bootstrap,
+  ConnectionAdvisor,
   ContextCatalog,
+  ConnectionTestReport,
   ExportRequest,
+  KubeconfigInspection,
   PreflightReport,
   ProjectSummary,
   RunEvent,
@@ -95,11 +98,11 @@ const demoWorkspace: Workspace = {
       clusterName: "prod-east",
       environment: "production",
       generatedAt: "2026-04-12T14:11:00Z",
-      toolVersion: "1.8.1",
+      toolVersion: "1.9.0",
     },
     tool: {
       name: "k8s-recovery-visualizer",
-      version: "1.8.1",
+      version: "1.9.0",
       buildDate: "2026-04-14",
     },
     scan: {
@@ -441,6 +444,23 @@ const demoProjects: ProjectSummary[] = [
   },
 ];
 
+const demoConnectionAdvisor: ConnectionAdvisor = {
+  recommendedMethod: "current",
+  recommendedReason: "This machine already has Kubernetes access configured, so existing access is the simplest place to start.",
+  kubectlAvailable: true,
+  kubectlPath: "C:/Program Files/Kubernetes/kubectl.exe",
+  currentLoginAvailable: true,
+  currentContext: "prod-east-admin",
+  currentLoginDetail: "Detected local Kubernetes access with current context \"prod-east-admin\".",
+  currentLoginWarning: "This kubeconfig depends on an external auth helper. Existing access can still work here, but keep kubeconfig mode handy if the helper is unavailable in the desktop session.",
+  defaultKubeconfigAvailable: true,
+  defaultKubeconfigPath: "C:/Users/demo/.kube/prod-cluster.backup",
+  defaultKubeconfigCurrentContext: "prod-east-admin",
+  defaultKubeconfigDetail: "Loaded kubeconfig file with 3 contexts, 2 clusters, and 1 user entry. Current context: prod-east-admin.",
+  defaultKubeconfigPortable: true,
+  defaultKubeconfigWarning: "The detected kubeconfig uses an external auth helper. Existing access can still work, but it depends on that helper being available and signed in on this machine.",
+};
+
 const demoPreflight = (request: ScanRequest): PreflightReport => ({
   canRun: true,
   degraded: Boolean(request.includeSecretMetadata),
@@ -519,6 +539,110 @@ function currentSettings(): Settings {
   };
 }
 
+function inspectKubeconfig(request: ScanRequest): KubeconfigInspection {
+  const source = request.kubeconfigContent ? "pasted kubeconfig" : "kubeconfig file";
+  const path = request.kubeconfigPath?.trim() || "";
+  const rawContent = request.kubeconfigContent?.trim() || "";
+
+  if (!path && !rawContent) {
+    throw new Error("choose a kubeconfig file or paste kubeconfig content first");
+  }
+  if (path.toLowerCase().includes("missing")) {
+    throw new Error(`read kubeconfig file "${path}": The system cannot find the file specified.`);
+  }
+  if (path.toLowerCase().includes("invalid") || rawContent.toLowerCase().includes("not-a-kubeconfig")) {
+    throw new Error(`the selected ${source} is not a usable kubeconfig: missing clusters, contexts, and users`);
+  }
+  if (path.toLowerCase().includes("yaml-error") || rawContent.toLowerCase().includes("yaml-error")) {
+    throw new Error(`parse ${source}: yaml: line 3: did not find expected key`);
+  }
+
+  return {
+    source,
+    path: path || undefined,
+    currentContext: "prod-east-admin",
+    contexts: ["kind-k8v-test", "prod-east-admin", "staging-west-admin"],
+    clusterCount: 2,
+    userCount: 1,
+    summary: `Loaded ${source} with 3 contexts, 2 clusters, and 1 user entry. Current context: prod-east-admin.`,
+    nextAction: "Test the connection next. If it succeeds, continue to scope and outputs before running full preflight.",
+  };
+}
+
+function demoConnectionTest(request: ScanRequest): ConnectionTestReport {
+  if (request.connectionMethod === "api_endpoint") {
+    const hasTrust = Boolean(request.caCertPath || request.caCertContent || request.insecure);
+    if (!request.apiServerEndpoint) {
+      return {
+        canConnect: false,
+        summary: "Connection test failed.",
+        nextAction: "Enter the Kubernetes API server host or URL first.",
+        diagnosis: {
+          code: "endpoint_unreachable",
+          label: "API reachability",
+          summary: "The cluster API is not reachable from this machine.",
+          detail: "No API server endpoint was provided.",
+          nextAction: "Enter the Kubernetes API server host or URL first.",
+        },
+        fieldErrors: { apiServerEndpoint: "Enter the Kubernetes API server host or URL." },
+        checks: [{ id: "transport", title: "API server reachability", status: "fail", detail: "No API server endpoint was provided." }],
+      };
+    }
+    if (!request.bearerToken) {
+      return {
+        canConnect: false,
+        summary: "Credentials were rejected.",
+        nextAction: "Paste a short-lived bearer token before testing the connection again.",
+        diagnosis: {
+          code: "auth_rejected",
+          label: "Credentials",
+          summary: "The API server rejected the current credentials.",
+          detail: "No bearer token was provided.",
+          nextAction: "Paste a short-lived bearer token before testing the connection again.",
+        },
+        fieldErrors: { bearerToken: "Paste a bearer token for direct API endpoint scans." },
+        checks: [{ id: "auth", title: "Credential acceptance", status: "fail", detail: "No bearer token was provided." }],
+      };
+    }
+    if (!hasTrust) {
+      return {
+        canConnect: false,
+        source: "direct API endpoint",
+        server: request.apiServerEndpoint,
+        summary: "TLS verification failed.",
+        nextAction: "Add the issuing CA certificate or use skip-TLS only as a temporary workaround in a trusted environment.",
+        diagnosis: {
+          code: "tls_trust",
+          label: "TLS trust",
+          summary: "The cluster is reachable, but this machine does not trust the API server certificate.",
+          detail: "x509: certificate signed by unknown authority",
+          nextAction: "Add the issuing CA certificate or use skip-TLS only as a temporary workaround in a trusted environment.",
+        },
+        fieldErrors: { caTrust: "The API server certificate could not be verified. Add the issuing CA or use skip-TLS only temporarily." },
+        checks: [{ id: "transport", title: "TLS and API handshake", status: "fail", detail: "x509: certificate signed by unknown authority" }],
+      };
+    }
+  }
+
+  if (request.connectionMethod === "kubeconfig_file" || request.connectionMethod === "kubeconfig_inline") {
+    inspectKubeconfig(request);
+  }
+
+  return {
+    canConnect: true,
+    source: request.connectionMethod === "api_endpoint" ? "direct API endpoint" : request.connectionMethod === "kubeconfig_inline" ? "pasted kubeconfig" : request.connectionMethod === "kubeconfig_file" ? "kubeconfig file" : "current Kubernetes login",
+    server: request.connectionMethod === "api_endpoint" ? request.apiServerEndpoint || "https://prod-east.example.net:6443" : "https://prod-east.example.net:6443",
+    contextName: request.connectionMethod === "api_endpoint" ? "" : request.contextName || "prod-east-admin",
+    summary: "Connection test succeeded.",
+    nextAction: "Continue to scope and outputs, then run full preflight to check RBAC and collection readiness before the scan.",
+    checks: [
+      { id: "config", title: "Connection settings loaded", status: "pass", detail: request.connectionMethod === "kubeconfig_file" ? "Kubeconfig file loaded successfully." : request.connectionMethod === "kubeconfig_inline" ? "Pasted kubeconfig loaded successfully." : request.connectionMethod === "api_endpoint" ? "Direct API connection details loaded successfully." : "Current Kubernetes login loaded successfully." },
+      { id: "transport", title: "API server reachability", status: "pass", detail: "Reached the cluster API successfully." },
+      { id: "handshake", title: "Basic API handshake", status: "pass", detail: "The cluster responded to a basic discovery request." },
+    ],
+  };
+}
+
 export const mockBackend = {
   async GetBootstrap(): Promise<Bootstrap> {
     return clone(bootstrap);
@@ -534,6 +658,12 @@ export const mockBackend = {
   },
   async ListProjects(): Promise<ProjectSummary[]> {
     return clone(demoProjects);
+  },
+  async GetConnectionAdvisor(): Promise<ConnectionAdvisor> {
+    return clone(demoConnectionAdvisor);
+  },
+  async InspectKubeconfig(request: ScanRequest): Promise<KubeconfigInspection> {
+    return clone(inspectKubeconfig(request));
   },
   async ListConnectionContexts(request: ScanRequest): Promise<ContextCatalog> {
     if (request.connectionMethod === "api_endpoint") {
@@ -551,6 +681,9 @@ export const mockBackend = {
       currentContext: request.contextName || "prod-east-admin",
       contexts: ["kind-k8v-test", "prod-east-admin", "staging-west-admin"],
     };
+  },
+  async TestConnection(request: ScanRequest): Promise<ConnectionTestReport> {
+    return clone(demoConnectionTest(request));
   },
   async RunPreflight(request: ScanRequest): Promise<PreflightReport> {
     return clone(demoPreflight(request));
@@ -623,11 +756,14 @@ export const mockBackend = {
       loadedBundlePath: path || demoWorkspace.artifacts.loadedBundlePath,
     };
   },
+  async OpenPath(): Promise<void> {
+    return;
+  },
   async PickBundleFile(): Promise<string> {
     return demoWorkspace.artifacts.loadedBundlePath || "./demo-out/recovery-scan.json";
   },
   async PickKubeconfigFile(): Promise<string> {
-    return "C:/Users/demo/.kube/config";
+    return "C:/Users/demo/.kube/prod-cluster.backup";
   },
   async PickCertificateFile(): Promise<string> {
     return "C:/Users/demo/certs/cluster-ca.pem";

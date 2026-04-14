@@ -190,6 +190,10 @@ func resolveFromInlineKubeconfig(options ConnectionOptions) (*ResolvedConnection
 		return nil, fmt.Errorf("paste a kubeconfig or switch connection mode")
 	}
 
+	if _, err := InspectKubeconfigContent(content); err != nil {
+		return nil, err
+	}
+
 	rawCfg, err := clientcmd.Load([]byte(content))
 	if err != nil {
 		return nil, fmt.Errorf("load pasted kubeconfig: %w", err)
@@ -391,17 +395,21 @@ func applyTLSOverrides(cfg *rest.Config, options ConnectionOptions) {
 func loadRawConfigFromFile(kubeconfigPath string) (*clientcmdapi.Config, string, error) {
 	chosen := pickKubeconfigPath(kubeconfigPath)
 	if strings.TrimSpace(chosen) == "" {
-		return nil, "", fmt.Errorf("choose a kubeconfig file or switch to current login")
+		return nil, "", fmt.Errorf("choose a kubeconfig file or switch to existing access")
 	}
 
 	abs := chosen
 	if a, err := filepath.Abs(chosen); err == nil {
-		abs = a
+		abs = filepath.Clean(a)
+	}
+
+	if _, err := InspectKubeconfigFile(abs); err != nil {
+		return nil, "", err
 	}
 
 	rawCfg, err := clientcmd.LoadFromFile(abs)
 	if err != nil {
-		return nil, "", fmt.Errorf("load kube config from %q: %w", abs, err)
+		return nil, "", fmt.Errorf("load kubeconfig from %q: %w", abs, err)
 	}
 	return rawCfg, abs, nil
 }

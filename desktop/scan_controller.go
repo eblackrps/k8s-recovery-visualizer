@@ -26,6 +26,26 @@ func (a *App) RunPreflight(req appcore.ScanRequest) (appcore.PreflightReport, er
 	return a.service.Preflight(preflightCtx, req)
 }
 
+func (a *App) GetConnectionAdvisor() appcore.ConnectionAdvisor {
+	return a.service.ConnectionAdvisor()
+}
+
+func (a *App) InspectKubeconfig(req appcore.ScanRequest) (appcore.KubeconfigInspection, error) {
+	return a.service.InspectKubeconfig(req)
+}
+
+func (a *App) TestConnection(req appcore.ScanRequest) (appcore.ConnectionTestReport, error) {
+	req = a.applyDefaults(req)
+
+	testCtx, cancel, err := a.newRunContext()
+	if err != nil {
+		return appcore.ConnectionTestReport{}, err
+	}
+	defer cancel()
+
+	return a.service.TestConnection(testCtx, req)
+}
+
 func (a *App) ListConnectionContexts(req appcore.ScanRequest) (appcore.ContextCatalog, error) {
 	req = a.applyDefaults(req)
 	return a.service.ListContexts(req)

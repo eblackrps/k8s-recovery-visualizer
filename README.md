@@ -65,10 +65,18 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 2. Extract the archive.
 3. Launch `K8V` directly. On Windows, the zip also includes `K8V-amd64-installer.exe` if you prefer an installed shortcut.
 4. Choose **New Scan** for a live assessment or **Open Existing Bundle** for offline review.
-5. In **New Scan**, choose the simplest connection that already works on that machine:
-   `Current login`, `Kubeconfig file`, `Paste kubeconfig`, or `API endpoint`.
-6. Use `Current login` on a desktop or jumpbox when `kubectl` or `KUBECONFIG` already reaches the cluster. Use `API endpoint` when you need to enter a control-plane host or IP directly with a bearer token, and let the right-side assistant walk you through endpoint discovery, token creation, and TLS trust choices before preflight.
-7. Export HTML, Markdown, CSV, redacted, summary, or runbook artifacts from the loaded bundle as needed.
+5. In **New Scan**, follow the guided four-step flow:
+   choose a connection, test it, choose scope and outputs, then run preflight before launch.
+   The Home view and Step 1 now include a machine-readiness summary so you can see whether current login, a default kubeconfig, or only manual access paths are actually available on that machine.
+6. Start with **Use existing access** when `kubectl` or the default kubeconfig already reaches the cluster from that machine.
+7. Use **Load kubeconfig file** or **Paste kubeconfig** when operators hand you kubeconfig access. `K8V` validates kubeconfig content, so files like `prod-cluster.backup`, `config`, or extensionless names are all accepted if the contents are valid.
+   If the desktop inspector flags missing local CA or client-certificate files, the kubeconfig YAML copied over but the supporting files did not. Bring those files too or export a self-contained kubeconfig with embedded `*-data` fields.
+   If the native picker is awkward, you can also drag a kubeconfig onto the in-app dropzone and K8V will load it into paste mode automatically.
+8. Use **API endpoint** only for direct endpoint, bearer-token, and TLS setup. The in-app assistant now walks through endpoint discovery, short-lived token creation, trust choices, and when kubeconfig mode is the better fit.
+9. A successful scan writes a portable bundle plus optional summary, runbook, CSV, and redacted outputs to the chosen output directory. You can reopen that bundle later without cluster access.
+   The Results workspace also keeps the output directory, bundle path, and primary report path visible so first-time operators know exactly what was generated and where it landed.
+   After a live run finishes, K8V now shows a clear scan-complete handoff with direct actions to open the output folder, primary report, or bundle JSON from the desktop app.
+   That completion step appears before the operator has to navigate results tabs, so the “what happened” and “what do I do next” answers are explicit.
 
 ### Desktop Development Quickstart
 
@@ -115,13 +123,18 @@ make build
 ## Latest Desktop Screenshots
 
 <p align="center">
+  <img alt="K8V first-run onboarding and machine readiness" src="images/gui-dashboard.png" width="32%" />
   <img alt="K8V guided API endpoint scan setup" src="images/gui-scan-setup.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
+</p>
+<p align="center">
+  <img alt="K8V scan completion handoff" src="images/gui-scan-complete.png" width="32%" />
+  <img alt="K8V findings workflow" src="images/gui-results-findings.png" width="32%" />
   <img alt="K8V compare workflow with score drift and regression details" src="images/gui-compare.png" width="32%" />
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the flatter, operator-grade desktop UX shipped in `v1.8.1`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.0`.
 
 ## CLI And Desktop At A Glance
 
@@ -131,6 +144,20 @@ The current gallery reflects the flatter, operator-grade desktop UX shipped in `
 | Desktop (`desktop/`) | Remote cluster scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, prioritized findings, restore drill planning, offline bundle inspection |
 
 ## Output Artifacts
+
+`K8V` is built around a simple mental model:
+
+- connection setup tells the app how to reach the cluster
+- a scan writes a portable bundle and reports into an output directory
+- opening an existing bundle reuses those saved outputs for offline review, compare, and export refreshes
+
+The guided scan flow makes `connection test`, `preflight`, and `scan` distinct on purpose:
+
+- `Test connection` answers whether transport, auth, and TLS work
+- `Preflight` answers whether RBAC, scope, and collectors are ready
+- `Start scan` collects evidence and writes the bundle/report artifacts
+
+When one of those steps fails, `K8V` now classifies the failure into an operator-facing bucket such as `Endpoint unreachable`, `TLS trust`, `External auth helper`, `RBAC denied`, or `Output path`. The UI keeps the raw detail available, but the first thing operators see is the next step instead of a generic `failed` state.
 
 | Artifact | Purpose |
 | --- | --- |

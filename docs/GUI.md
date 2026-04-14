@@ -28,19 +28,32 @@ Use the desktop app when you want:
 ## Main Screens
 
 - `Home / Projects`: task-first operator workspace with primary actions, current posture, a compact bundle history list, and an operational watch panel for regressions and trend changes
-- `New Scan`: guided remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, advanced options, and a dedicated assistant / preflight rail
-  - `Current login`: best for desktops and jumpboxes where `kubectl` or `KUBECONFIG` already works
-  - `Kubeconfig file`: pick a kubeconfig from disk and optionally select a context
-  - `Paste kubeconfig`: paste kubeconfig content directly when operators do not want to rely on local files
-  - `API endpoint`: enter a control-plane host, IP, or URL directly and authenticate with a bearer token
-  - before preflight, the right rail becomes a mode-aware connection assistant instead of a generic empty state
+  - first-run home now includes a machine-readiness panel that tells operators whether existing access, a default kubeconfig, or only manual connection paths are likely to work on that machine
+- `New Scan`: guided remote-first scan setup with a four-step success flow instead of a flat configuration form
+  - `Step 1: Choose connection`: prefer `Use existing access`, then kubeconfig, and keep `API endpoint` clearly manual/advanced
+  - the connection advisor now distinguishes “existing access is ready”, “a kubeconfig was found but is incomplete on this machine”, and “no local access was detected yet”
+  - `Step 2: Validate connection`: run a lightweight transport/auth/TLS test before spending time on deeper checks
+  - `Step 3: Choose scope and outputs`: decide namespace scope, output directory, and which optional exports to write
+  - `Step 4: Review and launch`: run full preflight with the final settings, then start the scan
+  - `Load kubeconfig file` now validates file content instead of filename, so `config`, `prod-cluster.backup`, and extensionless kubeconfig files all work when the contents are valid
+  - kubeconfig inspection now distinguishes “valid YAML” from “portable on this machine” by surfacing missing local CA, client certificate, and client key dependencies before the connection test runs
+  - kubeconfig file and paste modes share a dropzone that reads a dropped kubeconfig into paste mode when the native picker or weird filename handoff gets in the way
+  - before connection testing, the right rail becomes a mode-aware connection assistant instead of a generic empty state
+  - after connection testing, the rail switches to a lightweight result panel focused on reachability, auth, TLS, and the top next action
+  - after preflight, the rail groups checks into transport, auth, RBAC, scope, and collection readiness with blockers and degraded-but-runnable warnings separated clearly
+  - connection test, preflight, and live scan failures are now classified into operator-facing labels such as `Endpoint unreachable`, `TLS trust`, `External auth helper`, `RBAC denied`, and `Output path` so the next action is visible before the raw error text
   - the API endpoint assistant explains when direct endpoint mode fits, when kubeconfig mode is better, how to discover the API server URL, how to mint a short-lived service-account token, and how to choose between system trust, a private CA, and a temporary skip-TLS path
   - token paste handling strips a leading `Bearer` prefix, spaces, and accidental line breaks automatically while keeping the token hidden by default and out of notices, screenshots, and saved settings
-  - field-level validation now lands under the endpoint, token, output, and TLS acknowledgement inputs and the first invalid field is focused when operators try preflight or launch with an incomplete setup
-  - the review card now summarizes endpoint target, auth mode, TLS trust mode, namespace scope, compare baseline, exports, output path, and obvious risk flags before launch
-  - context discovery can load named contexts from the current login or kubeconfig inputs before the scan starts
+  - the review card summarizes endpoint target, auth mode, TLS trust mode, namespace scope, compare baseline, exports, output path, and obvious risk flags before launch
 - `Live Run`: progress events, warnings, structured logs, and cancel
+  - when a run has just finished, Live Run now shows a completion handoff with direct actions to review results or open the output paths directly
+  - when a run fails, Live Run keeps the diagnosed failure class and recommended next step visible instead of collapsing back to a generic failure banner
+- `Scan Complete`: a dedicated post-run handoff view before deeper tabbed analysis begins
+  - explains that the bundle is the saved assessment package
+  - keeps next actions obvious: review findings, review compare, open the output folder, open the primary report, or reopen the bundle later
 - `Results`: Overview, Findings, Restore Readiness, Compare, Inventory, and Remediation
+  - a persistent handoff panel at the top shows the output directory, the bundle JSON to reopen later, the primary HTML report, and any summary/runbook/CSV/redacted artifacts already written to disk
+  - the completion and handoff surfaces provide direct `Open output folder`, `Open primary report`, and `Open bundle JSON` actions from the desktop shell
   - `Overview` centralizes score, trend, backup posture, and top findings instead of forcing users through inventory tabs first
   - `Findings` uses dense filtering and a tighter findings table with severity, owner, impact, effort, resource, and recommendation data optimized for quick scanning
   - `Restore Readiness` consolidates backup coverage, restore simulation, blocker counts, and the drill plan into one operator-facing section
@@ -60,6 +73,9 @@ Bound methods include:
 - `GetStartupAlerts`
 - `SaveSettings`
 - `ListProjects`
+- `GetConnectionAdvisor`
+- `InspectKubeconfig`
+- `TestConnection`
 - `RunPreflight`
 - `ListConnectionContexts`
 - `RunScan`
@@ -93,9 +109,11 @@ That keeps degraded-mode behavior explicit and gives platform teams a concrete s
 
 - On a desktop or jumpbox, leave the app on `Current login` when `kubectl get nodes` already works from that machine.
 - Use `Kubeconfig file` or `Paste kubeconfig` when operators receive a kubeconfig through a secure file handoff or vault workflow.
+- Kubeconfig file mode validates by content, not filename, so files with `.backup`, no extension, or generic names like `config` are accepted when the kubeconfig itself is valid.
 - Use `API endpoint` when you need to enter a control-plane host or IP directly. The current direct-endpoint mode is intentionally bearer-token based. If the cluster depends on exec plugins, cloud auth helpers, or client certificates, kubeconfig mode remains the better fit.
 - In API endpoint mode, use the assistant rail to copy the current `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'` endpoint discovery command and the `kubectl create token <service-account> --namespace <namespace>` short-lived token pattern instead of guessing the flow from memory.
-- Run **Detect Contexts** to load named contexts before preflight when you are using the current login or a kubeconfig source.
+- Run **Detect Contexts** to load named contexts before the scan when you are using the current login or a kubeconfig source.
+- Use `Test connection` to answer the basic "can I reach the cluster with these credentials?" question before worrying about RBAC or full collection readiness.
 
 ## Settings Behavior
 

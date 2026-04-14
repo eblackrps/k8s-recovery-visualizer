@@ -1,7 +1,8 @@
 import type { ComponentProps } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { inspectScanForm } from "../lib/scanForm";
+import { vi } from "vitest";
+import { inspectConnectionSetup, inspectScanForm } from "../lib/scanForm";
 import type { PreflightReport, ScanRequest } from "../lib/types";
 import { ScanView } from "./ScanView";
 
@@ -15,27 +16,41 @@ const baseRequest: ScanRequest = {
 
 function renderScanView(overrides: Partial<ComponentProps<typeof ScanView>> = {}) {
   const scanForm = overrides.scanForm || baseRequest;
-  const validation = overrides.validation || inspectScanForm(scanForm, { insecureAcknowledged: overrides.insecureAcknowledged });
+  const insecureAcknowledged = overrides.insecureAcknowledged ?? false;
+  const validation = overrides.validation || inspectScanForm(scanForm, { insecureAcknowledged });
+  const connectionValidation =
+    overrides.connectionValidation || inspectConnectionSetup(scanForm, { insecureAcknowledged });
 
   return render(
     <ScanView
       busy={false}
       scanForm={scanForm}
       setScanForm={() => undefined}
+      scanStage="connect"
+      onSetScanStage={() => undefined}
+      connectionAdvisor={null}
+      kubeconfigInspection={null}
+      connectionTest={null}
       preflight={null}
       contextCatalog={null}
       detectingContexts={false}
+      connectionValidation={connectionValidation}
       validation={validation}
       showValidationErrors={false}
       validationRequest={{ version: 0 }}
-      insecureAcknowledged={false}
+      insecureAcknowledged={insecureAcknowledged}
       onSetInsecureAcknowledged={() => undefined}
+      onTestConnection={() => undefined}
+      onInspectKubeconfig={() => undefined}
+      onUseDetectedKubeconfig={() => undefined}
       onPreflight={() => undefined}
       onStartScan={() => undefined}
       onDetectContexts={() => undefined}
       onBrowseOutput={() => undefined}
       onBrowseKubeconfig={() => undefined}
       onBrowseCACert={() => undefined}
+      onLoadDroppedKubeconfig={() => undefined}
+      loadedKubeconfigLabel=""
       {...overrides}
     />,
   );
@@ -51,10 +66,10 @@ describe("ScanView", () => {
       },
     });
 
-    expect(screen.getByText("When to use API endpoint mode")).toBeInTheDocument();
-    expect(screen.getByText("Find the API server URL")).toBeInTheDocument();
-    expect(screen.getByText(/kubectl config view --minify/i)).toBeInTheDocument();
-    expect(screen.getByText(/kubectl create token <service-account>/i)).toBeInTheDocument();
+    expect(screen.getByText("When direct API mode is the right choice")).toBeInTheDocument();
+    expect(screen.getByText("1. Find the Kubernetes API server URL")).toBeInTheDocument();
+    expect(screen.getAllByText(/kubectl config view --minify/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/kubectl create token <service-account>/i).length).toBeGreaterThan(0);
   });
 
   it("supports show and hide behavior for the token field", async () => {
@@ -97,6 +112,62 @@ describe("ScanView", () => {
     expect(within(screen.getByLabelText("API server host or URL").closest("label") as HTMLElement).getByText(/prefer https/i)).toBeInTheDocument();
   });
 
+  it("surfaces missing kubeconfig file dependencies during inspection", () => {
+    renderScanView({
+      scanForm: {
+        ...baseRequest,
+        connectionMethod: "kubeconfig_file",
+        kubeconfigPath: "C:/handoff/prod-cluster.backup",
+      },
+      kubeconfigInspection: {
+        source: "kubeconfig file",
+        path: "C:/handoff/prod-cluster.backup",
+        currentContext: "prod-east-admin",
+        contexts: ["prod-east-admin"],
+        clusterCount: 1,
+        userCount: 1,
+        referencedFiles: [
+          "Cluster prod-east certificate authority: C:\\handoff\\certs\\cluster-ca.crt",
+          "User prod-east client key: C:\\handoff\\certs\\user.key",
+        ],
+        missingReferencedFiles: [
+          "User prod-east client key: C:\\handoff\\certs\\user.key",
+        ],
+        summary: "Loaded kubeconfig file with 1 context, 1 cluster, and 1 user entry. This kubeconfig depends on local CA or client certificate files. 1 referenced file is missing on this machine.",
+        nextAction: "This kubeconfig is valid, but some referenced CA or client certificate files are missing on this machine.",
+      },
+    });
+
+    expect(screen.getByText("Missing local file dependencies")).toBeInTheDocument();
+    expect(screen.getAllByText(/user prod-east client key/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/portable kubeconfig warning/i)).toBeInTheDocument();
+  });
+
+  it("loads a chosen kubeconfig file into paste mode through the dropzone", async () => {
+    const onLoadDroppedKubeconfig = vi.fn();
+    renderScanView({
+      scanForm: {
+        ...baseRequest,
+        connectionMethod: "kubeconfig_file",
+      },
+      onLoadDroppedKubeconfig,
+    });
+
+    const input = screen.getByLabelText("Choose kubeconfig file for paste mode") as HTMLInputElement;
+    const file = new File(["apiVersion: v1\nkind: Config\nclusters: []\ncontexts: []\nusers: []"], "prod-cluster.backup", {
+      type: "application/x-yaml",
+    });
+
+    await userEvent.upload(input, file);
+
+    await waitFor(() =>
+      expect(onLoadDroppedKubeconfig).toHaveBeenCalledWith(
+        "prod-cluster.backup",
+        expect.stringContaining("apiVersion: v1"),
+      ),
+    );
+  });
+
   it("groups preflight checks into operator-facing categories", () => {
     const report: PreflightReport = {
       canRun: false,
@@ -131,5 +202,59 @@ describe("ScanView", () => {
     expect(screen.getByText("RBAC")).toBeInTheDocument();
     expect(screen.getByText(/kubectl auth can-i list pods -n payments/i)).toBeInTheDocument();
     expect(screen.getByText(/kind: ClusterRole/i)).toBeInTheDocument();
+  });
+
+  it("surfaces structured connection diagnosis when the test fails", () => {
+    renderScanView({
+      scanForm: {
+        ...baseRequest,
+        connectionMethod: "api_endpoint",
+        apiServerEndpoint: "https://prod-east.example.net:6443",
+      },
+      connectionTest: {
+        canConnect: false,
+        source: "direct API endpoint",
+        server: "https://prod-east.example.net:6443",
+        summary: "TLS verification failed.",
+        nextAction: "Add the issuing CA certificate or use skip-TLS only as a temporary workaround in a trusted environment.",
+        diagnosis: {
+          code: "tls_trust",
+          label: "TLS trust",
+          summary: "The cluster is reachable, but this machine does not trust the API server certificate.",
+          detail: "x509: certificate signed by unknown authority",
+          nextAction: "Add the issuing CA certificate or use skip-TLS only as a temporary workaround in a trusted environment.",
+        },
+        checks: [{ id: "transport", title: "TLS and API handshake", status: "fail", detail: "x509: certificate signed by unknown authority" }],
+      },
+    });
+
+    expect(screen.getAllByText("TLS trust").length).toBeGreaterThan(0);
+    expect(screen.getByText(/does not trust the api server certificate/i)).toBeInTheDocument();
+  });
+
+  it("shows machine readiness guidance when existing access is not ready", () => {
+    renderScanView({
+      connectionAdvisor: {
+        recommendedMethod: "kubeconfig_file",
+        recommendedReason:
+          "A kubeconfig was found on this machine, but it is not complete enough to use as-is. Bring a complete kubeconfig or another access path instead of relying on existing access.",
+        kubectlAvailable: false,
+        currentLoginAvailable: false,
+        currentContext: "prod-east-admin",
+        currentLoginWarning:
+          "The detected kubeconfig is valid, but it still references CA or client-certificate files that are missing on this machine.",
+        defaultKubeconfigAvailable: true,
+        defaultKubeconfigPath: "C:/Users/demo/.kube/prod-cluster.backup",
+        defaultKubeconfigPortable: false,
+        defaultKubeconfigWarning:
+          "The detected kubeconfig is valid, but it still references CA or client-certificate files that are missing on this machine.",
+      },
+    });
+
+    expect(screen.getByText("Recommended start on this machine")).toBeInTheDocument();
+    expect(screen.getByText("Default kubeconfig")).toBeInTheDocument();
+    expect(screen.getByText("kubectl CLI (optional)")).toBeInTheDocument();
+    expect(screen.getAllByText(/missing on this machine/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("No local access was positively detected")).toBeInTheDocument();
   });
 });
