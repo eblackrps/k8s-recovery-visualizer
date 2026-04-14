@@ -1,11 +1,24 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import type { ArtifactPaths, Bundle } from "../lib/types";
 
-export function Field(props: { label: string; children: ReactNode }) {
+export function HelpTip(props: { label: string; children: ReactNode }) {
+  return (
+    <details className="help-tip">
+      <summary aria-label={props.label}>?</summary>
+      <div className="help-tip-panel">{props.children}</div>
+    </details>
+  );
+}
+
+export function Field(props: { label: ReactNode; hint?: ReactNode; tip?: ReactNode; tipLabel?: string; children: ReactNode }) {
   return (
     <label className="field">
-      <span>{props.label}</span>
+      <span className="field-head">
+        <span className="field-label">{props.label}</span>
+        {props.tip ? <HelpTip label={props.tipLabel || "Field help"}>{props.tip}</HelpTip> : null}
+      </span>
       {props.children}
+      {props.hint ? <small className="field-hint">{props.hint}</small> : null}
     </label>
   );
 }

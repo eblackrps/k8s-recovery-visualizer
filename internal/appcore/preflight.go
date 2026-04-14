@@ -29,7 +29,7 @@ type rbacRuleTemplate struct {
 }
 
 func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightReport, error) {
-	req = req.Normalized()
+	req = sanitizeScanRequest(req)
 	scope := "all namespaces"
 	if len(req.Namespaces) > 0 {
 		scope = strings.Join(req.Namespaces, ", ")
@@ -47,7 +47,7 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 		}, nil
 	}
 
-	cfg, err := kube.LoadConfigWithContext(req.KubeconfigPath, req.ContextName)
+	connection, err := kube.ResolveConfig(kubeOptionsFromRequest(req))
 	if err != nil {
 		return PreflightReport{
 			CanRun:      false,
@@ -55,23 +55,18 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 			ContextName: req.ContextName,
 			Scope:       scope,
 			Checks: []PreflightCheck{
-				{ID: "config", Title: "Kubernetes credentials", Status: "fail", Required: true, Detail: err.Error(), Hint: "Choose a kubeconfig file and context with cluster access."},
+				{ID: "config", Title: "Kubernetes credentials", Status: "fail", Required: true, Detail: err.Error(), Hint: connectionHint(req)},
 			},
 		}, nil
 	}
 
-	if req.Insecure {
-		cfg.TLSClientConfig.Insecure = true
-		cfg.TLSClientConfig.CAFile = ""
-		cfg.TLSClientConfig.CAData = nil
-	}
-	clientset, err := kubernetes.NewForConfig(cfg)
+	clientset, err := kubernetes.NewForConfig(connection.Config)
 	if err != nil {
 		return PreflightReport{}, fmt.Errorf("create kube client: %w", err)
 	}
 
 	checks := []PreflightCheck{
-		{ID: "config", Title: "Kubernetes credentials", Status: "pass", Required: true, Detail: "Kubeconfig loaded successfully."},
+		{ID: "config", Title: "Kubernetes credentials", Status: "pass", Required: true, Detail: connectionStatusDetail(connection.Source)},
 	}
 	warnings := []string{}
 	canRun := true
@@ -82,7 +77,7 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 		Title:    "API server reachability",
 		Status:   "pass",
 		Required: true,
-		Detail:   fmt.Sprintf("Connected to %s.", cfg.Host),
+		Detail:   fmt.Sprintf("Connected to %s.", connection.Config.Host),
 	}
 	if _, err := clientset.Discovery().ServerVersion(); err != nil {
 		discoveryCheck.Status = "fail"
@@ -116,8 +111,8 @@ func (s *Service) Preflight(ctx context.Context, req ScanRequest) (PreflightRepo
 	return PreflightReport{
 		CanRun:      canRun,
 		Degraded:    degraded,
-		Server:      cfg.Host,
-		ContextName: req.ContextName,
+		Server:      connection.Config.Host,
+		ContextName: connection.ContextName,
 		Scope:       scope,
 		Checks:      checks,
 		Warnings:    warnings,

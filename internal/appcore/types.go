@@ -1,16 +1,30 @@
 package appcore
 
 import (
+	"strings"
 	"time"
 
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/theme"
 )
 
+const (
+	ConnectionMethodCurrent          = "current"
+	ConnectionMethodKubeconfigFile   = "kubeconfig_file"
+	ConnectionMethodKubeconfigInline = "kubeconfig_inline"
+	ConnectionMethodAPIEndpoint      = "api_endpoint"
+)
+
 type ScanRequest struct {
 	RunID                 string   `json:"runId,omitempty"`
+	ConnectionMethod      string   `json:"connectionMethod,omitempty"`
 	KubeconfigPath        string   `json:"kubeconfigPath,omitempty"`
+	KubeconfigContent     string   `json:"kubeconfigContent,omitempty"`
 	ContextName           string   `json:"contextName,omitempty"`
+	APIServerEndpoint     string   `json:"apiServerEndpoint,omitempty"`
+	BearerToken           string   `json:"bearerToken,omitempty"`
+	CACertPath            string   `json:"caCertPath,omitempty"`
+	CACertContent         string   `json:"caCertContent,omitempty"`
 	OutputDir             string   `json:"outputDir,omitempty"`
 	DryRun                bool     `json:"dryRun,omitempty"`
 	CI                    bool     `json:"ci,omitempty"`
@@ -34,6 +48,7 @@ type ScanRequest struct {
 
 func (r ScanRequest) Normalized() ScanRequest {
 	out := r
+	out.ConnectionMethod = normalizeConnectionMethod(out)
 	if out.OutputDir == "" {
 		out.OutputDir = "./out"
 	}
@@ -51,6 +66,23 @@ func (r ScanRequest) Normalized() ScanRequest {
 
 func (r ScanRequest) Timeout() time.Duration {
 	return time.Duration(r.Normalized().TimeoutSeconds) * time.Second
+}
+
+func normalizeConnectionMethod(r ScanRequest) string {
+	switch strings.TrimSpace(r.ConnectionMethod) {
+	case ConnectionMethodCurrent, ConnectionMethodKubeconfigFile, ConnectionMethodKubeconfigInline, ConnectionMethodAPIEndpoint:
+		return strings.TrimSpace(r.ConnectionMethod)
+	}
+	switch {
+	case strings.TrimSpace(r.APIServerEndpoint) != "":
+		return ConnectionMethodAPIEndpoint
+	case strings.TrimSpace(r.KubeconfigContent) != "":
+		return ConnectionMethodKubeconfigInline
+	case strings.TrimSpace(r.KubeconfigPath) != "":
+		return ConnectionMethodKubeconfigFile
+	default:
+		return ConnectionMethodCurrent
+	}
 }
 
 type ExportRequest struct {
@@ -141,6 +173,12 @@ type PreflightReport struct {
 	Scope       string           `json:"scope"`
 	Checks      []PreflightCheck `json:"checks"`
 	Warnings    []string         `json:"warnings,omitempty"`
+}
+
+type ContextCatalog struct {
+	Contexts       []string `json:"contexts,omitempty"`
+	CurrentContext string   `json:"currentContext,omitempty"`
+	Source         string   `json:"source,omitempty"`
 }
 
 type PreflightCheck struct {

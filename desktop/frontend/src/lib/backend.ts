@@ -3,6 +3,7 @@ import type {
   AppAlert,
   ArtifactPaths,
   Bootstrap,
+  ContextCatalog,
   ExportRequest,
   PreflightReport,
   ProjectSummary,
@@ -50,6 +51,7 @@ export const backend = {
   getStartupAlerts: () => invoke<AppAlert[]>("GetStartupAlerts"),
   saveSettings: (settings: Settings) => invoke<void>("SaveSettings", settings),
   listProjects: (root?: string) => invoke<ProjectSummary[]>("ListProjects", root ?? ""),
+  listConnectionContexts: (request: ScanRequest) => invoke<ContextCatalog>("ListConnectionContexts", request),
   runPreflight: (request: ScanRequest) => invoke<PreflightReport>("RunPreflight", request),
   runScan: (request: ScanRequest) => invoke<RunResult>("RunScan", request),
   cancelRun: (runId: string) => invoke<void>("CancelRun", runId),
@@ -57,6 +59,8 @@ export const backend = {
   exportBundle: (path: string, request: ExportRequest) =>
     invoke<ArtifactPaths>("ExportBundle", path, request),
   pickBundleFile: () => invoke<string>("PickBundleFile"),
+  pickKubeconfigFile: () => invoke<string>("PickKubeconfigFile"),
+  pickCertificateFile: () => invoke<string>("PickCertificateFile"),
   pickOutputDirectory: () => invoke<string>("PickOutputDirectory"),
   onScanEvent(listener: (event: RunEvent) => void) {
     if (isWails()) {

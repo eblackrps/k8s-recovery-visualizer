@@ -19,6 +19,7 @@ const (
 type desktopService interface {
 	Bootstrap() appcore.Bootstrap
 	ListProjects(root string) ([]appcore.ProjectSummary, error)
+	ListContexts(req appcore.ScanRequest) (appcore.ContextCatalog, error)
 	Preflight(ctx context.Context, req appcore.ScanRequest) (appcore.PreflightReport, error)
 	Run(ctx context.Context, req appcore.ScanRequest, sink appcore.EventSink) (appcore.RunResult, error)
 	LoadWorkspace(path string) (appcore.Workspace, error)

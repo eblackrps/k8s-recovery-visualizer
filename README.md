@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for guided scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
@@ -64,7 +64,10 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 2. Extract the archive.
 3. Launch `K8V` directly. On Windows, the zip also includes `K8V-amd64-installer.exe` if you prefer an installed shortcut.
 4. Choose **New Scan** for a live assessment or **Open Existing Bundle** for offline review.
-5. Export HTML, Markdown, CSV, redacted, summary, or runbook artifacts from the loaded bundle as needed.
+5. In **New Scan**, choose the simplest connection that already works on that machine:
+   `Current login`, `Kubeconfig file`, `Paste kubeconfig`, or `API endpoint`.
+6. Use `Current login` on a desktop or jumpbox when `kubectl` or `KUBECONFIG` already reaches the cluster. Use `API endpoint` when you need to enter a control-plane host or IP directly with a bearer token.
+7. Export HTML, Markdown, CSV, redacted, summary, or runbook artifacts from the loaded bundle as needed.
 
 ### Desktop Development Quickstart
 
@@ -111,7 +114,7 @@ make build
 ## Latest Desktop Screenshots
 
 <p align="center">
-  <img alt="K8V guided scan wizard" src="images/gui-scan-wizard.png" width="32%" />
+  <img alt="K8V remote cluster scan setup" src="images/gui-scan-setup.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
   <img alt="K8V compare workflow with score drift and regression details" src="images/gui-compare.png" width="32%" />
 </p>
@@ -123,7 +126,7 @@ The public gallery intentionally uses the current deterministic desktop screensh
 | Surface | Best for | Strengths |
 | --- | --- | --- |
 | CLI (`cmd/scan`, `cmd/check`) | CI/CD, repeatable ops workflows, scripting, source builds | Stable flags, schema-validated bundles, policy gating, deterministic smoke flows |
-| Desktop (`desktop/`) | Guided scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, prioritized findings, restore drill planning, offline bundle inspection |
+| Desktop (`desktop/`) | Remote cluster scans, bundle review, compare/history exploration | Shared backend, preflight assistant, live progress, cancellation, export controls, prioritized findings, restore drill planning, offline bundle inspection |
 
 ## Output Artifacts
 

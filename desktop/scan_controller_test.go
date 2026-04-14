@@ -21,6 +21,10 @@ func (s *blockingDesktopService) ListProjects(string) ([]appcore.ProjectSummary,
 	return nil, nil
 }
 
+func (s *blockingDesktopService) ListContexts(req appcore.ScanRequest) (appcore.ContextCatalog, error) {
+	return appcore.ContextCatalog{CurrentContext: req.ContextName}, nil
+}
+
 func (s *blockingDesktopService) Preflight(ctx context.Context, req appcore.ScanRequest) (appcore.PreflightReport, error) {
 	return appcore.PreflightReport{CanRun: ctx.Err() == nil, Scope: req.OutputDir}, ctx.Err()
 }

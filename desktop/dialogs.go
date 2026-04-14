@@ -13,6 +13,26 @@ func (a *App) PickBundleFile() (string, error) {
 	})
 }
 
+func (a *App) PickKubeconfigFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose kubeconfig file",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Kubeconfig files", Pattern: "*.yaml;*.yml;*.conf;*.config"},
+			{DisplayName: "All files", Pattern: "*"},
+		},
+	})
+}
+
+func (a *App) PickCertificateFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose CA certificate",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Certificate files", Pattern: "*.crt;*.pem;*.cer"},
+			{DisplayName: "All files", Pattern: "*"},
+		},
+	})
+}
+
 func (a *App) PickOutputDirectory() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Choose output directory",

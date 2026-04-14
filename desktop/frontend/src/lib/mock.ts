@@ -1,6 +1,7 @@
 import type {
   AppAlert,
   Bootstrap,
+  ContextCatalog,
   ExportRequest,
   PreflightReport,
   ProjectSummary,
@@ -94,11 +95,11 @@ const demoWorkspace: Workspace = {
       clusterName: "prod-east",
       environment: "production",
       generatedAt: "2026-04-12T14:11:00Z",
-      toolVersion: "1.6.1",
+      toolVersion: "1.8.0",
     },
     tool: {
       name: "k8s-recovery-visualizer",
-      version: "1.6.1",
+      version: "1.8.0",
       buildDate: "2026-04-12",
     },
     scan: {
@@ -443,11 +444,29 @@ const demoProjects: ProjectSummary[] = [
 const demoPreflight = (request: ScanRequest): PreflightReport => ({
   canRun: true,
   degraded: Boolean(request.includeSecretMetadata),
-  server: request.dryRun ? "" : "https://prod-east.example.net:6443",
-  contextName: request.contextName || "prod-east-admin",
+  server: request.dryRun
+    ? ""
+    : request.connectionMethod === "api_endpoint"
+      ? request.apiServerEndpoint || "https://prod-east.example.net:6443"
+      : "https://prod-east.example.net:6443",
+  contextName: request.connectionMethod === "api_endpoint" ? "" : request.contextName || "prod-east-admin",
   scope: request.namespaces?.length ? request.namespaces.join(", ") : "all namespaces",
   checks: [
-    { id: "config", title: "Kubernetes credentials", status: "pass", required: true, detail: request.dryRun ? "Dry-run mode skips cluster auth." : "Kubeconfig loaded successfully." },
+    {
+      id: "config",
+      title: "Kubernetes credentials",
+      status: "pass",
+      required: true,
+      detail: request.dryRun
+        ? "Dry-run mode skips cluster auth."
+        : request.connectionMethod === "kubeconfig_file"
+          ? "Kubeconfig file loaded successfully."
+          : request.connectionMethod === "kubeconfig_inline"
+            ? "Pasted kubeconfig loaded successfully."
+            : request.connectionMethod === "api_endpoint"
+              ? "Direct API connection details loaded successfully."
+              : "Current Kubernetes login loaded successfully.",
+    },
     { id: "api", title: "API server reachability", status: request.dryRun ? "pass" : "pass", required: true, detail: request.dryRun ? "No API server contact needed." : "Cluster API is reachable." },
     { id: "pods", title: "Read workloads", status: "pass", required: true, detail: "List access confirmed for pods and workload controllers." },
     { id: "storage", title: "Read storage inventory", status: "pass", required: true, detail: "PVC and PV inventory access confirmed." },
@@ -515,6 +534,23 @@ export const mockBackend = {
   },
   async ListProjects(): Promise<ProjectSummary[]> {
     return clone(demoProjects);
+  },
+  async ListConnectionContexts(request: ScanRequest): Promise<ContextCatalog> {
+    if (request.connectionMethod === "api_endpoint") {
+      return { source: "direct API endpoint", contexts: [] };
+    }
+    if (request.connectionMethod === "kubeconfig_inline") {
+      return {
+        source: "pasted kubeconfig",
+        currentContext: request.contextName || "prod-east-admin",
+        contexts: ["kind-k8v-test", "prod-east-admin", "staging-west-admin"],
+      };
+    }
+    return {
+      source: request.connectionMethod === "kubeconfig_file" ? "kubeconfig file" : "current Kubernetes login",
+      currentContext: request.contextName || "prod-east-admin",
+      contexts: ["kind-k8v-test", "prod-east-admin", "staging-west-admin"],
+    };
   },
   async RunPreflight(request: ScanRequest): Promise<PreflightReport> {
     return clone(demoPreflight(request));
@@ -589,6 +625,12 @@ export const mockBackend = {
   },
   async PickBundleFile(): Promise<string> {
     return demoWorkspace.artifacts.loadedBundlePath || "./demo-out/recovery-scan.json";
+  },
+  async PickKubeconfigFile(): Promise<string> {
+    return "C:/Users/demo/.kube/config";
+  },
+  async PickCertificateFile(): Promise<string> {
+    return "C:/Users/demo/certs/cluster-ca.pem";
   },
   async PickOutputDirectory(): Promise<string> {
     return "./demo-out";

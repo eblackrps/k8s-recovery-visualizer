@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"k8s-recovery-visualizer/internal/history"
+	"k8s-recovery-visualizer/internal/kube"
 	"k8s-recovery-visualizer/internal/model"
 	"k8s-recovery-visualizer/internal/theme"
 )
@@ -31,6 +32,19 @@ func NewService() *Service {
 
 func (s *Service) Bootstrap() Bootstrap {
 	return Bootstrap{Theme: theme.Desktop()}
+}
+
+func (s *Service) ListContexts(req ScanRequest) (ContextCatalog, error) {
+	req = sanitizeScanRequest(req)
+	catalog, err := kube.ListContexts(kubeOptionsFromRequest(req))
+	if err != nil {
+		return ContextCatalog{}, err
+	}
+	return ContextCatalog{
+		Contexts:       catalog.Contexts,
+		CurrentContext: catalog.CurrentContext,
+		Source:         catalog.Source,
+	}, nil
 }
 
 func (s *Service) LoadWorkspace(path string) (Workspace, error) {

@@ -26,7 +26,7 @@ import (
 )
 
 func (s *Service) Run(ctx context.Context, req ScanRequest, sink EventSink) (RunResult, error) {
-	req = req.Normalized()
+	req = sanitizeScanRequest(req)
 	runID := req.RunID
 	if strings.TrimSpace(runID) == "" {
 		runID = s.uuid()
@@ -149,19 +149,22 @@ func runDryScan(bundle *model.Bundle, req ScanRequest) error {
 
 func (s *Service) runLiveScan(ctx context.Context, bundle *model.Bundle, req ScanRequest, sink EventSink) error {
 	emit(sink, RunEvent{Type: "status", RunID: bundle.Scan.ScanID, Step: "connect", Level: "info", Message: "Connecting to the Kubernetes API.", Percent: 0.12})
-	clientset, restCfg, err := kube.NewClientWithContext(req.KubeconfigPath, req.ContextName, req.Insecure)
+	clientset, resolved, err := kube.NewClientFromOptions(kubeOptionsFromRequest(req))
 	if err != nil {
 		return fmt.Errorf("kube error: %w", err)
 	}
 
-	dc, err := dynamic.NewForConfig(restCfg)
+	dc, err := dynamic.NewForConfig(resolved.Config)
 	if err != nil {
 		return fmt.Errorf("dynamic client error: %w", err)
 	}
 
 	runCtx, cancel := context.WithTimeout(ctx, req.Timeout())
 	defer cancel()
-	bundle.Cluster.APIServer.Endpoint = restCfg.Host
+	bundle.Cluster.APIServer.Endpoint = resolved.Config.Host
+	if bundle.Metadata.ClusterName == "" {
+		bundle.Metadata.ClusterName = inferredClusterName(req, resolved.Config.Host, resolved.ContextName)
+	}
 
 	steps := buildCollectorPipeline(runCtx, clientset, dc, bundle, req)
 	for i, step := range steps {

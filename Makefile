@@ -1,6 +1,14 @@
+ifeq ($(OS),Windows_NT)
+  NULL_DEV    := NUL
+  GIT_DATE_FMT := %%cs
+else
+  NULL_DEV    := /dev/null
+  GIT_DATE_FMT := %cs
+endif
+
 PKG           := ./cmd/scan
-VERSION       := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_DATE    ?= $(shell git show -s --format=%cs HEAD 2>/dev/null || echo "unknown")
+VERSION       := $(shell git describe --tags --always --dirty 2>$(NULL_DEV) || echo dev)
+BUILD_DATE    ?= $(shell git show -s --format=$(GIT_DATE_FMT) HEAD 2>$(NULL_DEV) || echo unknown)
 MODEL_PKG     := k8s-recovery-visualizer/internal/model
 LDFLAGS       := -s -w -X '$(MODEL_PKG).Version=$(VERSION)' -X '$(MODEL_PKG).BuildDate=$(BUILD_DATE)'
 GUI_DIR       := ./desktop

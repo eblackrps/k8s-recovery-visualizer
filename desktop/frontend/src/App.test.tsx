@@ -20,16 +20,17 @@ describe("desktop shell", () => {
     expect(screen.getByText("Trend and compare")).toBeInTheDocument();
   });
 
-  it("renders navigation and opens the guided scan wizard", async () => {
+  it("renders navigation and opens the remote scan setup", async () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "K8V" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "New Scan" }));
 
-    expect(screen.getByText("Guided scan setup")).toBeInTheDocument();
-    expect(screen.getByLabelText("Kubeconfig path")).toBeInTheDocument();
+    expect(screen.getByText("Remote cluster scan")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /current login/i })).toBeChecked();
+    expect(screen.getByLabelText("Context")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run Preflight" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Access" })).toHaveAttribute("aria-controls", "wizard-panel-0");
+    expect(screen.getByText("Connection and access check")).toBeInTheDocument();
   });
 
   it("surfaces bundle picker cancellation instead of failing silently", async () => {

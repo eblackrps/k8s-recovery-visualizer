@@ -15,7 +15,7 @@ Public macOS desktop packages are deprecated for this release line. macOS-orient
 
 Use the desktop app when you want:
 
-- a guided scan wizard instead of CLI flags
+- a remote-first scan setup instead of raw CLI flags
 - a preflight and RBAC check before running
 - live progress, structured logs, warning surfacing, and cancel support
 - a results workspace that mirrors the report tabs
@@ -25,7 +25,12 @@ Use the desktop app when you want:
 ## Main Screens
 
 - `Home / Projects`: recent bundles, quick actions, history, and workspace discovery
-- `New Scan`: wizard for kubeconfig/context, namespace scope, profile, compare baseline, outputs, redaction, summary/runbook, and dry-run settings
+- `New Scan`: remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, and advanced options
+  - `Current login`: best for desktops and jumpboxes where `kubectl` or `KUBECONFIG` already works
+  - `Kubeconfig file`: pick a kubeconfig from disk and optionally select a context
+  - `Paste kubeconfig`: paste kubeconfig content directly when operators do not want to rely on local files
+  - `API endpoint`: enter a control-plane host, IP, or URL directly and authenticate with a bearer token
+  - context discovery can load named contexts from the current login or kubeconfig inputs before the scan starts
 - `Live Run`: progress events, warnings, structured logs, and cancel
 - `Results`: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
   - Findings now surface rank, owner hints, impact, and effort metadata
@@ -45,6 +50,7 @@ Bound methods include:
 - `SaveSettings`
 - `ListProjects`
 - `RunPreflight`
+- `ListConnectionContexts`
 - `RunScan`
 - `CancelRun`
 - `OpenBundle`
@@ -72,6 +78,13 @@ The preflight panel is no longer just a pass/fail list. When key permissions are
 
 That keeps degraded-mode behavior explicit and gives platform teams a concrete starting point for access remediation.
 
+## Connection Tips
+
+- On a desktop or jumpbox, leave the app on `Current login` when `kubectl get nodes` already works from that machine.
+- Use `Kubeconfig file` or `Paste kubeconfig` when operators receive a kubeconfig through a secure file handoff or vault workflow.
+- Use `API endpoint` when you need to enter a control-plane host or IP directly. The current direct-endpoint mode is intentionally bearer-token based. If the cluster depends on exec plugins, cloud auth helpers, or client certificates, kubeconfig mode remains the better fit.
+- Run **Detect Contexts** to load named contexts before preflight when you are using the current login or a kubeconfig source.
+
 ## Settings Behavior
 
 - Startup now surfaces saved-settings load failures instead of silently swallowing them.
@@ -81,7 +94,7 @@ That keeps degraded-mode behavior explicit and gives platform teams a concrete s
 
 ## Accessibility And Navigation
 
-- wizard controls use explicit labels
+- scan setup controls use explicit labels and inline help tips
 - primary navigation and tab rows expose semantic tab/tabpanel wiring
 - tablists support keyboard arrow navigation plus `Home` and `End`
 - focus-visible states are styled intentionally instead of relying on browser defaults

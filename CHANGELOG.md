@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+No unreleased changes yet.
+
+## [1.8.0] - 2026-04-13
+
 Release candidate changes for the next minor line focus on operator actionability, compare/history depth, restore-readiness evidence, and stronger shared-core policy/reporting behavior.
 
 ### Improved
@@ -16,11 +20,14 @@ Release candidate changes for the next minor line focus on operator actionabilit
 - Refactored backup detection behind pluggable collectors to make future backup integrations easier to add without rewriting the main detection loop.
 - Improved desktop bundle loading so archive imports are validated earlier and surface clearer corruption, ambiguity, and mispackaging diagnostics.
 - Expanded `cmd/check` policy gates with domain thresholds, severity budgets, new-finding budgets, and regression budgets.
+- Simplified desktop scan setup into a remote-first flow with `Current login`, `Kubeconfig file`, `Paste kubeconfig`, and `API endpoint` connection modes so desktops and jumpboxes can reach remote clusters without a mandatory kubeconfig path.
+- Added desktop context discovery and inline scan validation so operators can load suggested contexts before preflight and get immediate feedback on missing connection details.
 - Strengthened desktop/frontend regression coverage with focused view tests for findings, compare, restore readiness, and preflight remediation rendering.
 
 ### Docs
 
 - Refreshed the main README and supporting docs so the public desktop-only release posture, CLI source-build story, schema references, and support language read consistently across the repo.
+- Updated desktop docs and screenshot inventory to describe the current remote cluster scan setup instead of the older wizard language.
 - Updated schema docs, committed examples, and CI/release workflow validation to the published `recovery-scan 3.1.0` and `recovery-enriched 1.2.0` contracts.
 - Replaced older report-era README screenshots with the maintained deterministic desktop screenshot set and removed deprecated screenshot references.
 
@@ -28,6 +35,7 @@ Release candidate changes for the next minor line focus on operator actionabilit
 
 - Restored usable `cmd/check --help` output so the current gate set can be audited directly from the terminal instead of failing with a bare help error.
 - Hardened the release workflow so tagged releases validate the exact four supported assets and prune stale uploaded assets before publishing, preventing stale release-surface drift on reruns.
+- Synchronized source-build and desktop fixture version metadata with the current release line so repo-controlled examples and screenshots no longer report stale `1.6.1` versions.
 
 ## [1.7.4] - 2026-04-13
 

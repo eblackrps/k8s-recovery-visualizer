@@ -2,6 +2,7 @@ import { startTransition, useEffect, useState } from "react";
 import { backend, mockWorkspace } from "./lib/backend";
 import type {
   AppAlert,
+  ContextCatalog,
   ExportRequest,
   PreflightReport,
   ProjectSummary,
@@ -10,6 +11,7 @@ import type {
   Settings,
   Workspace,
 } from "./lib/types";
+import { haveContextInputsChanged, prepareScanRequest, sanitizeScanForm, validateContextDiscovery, validateScanForm } from "./lib/scanForm";
 import { applyTheme, exportMessage, titleCase } from "./components/ui";
 import { HomeView, ProjectsView } from "./views/HomeProjectsView";
 import { ScanView } from "./views/ScanView";
@@ -79,9 +81,10 @@ function defaultBundleInputPath(browserDemo: boolean) {
 
 function defaultScanForm(browserDemo: boolean): ScanRequest {
   return {
+    connectionMethod: "current",
     outputDir: "./out",
     target: "vm",
-    minScore: 90,
+    minScore: 0,
     timeoutSeconds: 60,
     profileName: browserDemo ? "enterprise" : "standard",
     namespaces: browserDemo ? ["payments", "frontend", "platform"] : [],
@@ -97,14 +100,12 @@ function defaultScanForm(browserDemo: boolean): ScanRequest {
     customerId: browserDemo ? "acme-hospitality" : "",
     site: browserDemo ? "us-east-1a" : "",
     contextName: browserDemo ? "prod-east-admin" : "",
-    kubeconfigPath: browserDemo ? "~/.kube/config" : "",
   };
 }
 
 export default function App() {
   const browserDemo = isBrowserDemo();
   const [view, setView] = useState<View>(initialView);
-  const [wizardStep, setWizardStep] = useState(0);
   const [resultTab, setResultTab] = useState(new URLSearchParams(window.location.search).get("tab") || "Summary");
   const [settings, setSettings] = useState<Settings>({
     workspaceRoot: ".",
@@ -119,17 +120,29 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(browserDemo ? mockWorkspace : null);
   const [preflight, setPreflight] = useState<PreflightReport | null>(null);
+  const [contextCatalog, setContextCatalog] = useState<ContextCatalog | null>(null);
   const [events, setEvents] = useState<RunEvent[]>(initialLiveEvents());
   const [activeRunId, setActiveRunId] = useState<string | null>(
     new URLSearchParams(window.location.search).get("view") === "live" ? "demo-live" : null,
   );
   const [busy, setBusy] = useState(false);
+  const [detectingContexts, setDetectingContexts] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Workspace ready.");
   const [actionBanner, setActionBanner] = useState<{ tone: BannerTone; message: string } | null>(null);
   const [openBundlePath, setOpenBundlePath] = useState(defaultBundleInputPath(browserDemo));
   const [exportNotice, setExportNotice] = useState("");
   const [findingFilter, setFindingFilter] = useState("ALL");
   const [scanForm, setScanForm] = useState<ScanRequest>(defaultScanForm(browserDemo));
+  const validationErrors = validateScanForm(scanForm);
+
+  function updateScanForm(updater: (current: ScanRequest) => ScanRequest) {
+    const next = sanitizeScanForm(updater(scanForm));
+    setPreflight(null);
+    if (haveContextInputsChanged(scanForm, next)) {
+      setContextCatalog(null);
+    }
+    setScanForm(next);
+  }
 
   useEffect(() => {
     let active = true;
@@ -152,7 +165,7 @@ export default function App() {
           return;
         }
         setSettings(saved);
-        setScanForm((current) => ({
+        setScanForm((current) => sanitizeScanForm({
           ...current,
           outputDir: saved.defaultOutputDir || current.outputDir,
           profileName: saved.defaultProfile || current.profileName,
@@ -229,10 +242,18 @@ export default function App() {
   }
 
   async function handlePreflight() {
+    const request = prepareScanRequest(scanForm);
+    const errors = validateScanForm(request);
+    if (errors.length > 0) {
+      showBanner("info", errors[0]);
+      setStatusMessage("Scan setup needs attention before preflight.");
+      return;
+    }
     clearBanner();
     setBusy(true);
     try {
-      const report = await backend.runPreflight(scanForm);
+      setScanForm(request);
+      const report = await backend.runPreflight(request);
       setPreflight(report);
       setStatusMessage(report.canRun ? "Preflight checks passed." : "Preflight found blocking issues.");
     } catch (error) {
@@ -245,6 +266,13 @@ export default function App() {
   }
 
   async function handleStartScan() {
+    const request = prepareScanRequest(scanForm);
+    const errors = validateScanForm(request);
+    if (errors.length > 0) {
+      showBanner("info", errors[0]);
+      setStatusMessage("Scan setup needs attention before the run can start.");
+      return;
+    }
     const runId = `run-${Date.now()}`;
     setBusy(true);
     setEvents([]);
@@ -253,7 +281,8 @@ export default function App() {
     clearBanner();
     startTransition(() => setView("live"));
     try {
-      const result = await backend.runScan({ ...scanForm, runId });
+      setScanForm(request);
+      const result = await backend.runScan({ ...request, runId });
       setPreflight(result.preflight);
       setWorkspace(result.workspace);
       setProjects((current) => {
@@ -356,7 +385,7 @@ export default function App() {
     try {
       const outputDir = await backend.pickOutputDirectory();
       if (outputDir) {
-        setScanForm((current) => ({ ...current, outputDir }));
+        updateScanForm((current) => ({ ...current, outputDir }));
         setStatusMessage("Output directory updated.");
         return;
       }
@@ -366,6 +395,74 @@ export default function App() {
       const message = formatActionError(error, "Could not open the output directory picker.");
       showBanner("error", `Output directory failed: ${message}`);
       setStatusMessage("Output directory selection failed.");
+    }
+  }
+
+  async function handleBrowseKubeconfig() {
+    clearBanner();
+    try {
+      const kubeconfigPath = await backend.pickKubeconfigFile();
+      if (kubeconfigPath) {
+        updateScanForm((current) => ({ ...current, kubeconfigPath }));
+        setStatusMessage("Kubeconfig file updated.");
+        return;
+      }
+      showBanner("info", "Kubeconfig selection canceled.");
+      setStatusMessage("Kubeconfig selection canceled.");
+    } catch (error) {
+      const message = formatActionError(error, "Could not open the kubeconfig picker.");
+      showBanner("error", `Kubeconfig selection failed: ${message}`);
+      setStatusMessage("Kubeconfig selection failed.");
+    }
+  }
+
+  async function handleBrowseCACert() {
+    clearBanner();
+    try {
+      const caCertPath = await backend.pickCertificateFile();
+      if (caCertPath) {
+        updateScanForm((current) => ({ ...current, caCertPath }));
+        setStatusMessage("CA certificate updated.");
+        return;
+      }
+      showBanner("info", "CA certificate selection canceled.");
+      setStatusMessage("CA certificate selection canceled.");
+    } catch (error) {
+      const message = formatActionError(error, "Could not open the CA certificate picker.");
+      showBanner("error", `CA certificate selection failed: ${message}`);
+      setStatusMessage("CA certificate selection failed.");
+    }
+  }
+
+  async function handleDetectContexts() {
+    const request = prepareScanRequest(scanForm);
+    const errors = validateContextDiscovery(request);
+    if (errors.length > 0) {
+      showBanner("info", errors[0]);
+      setStatusMessage("Connection details need attention before contexts can be loaded.");
+      return;
+    }
+    clearBanner();
+    setDetectingContexts(true);
+    try {
+      const catalog = await backend.listConnectionContexts(request);
+      setContextCatalog(catalog);
+      const nextForm = catalog.currentContext && !request.contextName
+        ? sanitizeScanForm({ ...request, contextName: catalog.currentContext })
+        : request;
+      setPreflight(null);
+      setScanForm(nextForm);
+      if (catalog.contexts?.length) {
+        setStatusMessage(`Loaded ${catalog.contexts.length} context${catalog.contexts.length === 1 ? "" : "s"} from ${catalog.source || "the current login"}.`);
+      } else {
+        setStatusMessage("No named contexts were found for this connection.");
+      }
+    } catch (error) {
+      const message = formatActionError(error, "Could not load connection contexts.");
+      showBanner("error", `Context discovery failed: ${message}`);
+      setStatusMessage("Context discovery failed.");
+    } finally {
+      setDetectingContexts(false);
     }
   }
 
@@ -470,7 +567,7 @@ export default function App() {
         <main className="main-content">
           {view === "home" && <HomeView workspace={workspace} projects={projects} busy={busy} onViewProjects={() => setView("projects")} onPickBundle={handlePickBundle} onOpenProject={handleOpenBundlePath} />}
           {view === "projects" && <ProjectsView projects={projects} busy={busy} onPickBundle={handlePickBundle} />}
-          {view === "scan" && <ScanView busy={busy} wizardStep={wizardStep} setWizardStep={setWizardStep} scanForm={scanForm} setScanForm={setScanForm} preflight={preflight} onPreflight={handlePreflight} onStartScan={handleStartScan} onBrowseOutput={handleBrowseOutput} />}
+          {view === "scan" && <ScanView busy={busy} scanForm={scanForm} setScanForm={updateScanForm} preflight={preflight} contextCatalog={contextCatalog} detectingContexts={detectingContexts} validationErrors={validationErrors} onPreflight={handlePreflight} onStartScan={handleStartScan} onDetectContexts={handleDetectContexts} onBrowseOutput={handleBrowseOutput} onBrowseKubeconfig={handleBrowseKubeconfig} onBrowseCACert={handleBrowseCACert} />}
           {view === "live" && <LiveView events={events} activeRunId={activeRunId} activePercent={activePercent} onCancel={handleCancelRun} />}
           {view === "results" && workspace && <ResultsView workspace={workspace} resultTab={resultTab} setResultTab={setResultTab} findingFilter={findingFilter} setFindingFilter={setFindingFilter} exportNotice={exportNotice} onExport={handleExport} />}
           {view === "settings" && <SettingsView settings={settings} busy={busy} setSettings={setSettings} openBundlePath={openBundlePath} setOpenBundlePath={setOpenBundlePath} onSave={handleSaveSettings} onOpenBundle={() => handleOpenBundlePath(openBundlePath)} />}

@@ -40,7 +40,7 @@ Please explain:
 
 - the problem you are trying to solve
 - who would benefit
-- whether the request affects the CLI, GUI, reports, or release pipeline
+- whether the request affects the CLI, desktop app, reports, or release pipeline
 
 ## Security Issues
 

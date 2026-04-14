@@ -3,6 +3,7 @@ import { ScanView } from "./ScanView";
 import type { PreflightReport, ScanRequest } from "../lib/types";
 
 const baseRequest: ScanRequest = {
+  connectionMethod: "current",
   outputDir: "./out",
   profileName: "standard",
   target: "vm",
@@ -34,14 +35,18 @@ describe("ScanView", () => {
     render(
       <ScanView
         busy={false}
-        wizardStep={0}
-        setWizardStep={() => undefined}
         scanForm={baseRequest}
         setScanForm={() => undefined}
         preflight={report}
+        contextCatalog={null}
+        detectingContexts={false}
+        validationErrors={[]}
         onPreflight={() => undefined}
         onStartScan={() => undefined}
+        onDetectContexts={() => undefined}
         onBrowseOutput={() => undefined}
+        onBrowseKubeconfig={() => undefined}
+        onBrowseCACert={() => undefined}
       />,
     );
 

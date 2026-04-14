@@ -26,6 +26,11 @@ func (a *App) RunPreflight(req appcore.ScanRequest) (appcore.PreflightReport, er
 	return a.service.Preflight(preflightCtx, req)
 }
 
+func (a *App) ListConnectionContexts(req appcore.ScanRequest) (appcore.ContextCatalog, error) {
+	req = a.applyDefaults(req)
+	return a.service.ListContexts(req)
+}
+
 func (a *App) RunScan(req appcore.ScanRequest) (appcore.RunResult, error) {
 	req = a.applyDefaults(req)
 	if req.RunID == "" {

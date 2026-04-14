@@ -74,6 +74,12 @@ export type PreflightReport = {
   warnings?: string[];
 };
 
+export type ContextCatalog = {
+  contexts?: string[];
+  currentContext?: string;
+  source?: string;
+};
+
 export type ArtifactPaths = {
   outputDir: string;
   bundleJson?: string;
@@ -363,10 +369,22 @@ export type RunResult = {
   preflight: PreflightReport;
 };
 
+export type ConnectionMethod =
+  | "current"
+  | "kubeconfig_file"
+  | "kubeconfig_inline"
+  | "api_endpoint";
+
 export type ScanRequest = {
   runId?: string;
+  connectionMethod?: ConnectionMethod;
   kubeconfigPath?: string;
+  kubeconfigContent?: string;
   contextName?: string;
+  apiServerEndpoint?: string;
+  bearerToken?: string;
+  caCertPath?: string;
+  caCertContent?: string;
   outputDir?: string;
   dryRun?: boolean;
   ci?: boolean;

@@ -9,7 +9,7 @@ body:
     attributes:
       label: Version
       description: What release tag, commit, or binary version did you use?
-      placeholder: v1.6.1
+      placeholder: v1.8.0
     validations:
       required: true
 
@@ -33,7 +33,7 @@ body:
     attributes:
       label: Environment
       description: Include OS, Kubernetes distribution, and anything else relevant.
-      placeholder: Windows 11, EKS 1.30, desktop app build from release assets
+      placeholder: Windows 11, EKS 1.30, desktop app v1.8.0 using Current login from a jumpbox
     validations:
       required: true
 
