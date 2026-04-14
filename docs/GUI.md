@@ -18,24 +18,27 @@ Use the desktop app when you want:
 - a remote-first scan setup instead of raw CLI flags
 - a preflight and RBAC check before running
 - live progress, structured logs, warning surfacing, and cancel support
-- a results workspace that mirrors the report tabs
+- a quieter operator shell with one canonical active-bundle context strip in the header
+- a results workspace organized by operator priority instead of raw report order
 - prioritized findings, restore-readiness summaries, and drill-planning guidance in one place
 - easy inspection of existing bundles without needing live cluster access
 
 ## Main Screens
 
-- `Home / Projects`: recent bundles, quick actions, history, and workspace discovery
-- `New Scan`: remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, and advanced options
+- `Home / Projects`: task-first operator workspace with primary actions, current posture, a compact bundle history list, and an operational watch panel for regressions and trend changes
+- `New Scan`: guided remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, advanced options, and a dedicated preflight rail
   - `Current login`: best for desktops and jumpboxes where `kubectl` or `KUBECONFIG` already works
   - `Kubeconfig file`: pick a kubeconfig from disk and optionally select a context
   - `Paste kubeconfig`: paste kubeconfig content directly when operators do not want to rely on local files
   - `API endpoint`: enter a control-plane host, IP, or URL directly and authenticate with a bearer token
   - context discovery can load named contexts from the current login or kubeconfig inputs before the scan starts
 - `Live Run`: progress events, warnings, structured logs, and cancel
-- `Results`: Summary, Nodes, Workloads, Storage, Networking, Config, Images, Backup, DR Score, Findings, Remediation, and Compare
-  - Findings now surface rank, owner hints, impact, and effort metadata
-  - Backup now surfaces restore readiness, namespace blockers, and a generated drill plan
-  - Compare now surfaces score deltas, severity drift, regressed findings, improved findings, and persistent gaps
+- `Results`: Overview, Findings, Restore Readiness, Compare, Inventory, and Remediation
+  - `Overview` centralizes score, trend, backup posture, and top findings instead of forcing users through inventory tabs first
+  - `Findings` uses dense filtering and a tighter findings table with severity, owner, impact, effort, resource, and recommendation data optimized for quick scanning
+  - `Restore Readiness` consolidates backup coverage, restore simulation, blocker counts, and the drill plan into one operator-facing section
+  - `Compare` makes score drift, regressions, improvements, persistent issues, and inventory drift legible at a glance
+  - `Inventory` contains secondary navigation for Nodes, Workloads, Storage, Networking, Config, and Images
 - `Settings`: workspace defaults plus open-existing-bundle support
 
 ## Shared Backend Contract

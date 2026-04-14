@@ -14,10 +14,10 @@ describe("desktop shell", () => {
   it("renders the fixture-backed dashboard in browser mode", async () => {
     render(<App />);
 
-    expect(await screen.findByText("Current recovery posture")).toBeInTheDocument();
+    expect(await screen.findByText("Choose the next task")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Projects" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /prod-east/i })).toBeInTheDocument();
-    expect(screen.getByText("Trend and compare")).toBeInTheDocument();
+    expect(screen.getByText("Assessment history")).toBeInTheDocument();
   });
 
   it("renders navigation and opens the remote scan setup", async () => {

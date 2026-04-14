@@ -1,12 +1,51 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import type { ArtifactPaths, Bundle } from "../lib/types";
 
+type Tone =
+  | "neutral"
+  | "accent"
+  | "success"
+  | "critical"
+  | "high"
+  | "medium"
+  | "pass"
+  | "fail"
+  | "warn"
+  | "gold"
+  | "silver"
+  | "platinum"
+  | "bronze";
+
+function cx(...values: Array<string | false | null | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
 export function HelpTip(props: { label: string; children: ReactNode }) {
   return (
     <details className="help-tip">
       <summary aria-label={props.label}>?</summary>
       <div className="help-tip-panel">{props.children}</div>
     </details>
+  );
+}
+
+export function SectionHeader(props: {
+  eyebrow?: string;
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cx("section-header", props.compact && "compact", props.className)}>
+      <div className="section-heading">
+        {props.eyebrow ? <p className="eyebrow">{props.eyebrow}</p> : null}
+        <h3>{props.title}</h3>
+        {props.description ? <p className="muted section-copy">{props.description}</p> : null}
+      </div>
+      {props.actions ? <div className="toolbar">{props.actions}</div> : null}
+    </div>
   );
 }
 
@@ -23,15 +62,32 @@ export function Field(props: { label: ReactNode; hint?: ReactNode; tip?: ReactNo
   );
 }
 
-export function Card(props: { title: string; children: ReactNode }) {
+export function Card(props: {
+  title?: ReactNode;
+  eyebrow?: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="subpanel">
-      <div className="section-header compact">
-        <h4>{props.title}</h4>
-      </div>
+    <section className={cx("subpanel", props.className)}>
+      {props.title ? (
+        <SectionHeader
+          eyebrow={props.eyebrow}
+          title={props.title}
+          description={props.description}
+          actions={props.actions}
+          compact
+        />
+      ) : null}
       {props.children}
     </section>
   );
+}
+
+export function Badge(props: { children: ReactNode; tone?: Tone; className?: string }) {
+  return <span className={cx("badge", props.tone && `badge-${props.tone}`, props.className)}>{props.children}</span>;
 }
 
 export function ReviewCard(props: { label: string; value: string }) {
@@ -43,21 +99,28 @@ export function ReviewCard(props: { label: string; value: string }) {
   );
 }
 
-export function MetricCard(props: { label: string; value: string | number; tone?: "accent" | "success" | "critical" | "high" }) {
+export function MetricCard(props: {
+  label: string;
+  value: string | number;
+  tone?: "accent" | "success" | "critical" | "high" | "medium";
+  detail?: ReactNode;
+  className?: string;
+}) {
   const valueText = String(props.value);
   const compactValue = valueText.length > 8 || valueText.includes(" ");
 
   return (
-    <div className={`metric-card ${props.tone || ""} ${compactValue ? "compact-value" : ""}`}>
+    <div className={cx("metric-card", props.tone, compactValue && "compact-value", props.className)}>
       <span>{props.label}</span>
       <strong>{valueText}</strong>
+      {props.detail ? <small>{props.detail}</small> : null}
     </div>
   );
 }
 
-export function KeyValueGrid(props: { items: Array<[string, string]> }) {
+export function KeyValueGrid(props: { items: Array<[string, ReactNode]>; className?: string }) {
   return (
-    <dl className="kv-grid">
+    <dl className={cx("kv-grid", props.className)}>
       {props.items.map(([label, value]) => (
         <div key={label} className="kv-row">
           <dt>{label}</dt>
@@ -71,41 +134,72 @@ export function KeyValueGrid(props: { items: Array<[string, string]> }) {
 export function DataTable(props: {
   caption: string;
   rows: Array<Record<string, unknown>>;
-  columns: Array<{ key: string; label: string; render?: (value: unknown, row: Record<string, unknown>) => ReactNode }>;
+  columns: Array<{
+    key: string;
+    label: string;
+    render?: (value: unknown, row: Record<string, unknown>) => ReactNode;
+    className?: string;
+    headerClassName?: string;
+  }>;
+  rowKey?: string | ((row: Record<string, unknown>, rowIndex: number) => string);
+  className?: string;
+  dense?: boolean;
+  stickyHeader?: boolean;
+  emptyMessage?: string;
 }) {
   if (!props.rows.length) {
     return (
-      <section className="table-empty-state" aria-label={props.caption}>
+      <section className={cx("table-empty-state", props.className)} aria-label={props.caption}>
         <div className="section-header compact">
-          <h4>{props.caption}</h4>
+          <div className="section-heading">
+            <h4>{props.caption}</h4>
+          </div>
         </div>
-        <p className="muted">No data for this section.</p>
+        <p className="muted">{props.emptyMessage || "No data for this section."}</p>
       </section>
     );
   }
 
   return (
-    <div className="table-shell">
-      <table>
-        <caption>{props.caption}</caption>
-        <thead>
-          <tr>
-            {props.columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {props.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
+    <section className={cx("table-block", props.className)}>
+      <div className="table-heading">
+        <h4>{props.caption}</h4>
+      </div>
+      <div className={cx("table-shell", props.stickyHeader && "sticky-head", props.dense && "dense")}>
+        <table>
+          <caption className="sr-only">{props.caption}</caption>
+          <thead>
+            <tr>
               {props.columns.map((column) => (
-                <td key={column.key}>{column.render ? column.render(row[column.key], row) : stringifyValue(row[column.key])}</td>
+                <th key={column.key} className={column.headerClassName}>
+                  {column.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {props.rows.map((row, rowIndex) => {
+              const key =
+                typeof props.rowKey === "function"
+                  ? props.rowKey(row, rowIndex)
+                  : typeof props.rowKey === "string"
+                    ? String(row[props.rowKey] ?? rowIndex)
+                    : String(row.id ?? row.name ?? row.resourceId ?? rowIndex);
+
+              return (
+                <tr key={key}>
+                  {props.columns.map((column) => (
+                    <td key={column.key} className={column.className}>
+                      {column.render ? column.render(row[column.key], row) : stringifyValue(row[column.key])}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -113,16 +207,31 @@ export function TrendRail(props: { entries: Array<{ timestampUtc: string; overal
   if (!props.entries.length) {
     return <p className="muted trend-empty">No history recorded yet.</p>;
   }
+
   const max = Math.max(...props.entries.map((entry) => entry.overall), 100);
+
   return (
     <div className="trend-rail" aria-label="History trend">
-      {props.entries.map((entry) => (
-        <div key={entry.timestampUtc} className="trend-stop">
-          <span style={{ height: `${(entry.overall / max) * 100}%` }} />
-          <strong>{entry.overall}</strong>
-          <small>{entry.maturity}</small>
-        </div>
-      ))}
+      {props.entries.map((entry, index) => {
+        const previous = props.entries[index - 1]?.overall;
+        const delta = previous == null ? null : entry.overall - previous;
+
+        return (
+          <div key={entry.timestampUtc} className="trend-stop">
+            <div className="trend-bar">
+              <span style={{ height: `${(entry.overall / max) * 100}%` }} />
+            </div>
+            <div className="trend-meta">
+              <strong>{entry.overall}</strong>
+              <small>{entry.maturity}</small>
+              <span>{formatShortDate(entry.timestampUtc)}</span>
+              <em className={cx(delta != null && toneForDelta(delta) && `text-${toneForDelta(delta)}`)}>
+                {delta == null ? "Baseline" : formatDelta(delta)}
+              </em>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -176,16 +285,16 @@ export function applyTheme(theme: {
   const high = theme.palette.high;
   const medium = theme.palette.medium;
 
-  root.style.setProperty("--bg", theme.palette.background);
-  root.style.setProperty("--surface", theme.palette.surface);
+  root.style.setProperty("--bg", background);
+  root.style.setProperty("--surface", surface);
   root.style.setProperty("--border", theme.palette.border);
-  root.style.setProperty("--text", theme.palette.text);
+  root.style.setProperty("--text", text);
   root.style.setProperty("--muted", theme.palette.muted);
-  root.style.setProperty("--accent", theme.palette.accent);
-  root.style.setProperty("--success", theme.palette.success);
-  root.style.setProperty("--critical", theme.palette.critical);
-  root.style.setProperty("--high", theme.palette.high);
-  root.style.setProperty("--medium", theme.palette.medium);
+  root.style.setProperty("--accent", accent);
+  root.style.setProperty("--success", success);
+  root.style.setProperty("--critical", critical);
+  root.style.setProperty("--high", high);
+  root.style.setProperty("--medium", medium);
   root.style.setProperty("--maturity-platinum", theme.maturity.platinum);
   root.style.setProperty("--maturity-gold", theme.maturity.gold);
   root.style.setProperty("--maturity-silver", theme.maturity.silver);
@@ -197,28 +306,27 @@ export function applyTheme(theme: {
   root.style.setProperty("--radius-lg", theme.radius.lg);
   root.style.setProperty("--radius-md", theme.radius.md);
   root.style.setProperty("--radius-sm", theme.radius.sm);
-  root.style.setProperty("--surface-raised", withAlpha(surface, 0.94));
-  root.style.setProperty("--panel", withAlpha(surface, 0.88));
-  root.style.setProperty("--panel-strong", withAlpha(surface, 0.96));
-  root.style.setProperty("--bg-deep", withAlpha(background, 0.98));
-  root.style.setProperty("--line", theme.palette.border);
-  root.style.setProperty("--line-soft", withAlpha(theme.palette.border, 0.45));
+  root.style.setProperty("--surface-raised", withAlpha(surface, 0.98));
+  root.style.setProperty("--panel", withAlpha(surface, 0.94));
+  root.style.setProperty("--panel-strong", withAlpha(surface, 1));
+  root.style.setProperty("--bg-deep", withAlpha(background, 1));
+  root.style.setProperty("--line", withAlpha(theme.palette.border, 0.9));
+  root.style.setProperty("--line-soft", withAlpha(theme.palette.border, 0.52));
   root.style.setProperty("--muted-strong", withAlpha(text, 0.92));
-  root.style.setProperty("--accent-soft", withAlpha(accent, 0.82));
-  root.style.setProperty("--accent-strong", withAlpha(accent, 0.55));
-  root.style.setProperty("--accent-faint", withAlpha(accent, 0.14));
-  root.style.setProperty("--accent-surface", withAlpha(accent, 0.22));
-  root.style.setProperty("--success-faint", withAlpha(success, 0.16));
+  root.style.setProperty("--accent-soft", withAlpha(accent, 0.78));
+  root.style.setProperty("--accent-strong", withAlpha(accent, 0.38));
+  root.style.setProperty("--accent-faint", withAlpha(accent, 0.1));
+  root.style.setProperty("--accent-surface", withAlpha(accent, 0.16));
+  root.style.setProperty("--success-faint", withAlpha(success, 0.14));
   root.style.setProperty("--danger", critical);
-  root.style.setProperty("--danger-faint", withAlpha(critical, 0.16));
+  root.style.setProperty("--danger-faint", withAlpha(critical, 0.14));
   root.style.setProperty("--warning-high", high);
-  root.style.setProperty("--warning-high-faint", withAlpha(high, 0.16));
+  root.style.setProperty("--warning-high-faint", withAlpha(high, 0.14));
   root.style.setProperty("--warning", medium);
   root.style.setProperty("--warning-medium", medium);
-  root.style.setProperty("--warning-medium-faint", withAlpha(medium, 0.16));
-  root.style.setProperty("--glow", withAlpha(accent, 0.28));
-  root.style.setProperty("--shadow", "0 28px 60px rgba(1,4,9,0.45)");
-  root.style.setProperty("--shadow-soft", "0 18px 38px rgba(1,4,9,0.3)");
+  root.style.setProperty("--warning-medium-faint", withAlpha(medium, 0.14));
+  root.style.setProperty("--shadow", "0 12px 28px rgba(1, 4, 9, 0.18)");
+  root.style.setProperty("--shadow-soft", "0 6px 18px rgba(1, 4, 9, 0.12)");
 }
 
 function withAlpha(hex: string, alpha: number) {
@@ -264,7 +372,7 @@ export function listCell(value: unknown) {
 }
 
 export function statusCell(value: boolean) {
-  return <span className={`chip ${value ? "chip-pass" : "chip-fail"}`}>{value ? "yes" : "no"}</span>;
+  return <Badge tone={value ? "pass" : "fail"}>{value ? "yes" : "no"}</Badge>;
 }
 
 export function handleRovingTabs(
@@ -310,7 +418,9 @@ export function exportMessage(kind: string, artifacts: ArtifactPaths) {
 }
 
 export function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export function formatTime(value: string) {
@@ -318,4 +428,56 @@ export function formatTime(value: string) {
     return "";
   }
   return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+export function formatShortDate(value: string) {
+  if (!value) {
+    return "";
+  }
+  return new Date(value).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+export function formatDelta(value: number) {
+  return `${value > 0 ? "+" : ""}${value}`;
+}
+
+export function toneForDelta(value: number) {
+  if (value > 0) {
+    return "success";
+  }
+  if (value < 0) {
+    return "critical";
+  }
+  return "neutral";
+}
+
+export function toneForMaturity(value: string | undefined): Tone {
+  const normalized = String(value || "").toLowerCase();
+  switch (normalized) {
+    case "platinum":
+      return "platinum";
+    case "gold":
+      return "gold";
+    case "silver":
+      return "silver";
+    case "bronze":
+      return "bronze";
+    default:
+      return "neutral";
+  }
+}
+
+export function toneForSeverity(value: string | undefined): Tone {
+  switch (String(value || "").toUpperCase()) {
+    case "CRITICAL":
+      return "critical";
+    case "HIGH":
+      return "high";
+    case "MEDIUM":
+      return "medium";
+    case "LOW":
+      return "neutral";
+    default:
+      return "neutral";
+  }
 }
