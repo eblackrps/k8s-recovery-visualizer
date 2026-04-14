@@ -2,6 +2,8 @@
 
 The desktop app ships to users as `K8V`. It lives in [`desktop/`](../desktop), uses Wails v2 for the shell plus React + TypeScript for the frontend, and shares the same execution path as the CLI so live scans, dry runs, exports, and bundle loading stay aligned across both surfaces.
 
+The current desktop UX intentionally favors a sober, denser operator console over decorative dashboard chrome. Surfaces are flatter, the shell is quieter, and the highest-value DR views are promoted ahead of inventory-heavy detail.
+
 ## Public Support
 
 Supported public desktop release packages:
@@ -39,6 +41,7 @@ Use the desktop app when you want:
   - `Restore Readiness` consolidates backup coverage, restore simulation, blocker counts, and the drill plan into one operator-facing section
   - `Compare` makes score drift, regressions, improvements, persistent issues, and inventory drift legible at a glance
   - `Inventory` contains secondary navigation for Nodes, Workloads, Storage, Networking, Config, and Images
+  - `Remediation` keeps the full guidance available while using denser disclosure rows instead of large always-open cards
 - `Settings`: workspace defaults plus open-existing-bundle support
 
 ## Shared Backend Contract

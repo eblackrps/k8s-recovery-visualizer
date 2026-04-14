@@ -1,6 +1,6 @@
 # Documentation
 
-Use this index to find the right starting point for operating, evaluating, or contributing to `k8s-recovery-visualizer`.
+Use this index to find the right starting point for operating, evaluating, or contributing to `k8s-recovery-visualizer`. The current desktop guidance and screenshots describe the quieter operator-console UX shipped in the `v1.8.1` release line.
 
 ## Start Here
 
@@ -15,7 +15,7 @@ Use this index to find the right starting point for operating, evaluating, or co
 
 - Platform and public support policy: [SUPPORT-MATRIX.md](SUPPORT-MATRIX.md)
 - Privacy notice and local data handling: [../PRIVACY.md](../PRIVACY.md)
-- Desktop-first evaluation flow, bundle review, compare, and export workflows: [GUI.md](GUI.md)
+- Desktop-first evaluation flow, operator-console navigation, bundle review, compare, and export workflows: [GUI.md](GUI.md)
 - CLI automation, source builds, and policy gates: [CLI.md](CLI.md)
 - RBAC and degraded-mode behavior: [RBAC.md](RBAC.md)
 - Troubleshooting scan, packaging, and bundle-open issues: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
@@ -33,4 +33,4 @@ Use this index to find the right starting point for operating, evaluating, or co
 ## Release Maintainers
 
 - Release checklist and public artifact policy: [RELEASE.md](RELEASE.md)
-- Deterministic screenshot workflow: [SCREENSHOTS.md](SCREENSHOTS.md)
+- Deterministic screenshot workflow and maintained operator-console gallery: [SCREENSHOTS.md](SCREENSHOTS.md)

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell and results views organized around DR judgment first. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
@@ -16,6 +16,7 @@
 
 ## What Teams Get
 
+- an operator-first desktop workspace that surfaces judgment, regressions, and restore readiness before inventory chrome
 - prioritized findings with impact, likely owner, rough effort, and deterministic ranking
 - restore-readiness evidence that goes beyond “backup detected” to show blocked, warning, ready, and unknown namespaces
 - a restore drill planner that turns bundle evidence into an operator runbook sequence
@@ -120,6 +121,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
+The current gallery reflects the flatter, operator-grade desktop UX shipped in `v1.8.1`.
 
 ## CLI And Desktop At A Glance
 

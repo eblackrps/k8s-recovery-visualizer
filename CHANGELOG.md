@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.8.1] - 2026-04-14
+
+Patch release for `k8s-recovery-visualizer`: this release brings the desktop frontend into line with the seriousness of the recovery workflow by flattening the visual system, reducing shell chrome, and reorganizing the workspace around operator priorities instead of report mirroring.
+
+### Improved
+
+- Reworked the desktop visual system with flatter surfaces, tighter spacing, calmer dark-mode contrast, denser tables, and quieter shared primitives so the app reads like an operator console instead of a glossy dashboard.
+- Quieted the desktop shell by reducing sidebar weight, compacting the header, and consolidating active-bundle metadata into one canonical context strip.
+- Rebuilt the Home workspace around operator tasks, current posture, recent bundles, and watch items instead of ornamental hero framing.
+- Reshaped New Scan into a clearer guided workflow for connection, scope, outputs, advanced options, and preflight feedback without changing scan behavior.
+- Tightened Live Run so progress, warnings, and timeline detail stay denser and easier to scan while preserving structured logging and cancel behavior.
+- Reorganized Results around `Overview`, `Findings`, `Restore Readiness`, `Compare`, `Inventory`, and `Remediation`, with denser findings rows, expandable detail, quieter export controls, and secondary navigation for inventory-heavy views.
+
+### Docs
+
+- Refreshed the main README, desktop guide, docs index, screenshot workflow notes, and release checklist to match the operator-console redesign, current IA, and maintained screenshot set.
+
+### Fixed
+
+- Kept browser demo rendering, deterministic screenshot generation, keyboard tab behavior, focus-visible states, and existing export flows aligned with the new desktop information architecture.
+
 ## [1.8.0] - 2026-04-13
 
 Release candidate changes for the next minor line focus on operator actionability, compare/history depth, restore-readiness evidence, and stronger shared-core policy/reporting behavior.

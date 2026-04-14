@@ -39,13 +39,13 @@
   ],
   "schemaVersion": "3.1.0",
   "metadata": {
-    "toolVersion": "1.8.0",
+    "toolVersion": "1.8.1",
     "generatedAt": "2026-04-13T16:52:52Z"
   },
   "tool": {
     "name": "k8s-recovery-visualizer",
-    "version": "1.8.0",
-    "buildDate": "2026-04-13"
+    "version": "1.8.1",
+    "buildDate": "2026-04-14"
   },
   "scan": {
     "scanId": "bb046456-f864-4d60-a8d3-a8886449eca0",
