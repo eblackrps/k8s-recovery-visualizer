@@ -1,5 +1,5 @@
 import type { ConnectionMethod, ContextCatalog, PreflightReport, ScanRequest } from "../lib/types";
-import { Card, Field, HelpTip, MetricCard, ReviewCard, splitList } from "../components/ui";
+import { Badge, Card, Field, HelpTip, MetricCard, ReviewCard, SectionHeader, splitList } from "../components/ui";
 
 const connectionModes: Array<{ value: ConnectionMethod; label: string; description: string }> = [
   {
@@ -48,20 +48,20 @@ export function ScanView(props: {
   return (
     <section className="page-grid scan-grid">
       <section className="panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">New Scan</p>
-            <h3>Remote cluster scan</h3>
-          </div>
-          <HelpTip label="Scan setup help">
-            <p>The desktop app runs locally, but it can scan any Kubernetes cluster your machine can reach.</p>
-            <p>Use the current login on a desktop or jumpbox, a kubeconfig file, pasted kubeconfig, or a direct API endpoint with a token.</p>
-          </HelpTip>
-        </div>
-        <p className="lead">Use the simplest connection that already works on this machine. Advanced collection and security options stay out of the way until you need them.</p>
+        <SectionHeader
+          eyebrow="New Scan"
+          title="Remote cluster scan"
+          description="Use the simplest connection that already works on this machine. Scope, outputs, and advanced collection options stay explicit and close to the launch controls."
+          actions={
+            <HelpTip label="Scan setup help">
+              <p>The desktop app runs locally, but it can scan any Kubernetes cluster your machine can reach.</p>
+              <p>Use the current login on a desktop or jumpbox, a kubeconfig file, pasted kubeconfig, or a direct API endpoint with a token.</p>
+            </HelpTip>
+          }
+        />
 
         <div className="scan-stack">
-          <Card title="Connect">
+          <Card title="1. Connection" description="Choose the access path, then validate that the app can see the right context before you launch.">
             <div className="connection-modes" role="radiogroup" aria-label="Connection method">
               {connectionModes.map((mode) => (
                 <label key={mode.value} className={`mode-card ${connectionMethod === mode.value ? "is-active" : ""}`}>
@@ -187,14 +187,15 @@ export function ScanView(props: {
                 </>
               )}
             </div>
+
             {supportsContextDiscovery ? (
               <div className="context-helper">
                 <div className="inline-actions">
-                  <button type="button" className="button secondary" onClick={props.onDetectContexts} disabled={props.busy || props.detectingContexts}>
+                  <button type="button" className="button secondary quiet" onClick={props.onDetectContexts} disabled={props.busy || props.detectingContexts}>
                     {props.detectingContexts ? "Loading Contexts..." : "Detect Contexts"}
                   </button>
                   {props.contextCatalog?.currentContext && props.scanForm.contextName !== props.contextCatalog.currentContext ? (
-                    <button type="button" className="button secondary" onClick={() => updateForm("contextName", props.contextCatalog?.currentContext || "")} disabled={props.busy}>
+                    <button type="button" className="button secondary quiet" onClick={() => updateForm("contextName", props.contextCatalog?.currentContext || "")} disabled={props.busy}>
                       Use {props.contextCatalog.currentContext}
                     </button>
                   ) : null}
@@ -204,7 +205,7 @@ export function ScanView(props: {
                     ? props.contextCatalog.contexts?.length
                       ? `Found ${props.contextCatalog.contexts.length} context${props.contextCatalog.contexts.length === 1 ? "" : "s"} from ${props.contextCatalog.source || "this connection"}${props.contextCatalog.currentContext ? `. Current: ${props.contextCatalog.currentContext}.` : "."}`
                       : `No named contexts were found for ${props.contextCatalog.source || "this connection"}.`
-                    : "Load contexts to see suggestions for the Context field."}
+                    : "Load contexts to populate suggestions before preflight."}
                 </p>
                 {props.contextCatalog?.contexts?.length ? (
                   <datalist id="scan-context-options">
@@ -217,7 +218,7 @@ export function ScanView(props: {
             ) : null}
           </Card>
 
-          <Card title="Scope And Labels">
+          <Card title="2. Scope and labels" description="Set namespace scope and operator-facing labels so the resulting bundle is easy to recognize later.">
             <div className="form-grid">
               <Field
                 label="Namespaces (optional)"
@@ -232,10 +233,7 @@ export function ScanView(props: {
                   onChange={(event) => updateForm("namespaces", splitList(event.target.value))}
                 />
               </Field>
-              <Field
-                label="Cluster label (optional)"
-                hint="If left blank, the app will derive a label from the context or API server."
-              >
+              <Field label="Cluster label (optional)" hint="If left blank, the app will derive a label from the context or API server.">
                 <input
                   aria-label="Cluster label"
                   placeholder="prod-east"
@@ -254,7 +252,7 @@ export function ScanView(props: {
             </div>
           </Card>
 
-          <Card title="Outputs">
+          <Card title="3. Outputs" description="Choose where artifacts land and which operator-facing exports should be refreshed after the run.">
             <div className="form-grid">
               <Field label="Output directory" hint="All reports and bundles will be written here.">
                 <div className="inline-field">
@@ -282,7 +280,7 @@ export function ScanView(props: {
           </Card>
 
           <details className="advanced-panel">
-            <summary>Advanced options</summary>
+            <summary>4. Advanced options</summary>
             <div className="advanced-panel-body">
               <div className="form-grid">
                 <Field label="Profile" hint="Standard is the best default for most production scans.">
@@ -364,69 +362,83 @@ export function ScanView(props: {
             </div>
           </details>
 
-          <div className="review-grid">
-            <ReviewCard label="Connection" value={connectionSummary(props.scanForm)} />
-            <ReviewCard label="Scope" value={scopeSummary(props.scanForm.namespaces)} />
-            <ReviewCard label="Reports" value={reportSummary(props.scanForm)} />
-            <ReviewCard label="Output" value={props.scanForm.outputDir || "./out"} />
-          </div>
-
-          {props.validationErrors.length ? (
-            <div className="notice notice-error">
-              <strong>Fix these before preflight or start:</strong>
-              <ul className="notice-list">
-                {props.validationErrors.map((error) => (
-                  <li key={error}>{error}</li>
-                ))}
-              </ul>
+          <Card title="5. Review and launch" description="Use the compact launch summary to sanity-check access, scope, artifacts, and output location before you run.">
+            <div className="review-grid">
+              <ReviewCard label="Connection" value={connectionSummary(props.scanForm)} />
+              <ReviewCard label="Scope" value={scopeSummary(props.scanForm.namespaces)} />
+              <ReviewCard label="Reports" value={reportSummary(props.scanForm)} />
+              <ReviewCard label="Output" value={props.scanForm.outputDir || "./out"} />
             </div>
-          ) : null}
 
-          <div className="form-actions">
-            <button type="button" className="button secondary" onClick={props.onPreflight} disabled={props.busy}>
-              Run Preflight
-            </button>
-            <button type="button" className="button primary" onClick={props.onStartScan} disabled={props.busy}>
-              Start Scan
-            </button>
-          </div>
+            {props.validationErrors.length ? (
+              <div className="notice notice-error">
+                <strong>Fix these before preflight or start:</strong>
+                <ul className="notice-list">
+                  {props.validationErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="notice notice-info">
+                <strong>Launch posture looks good.</strong>
+                <p className="muted">Run preflight to verify the selected connection and RBAC scope before collecting the full bundle.</p>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button type="button" className="button secondary" onClick={props.onPreflight} disabled={props.busy}>
+                Run Preflight
+              </button>
+              <button type="button" className="button primary" onClick={props.onStartScan} disabled={props.busy}>
+                Start Scan
+              </button>
+            </div>
+          </Card>
         </div>
       </section>
 
       <section className="panel">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Preflight</p>
-            <h3>Connection and access check</h3>
-          </div>
-        </div>
+        <SectionHeader
+          eyebrow="Preflight"
+          title="Connection and access check"
+          description="Preflight makes scope, degraded visibility, and permission blockers explicit before the full collection run starts."
+        />
         {props.preflight ? (
-          <>
+          <div className="results-stack">
             <div className="inline-metrics">
-              <MetricCard label="Can Run" value={props.preflight.canRun ? "Yes" : "No"} tone={props.preflight.canRun ? "success" : "critical"} />
+              <MetricCard label="Can run" value={props.preflight.canRun ? "Yes" : "No"} tone={props.preflight.canRun ? "success" : "critical"} />
               <MetricCard label="Degraded" value={props.preflight.degraded ? "Yes" : "No"} tone={props.preflight.degraded ? "high" : "success"} />
               <MetricCard label="Scope" value={props.preflight.scope} />
             </div>
-            <div className="stack-list">
+            {props.preflight.warnings?.length ? (
+              <div className="notice notice-info">
+                <strong>Operator note</strong>
+                <p className="muted">{props.preflight.warnings.join(" ")}</p>
+              </div>
+            ) : null}
+            <div className="preflight-list">
               {props.preflight.checks.map((check) => (
-                <div key={check.id} className={`status-card ${check.status}`}>
-                  <div className="status-card-head">
+                <article key={check.id} className={`preflight-check ${check.status}`}>
+                  <div className="preflight-check-head">
                     <div>
                       <strong>{check.title}</strong>
                       {check.resource ? <p className="muted">{titleForProbe(check.scope, check.resource)}</p> : null}
                     </div>
-                    <span className={`chip chip-${check.status}`}>{check.status}</span>
+                    <Badge tone={toneForCheck(check.status)}>{check.status}</Badge>
                   </div>
                   <p>{check.detail}</p>
                   {check.hint ? <p className="muted">{check.hint}</p> : null}
                   {check.commands?.length ? <p className="muted">Check with: {check.commands[0]}</p> : null}
                   {check.manifest ? <code className="mono-block">{check.manifest}</code> : null}
-                </div>
+                </article>
               ))}
             </div>
-          </>
+          </div>
         ) : (
-          <p className="muted">Run preflight before the scan to validate remote access, namespace scope, and any reduced-visibility caveats.</p>
+          <div className="empty-state">
+            <p className="muted">Run preflight before the scan to validate remote access, namespace scope, and any reduced-visibility caveats.</p>
+          </div>
         )}
       </section>
     </section>
@@ -472,4 +484,15 @@ function titleForProbe(scope?: string, resource?: string) {
     return "";
   }
   return `${scope === "cluster" ? "Cluster-scope" : "Namespace-scope"} access for ${resource}`;
+}
+
+function toneForCheck(status: "pass" | "warn" | "fail") {
+  switch (status) {
+    case "pass":
+      return "pass";
+    case "warn":
+      return "warn";
+    default:
+      return "fail";
+  }
 }

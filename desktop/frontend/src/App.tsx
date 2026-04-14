@@ -12,7 +12,7 @@ import type {
   Workspace,
 } from "./lib/types";
 import { haveContextInputsChanged, prepareScanRequest, sanitizeScanForm, validateContextDiscovery, validateScanForm } from "./lib/scanForm";
-import { applyTheme, exportMessage, titleCase } from "./components/ui";
+import { Badge, applyTheme, exportMessage, titleCase, toneForMaturity } from "./components/ui";
 import { HomeView, ProjectsView } from "./views/HomeProjectsView";
 import { ScanView } from "./views/ScanView";
 import { LiveView } from "./views/LiveView";
@@ -37,6 +37,19 @@ function initialView(): View {
     return value as View;
   }
   return "home";
+}
+
+function normalizeResultTab(value: string | null | undefined) {
+  switch (value) {
+    case "Summary":
+      return "Overview";
+    case "Backup":
+      return "Restore Readiness";
+    case "DR Score":
+      return "Overview";
+    default:
+      return value || "Overview";
+  }
 }
 
 const demoTimestamp = "2026-04-12T14:11:00Z";
@@ -106,7 +119,7 @@ function defaultScanForm(browserDemo: boolean): ScanRequest {
 export default function App() {
   const browserDemo = isBrowserDemo();
   const [view, setView] = useState<View>(initialView);
-  const [resultTab, setResultTab] = useState(new URLSearchParams(window.location.search).get("tab") || "Summary");
+  const [resultTab, setResultTab] = useState(normalizeResultTab(new URLSearchParams(window.location.search).get("tab")));
   const [settings, setSettings] = useState<Settings>({
     workspaceRoot: ".",
     defaultOutputDir: "./out",
@@ -223,10 +236,10 @@ export default function App() {
   const bundle = workspace?.bundle;
   const activePercent = events.length > 0 ? events[events.length - 1].percent || 0 : 0;
   const currentViewLabel = navItems.find((item) => item.id === view)?.label || "Workspace";
-  const maturityTone = (bundle?.score.maturity || (browserDemo ? "GOLD" : "SILVER")).toLowerCase();
-  const bundleScore = bundle?.score.overall.final ?? (browserDemo ? 85 : "—");
   const environmentLabel = bundle?.metadata.environment || (browserDemo ? "production" : "ready");
   const clusterLabel = bundle?.metadata.clusterName || (browserDemo ? "demo-workspace" : "no bundle");
+  const providerLabel = bundle?.cluster.platform?.provider || (browserDemo ? "fixture bundle" : "no bundle");
+  const versionLabel = bundle?.cluster.platform?.k8sVersion || (browserDemo ? "preview" : "idle");
   const statusDetail = bundle
     ? `${bundle.cluster.platform?.provider || "Unknown platform"} ${bundle.cluster.platform?.k8sVersion || ""}`.trim()
     : browserDemo
@@ -299,7 +312,7 @@ export default function App() {
         };
         return [nextProject, ...current.filter((item) => item.lastScanPath !== nextProject.lastScanPath)];
       });
-      setResultTab("Summary");
+      setResultTab("Overview");
       startTransition(() => setView("results"));
       setStatusMessage("Scan finished. Results workspace is ready.");
     } catch (error) {
@@ -349,7 +362,7 @@ export default function App() {
       const loaded = await backend.openBundle(resolved);
       setWorkspace(loaded);
       setOpenBundlePath(resolved);
-      setResultTab("Summary");
+      setResultTab("Overview");
       startTransition(() => setView("results"));
       setStatusMessage("Existing bundle loaded into the workspace.");
     } catch (error) {
@@ -523,26 +536,9 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-card">
-          <p className="eyebrow">Active Bundle</p>
-          <div className="hero-score-inline">
-            <strong>{bundleScore}</strong>
-            <span className={`tone tone-${maturityTone}`}>{bundle?.score.maturity || (browserDemo ? "GOLD" : "UNLOADED")}</span>
-          </div>
-          <dl className="sidebar-kv">
-            <div>
-              <dt>Cluster</dt>
-              <dd>{clusterLabel}</dd>
-            </div>
-            <div>
-              <dt>Environment</dt>
-              <dd>{environmentLabel}</dd>
-            </div>
-            <div>
-              <dt>Output</dt>
-              <dd>{workspace?.artifacts.outputDir || "not loaded"}</dd>
-            </div>
-          </dl>
+        <div className="sidebar-footer">
+          <p className="eyebrow">Workspace</p>
+          <p className="muted">Run remote assessments, inspect saved bundles, and review restore readiness without leaving the desktop console.</p>
         </div>
       </aside>
 
@@ -554,10 +550,20 @@ export default function App() {
             <p className="muted">{statusDetail}</p>
           </div>
           <div className="topbar-actions">
-            <span className="chip">{clusterLabel}</span>
-            <span className="chip">{environmentLabel}</span>
-            {bundle ? <span className="chip">{bundle.score.maturity} · {bundle.score.overall.final}</span> : null}
-            <button type="button" className="button secondary" onClick={handlePickBundle} disabled={busy}>
+            <div className="context-strip" aria-label="Active bundle context">
+              <div className="context-cluster">
+                <strong>{clusterLabel}</strong>
+                <span className="muted">{environmentLabel}</span>
+              </div>
+              <div className="context-meta">
+                <Badge>{providerLabel}</Badge>
+                <Badge>{versionLabel}</Badge>
+                <Badge tone={toneForMaturity(bundle?.score.maturity || (browserDemo ? "GOLD" : ""))}>
+                  {bundle ? `${bundle.score.maturity} ${bundle.score.overall.final}` : "No bundle"}
+                </Badge>
+              </div>
+            </div>
+            <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy}>
               Open Existing Bundle
             </button>
           </div>
@@ -565,7 +571,21 @@ export default function App() {
         {actionBanner ? <p className={`notice notice-${actionBanner.tone}`}>{actionBanner.message}</p> : null}
 
         <main className="main-content">
-          {view === "home" && <HomeView workspace={workspace} projects={projects} busy={busy} onViewProjects={() => setView("projects")} onPickBundle={handlePickBundle} onOpenProject={handleOpenBundlePath} />}
+          {view === "home" && (
+            <HomeView
+              workspace={workspace}
+              projects={projects}
+              busy={busy}
+              onViewProjects={() => setView("projects")}
+              onPickBundle={handlePickBundle}
+              onOpenProject={handleOpenBundlePath}
+              onStartScan={() => setView("scan")}
+              onReviewFindings={() => {
+                setResultTab("Findings");
+                setView("results");
+              }}
+            />
+          )}
           {view === "projects" && <ProjectsView projects={projects} busy={busy} onPickBundle={handlePickBundle} />}
           {view === "scan" && <ScanView busy={busy} scanForm={scanForm} setScanForm={updateScanForm} preflight={preflight} contextCatalog={contextCatalog} detectingContexts={detectingContexts} validationErrors={validationErrors} onPreflight={handlePreflight} onStartScan={handleStartScan} onDetectContexts={handleDetectContexts} onBrowseOutput={handleBrowseOutput} onBrowseKubeconfig={handleBrowseKubeconfig} onBrowseCACert={handleBrowseCACert} />}
           {view === "live" && <LiveView events={events} activeRunId={activeRunId} activePercent={activePercent} onCancel={handleCancelRun} />}

@@ -4,7 +4,7 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- Use semver tags such as `v1.8.0`.
+- Use semver tags such as `v1.8.1`.
 - Keep source-level version references aligned with the release you are cutting.
 - Bump schema versions only when the JSON contract changes.
 - Use a minor or major release only when the user-visible surface justifies it.
@@ -54,6 +54,7 @@ Also confirm:
 - the main README leads with the supported desktop release path before contributor-only build paths
 - screenshot references in the docs resolve correctly
 - the main README only uses the maintained desktop screenshot set from `images/gui-*.png`
+- README and desktop docs describe the current Results IA (`Overview`, `Findings`, `Restore Readiness`, `Compare`, `Inventory`, `Remediation`) and the quieter active-bundle shell context accurately
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
 - README, screenshots, changelog, and release notes all match the actual shipped artifacts

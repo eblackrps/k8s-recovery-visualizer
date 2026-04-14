@@ -34,8 +34,8 @@ describe("ResultsView", () => {
       />,
     );
 
-    expect(screen.getByText("Score deltas")).toBeInTheDocument();
-    expect(screen.getByText("Regressed findings")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Domain score drift" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What got worse" })).toBeInTheDocument();
     expect(screen.getByText("severity-up")).toBeInTheDocument();
   });
 });

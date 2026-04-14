@@ -1,6 +1,6 @@
 # Desktop Screenshot Workflow
 
-The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs.
+The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current five-image set reflects the flatter, operator-console desktop UX shipped in the `v1.8.1` release line.
 
 ## Current Screenshot Set
 
@@ -10,7 +10,7 @@ The repository keeps a deterministic desktop screenshot set in `images/` for the
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`
 
-These five files are the maintained public screenshot set for the README and documentation. Refresh them whenever the desktop UI or landing-page gallery changes.
+These five files are the maintained public screenshot set for the README and documentation. Refresh them whenever the desktop UI, results IA, or landing-page gallery changes.
 
 Deprecated screenshots that are no longer part of the maintained desktop gallery should be removed from docs and repo references instead of carried forward indefinitely.
 
