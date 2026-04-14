@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { haveContextInputsChanged, sanitizeScanForm, validateContextDiscovery, validateScanForm } from "./scanForm";
+import {
+  describeAuthMode,
+  describeTrustMode,
+  haveContextInputsChanged,
+  inspectScanForm,
+  normalizeBearerToken,
+  sanitizeScanForm,
+  validateContextDiscovery,
+} from "./scanForm";
 import type { ScanRequest } from "./types";
 
-describe("sanitizeScanForm", () => {
+describe("scanForm helpers", () => {
   it("clears stale kubeconfig and endpoint credentials when current login is selected", () => {
     const scanForm: ScanRequest = {
       connectionMethod: "current",
@@ -27,42 +35,40 @@ describe("sanitizeScanForm", () => {
     }));
   });
 
-  it("clears kubeconfig state and trims fields for api endpoint mode", () => {
-    const scanForm: ScanRequest = {
-      connectionMethod: "api_endpoint",
-      contextName: "prod-east-admin",
-      kubeconfigPath: "C:/Users/eric/.kube/config",
-      kubeconfigContent: "apiVersion: v1",
-      apiServerEndpoint: " 10.0.0.15:6443 ",
-      bearerToken: " token ",
-      caCertPath: " C:/certs/cluster-ca.pem ",
-      namespaces: [" payments ", "frontend", "payments"],
-    };
+  it("normalizes raw token input by removing bearer prefixes and whitespace", () => {
+    expect(normalizeBearerToken("  Bearer eyJhbGciOiAi... \n")).toBe("eyJhbGciOiAi...");
+    expect(normalizeBearerToken("line-one\nline-two")).toBe("line-oneline-two");
+  });
 
-    expect(sanitizeScanForm(scanForm)).toEqual(expect.objectContaining({
+  it("surfaces field-level validation and operator risk flags for direct API scans", () => {
+    const validation = inspectScanForm({
       connectionMethod: "api_endpoint",
-      contextName: "",
-      kubeconfigPath: "",
-      kubeconfigContent: "",
-      apiServerEndpoint: "10.0.0.15:6443",
-      bearerToken: "token",
-      caCertPath: "C:/certs/cluster-ca.pem",
-      namespaces: ["payments", "frontend"],
+      apiServerEndpoint: "http://10.0.0.15:6443",
+      outputDir: "./out",
+      timeoutSeconds: 60,
+      insecure: true,
+    });
+
+    expect(validation.fieldErrors.bearerToken).toMatch(/bearer token/i);
+    expect(validation.fieldErrors.insecureAcknowledgement).toMatch(/skip-TLS/i);
+    expect(validation.fieldWarnings.apiServerEndpoint).toMatch(/prefer https/i);
+    expect(validation.riskFlags).toContain("Endpoint is explicitly using HTTP instead of HTTPS.");
+    expect(validation.riskFlags).toContain("TLS verification is disabled for this connection.");
+  });
+
+  it("describes API auth and trust posture without echoing the token", () => {
+    expect(describeAuthMode({ connectionMethod: "api_endpoint" })).toEqual(expect.objectContaining({
+      label: "Bearer token missing",
+      tone: "critical",
+    }));
+
+    expect(describeTrustMode({ connectionMethod: "api_endpoint", caCertPath: "C:/certs/cluster-ca.pem" })).toEqual(expect.objectContaining({
+      label: "CA file",
+      tone: "success",
     }));
   });
 
-  it("reports inline validation errors for incomplete direct API scans", () => {
-    const errors = validateScanForm({
-      connectionMethod: "api_endpoint",
-      outputDir: "./out",
-      timeoutSeconds: 60,
-    });
-
-    expect(errors).toContain("Enter the Kubernetes API server host, IP, or URL.");
-    expect(errors).toContain("Paste a bearer token for direct API endpoint scans.");
-  });
-
-  it("validates context discovery inputs separately from full scan validation", () => {
+  it("validates context discovery inputs separately from the full scan launch", () => {
     expect(validateContextDiscovery({ connectionMethod: "kubeconfig_file" })).toEqual([
       "Choose a kubeconfig file before loading contexts.",
     ]);

@@ -30,7 +30,17 @@ describe("desktop shell", () => {
     expect(screen.getByRole("radio", { name: /current login/i })).toBeChecked();
     expect(screen.getByLabelText("Context")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run Preflight" })).toBeInTheDocument();
-    expect(screen.getByText("Connection and access check")).toBeInTheDocument();
+    expect(screen.getByText("Connection assistant")).toBeInTheDocument();
+  });
+
+  it("supports an API endpoint scan preset for demo and screenshot routes", async () => {
+    window.history.replaceState({}, "", "/?view=scan&scanConnection=api_endpoint");
+
+    render(<App />);
+
+    expect(await screen.findByText("Remote cluster scan")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /api endpoint/i })).toBeChecked();
+    expect(screen.getByText("When to use API endpoint mode")).toBeInTheDocument();
   });
 
   it("surfaces bundle picker cancellation instead of failing silently", async () => {

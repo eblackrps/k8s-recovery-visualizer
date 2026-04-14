@@ -5,7 +5,7 @@ The repository keeps a deterministic desktop screenshot set in `images/` for the
 ## Current Screenshot Set
 
 - `images/gui-dashboard.png`
-- `images/gui-scan-setup.png`
+- `images/gui-scan-setup.png` (`?view=scan&scanConnection=api_endpoint` guided API endpoint assistant state)
 - `images/gui-live-run.png`
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`

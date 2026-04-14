@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { ArtifactPaths, Bundle } from "../lib/types";
 
@@ -49,15 +50,26 @@ export function SectionHeader(props: {
   );
 }
 
-export function Field(props: { label: ReactNode; hint?: ReactNode; tip?: ReactNode; tipLabel?: string; children: ReactNode }) {
+export function Field(props: {
+  label: ReactNode;
+  hint?: ReactNode;
+  tip?: ReactNode;
+  tipLabel?: string;
+  error?: ReactNode;
+  warning?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <label className="field">
+    <label className={cx("field", Boolean(props.error) && "has-error", Boolean(props.warning) && !props.error && "has-warning", props.className)}>
       <span className="field-head">
         <span className="field-label">{props.label}</span>
         {props.tip ? <HelpTip label={props.tipLabel || "Field help"}>{props.tip}</HelpTip> : null}
       </span>
       {props.children}
       {props.hint ? <small className="field-hint">{props.hint}</small> : null}
+      {props.warning ? <small className="field-message warning">{props.warning}</small> : null}
+      {props.error ? <small className="field-message error">{props.error}</small> : null}
     </label>
   );
 }
@@ -90,11 +102,38 @@ export function Badge(props: { children: ReactNode; tone?: Tone; className?: str
   return <span className={cx("badge", props.tone && `badge-${props.tone}`, props.className)}>{props.children}</span>;
 }
 
-export function ReviewCard(props: { label: string; value: string }) {
+export function ReviewCard(props: { label: string; value: string; detail?: ReactNode; tone?: Tone }) {
   return (
-    <div className="review-card">
+    <div className={cx("review-card", props.tone && `review-card-${props.tone}`)}>
       <span>{props.label}</span>
       <strong>{props.value}</strong>
+      {props.detail ? <p className="muted">{props.detail}</p> : null}
+    </div>
+  );
+}
+
+export function CodeBlock(props: { code: string; label?: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard?.writeText(props.code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className={cx("code-block", props.className)}>
+      <div className="code-block-head">
+        <span>{props.label || "Command"}</span>
+        <button type="button" className="button secondary quiet code-copy" onClick={() => void handleCopy()}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <code className="mono-block">{props.code}</code>
     </div>
   );
 }
