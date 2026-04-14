@@ -18,6 +18,27 @@ go run ./cmd/scan --insecure --kubeconfig /path/to/config --out ./out
 go run ./cmd/scan --insecure --kubeconfig C:\path\to\config --out .\out
 ```
 
+## Direct API endpoint mode is failing
+
+If `API endpoint` mode in the desktop app is unclear or preflight keeps failing, check these in order:
+
+1. Confirm you are using the Kubernetes API server URL, not an ingress or application URL.
+2. If `kubectl` already works on that machine, print the active server directly:
+
+```bash
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+```
+
+3. Prefer a short-lived service-account token instead of a copied long-lived credential:
+
+```bash
+kubectl create token <service-account> --namespace <namespace>
+```
+
+4. If the cluster uses exec plugins, cloud auth helpers, SSO prompts, or client certificates, switch back to kubeconfig mode instead of forcing direct endpoint mode.
+5. If the API server certificate is signed by a private or internal CA, add that CA to the desktop form instead of leaving trust on system defaults.
+6. Use skip-TLS only as a temporary workaround in a trusted environment. The desktop review card and preflight panel intentionally flag this as a risk.
+
 ## Backup coverage shows `permission denied`
 
 The scanner knows how to inspect the backup tool, but the current credentials cannot read the policy objects.

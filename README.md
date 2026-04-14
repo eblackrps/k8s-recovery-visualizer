@@ -67,7 +67,7 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 4. Choose **New Scan** for a live assessment or **Open Existing Bundle** for offline review.
 5. In **New Scan**, choose the simplest connection that already works on that machine:
    `Current login`, `Kubeconfig file`, `Paste kubeconfig`, or `API endpoint`.
-6. Use `Current login` on a desktop or jumpbox when `kubectl` or `KUBECONFIG` already reaches the cluster. Use `API endpoint` when you need to enter a control-plane host or IP directly with a bearer token.
+6. Use `Current login` on a desktop or jumpbox when `kubectl` or `KUBECONFIG` already reaches the cluster. Use `API endpoint` when you need to enter a control-plane host or IP directly with a bearer token, and let the right-side assistant walk you through endpoint discovery, token creation, and TLS trust choices before preflight.
 7. Export HTML, Markdown, CSV, redacted, summary, or runbook artifacts from the loaded bundle as needed.
 
 ### Desktop Development Quickstart
@@ -115,7 +115,7 @@ make build
 ## Latest Desktop Screenshots
 
 <p align="center">
-  <img alt="K8V remote cluster scan setup" src="images/gui-scan-setup.png" width="32%" />
+  <img alt="K8V guided API endpoint scan setup" src="images/gui-scan-setup.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
   <img alt="K8V compare workflow with score drift and regression details" src="images/gui-compare.png" width="32%" />
 </p>

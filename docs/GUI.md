@@ -28,11 +28,16 @@ Use the desktop app when you want:
 ## Main Screens
 
 - `Home / Projects`: task-first operator workspace with primary actions, current posture, a compact bundle history list, and an operational watch panel for regressions and trend changes
-- `New Scan`: guided remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, advanced options, and a dedicated preflight rail
+- `New Scan`: guided remote-first scan setup with four connection modes, namespace scope, labels, outputs, inline validation, advanced options, and a dedicated assistant / preflight rail
   - `Current login`: best for desktops and jumpboxes where `kubectl` or `KUBECONFIG` already works
   - `Kubeconfig file`: pick a kubeconfig from disk and optionally select a context
   - `Paste kubeconfig`: paste kubeconfig content directly when operators do not want to rely on local files
   - `API endpoint`: enter a control-plane host, IP, or URL directly and authenticate with a bearer token
+  - before preflight, the right rail becomes a mode-aware connection assistant instead of a generic empty state
+  - the API endpoint assistant explains when direct endpoint mode fits, when kubeconfig mode is better, how to discover the API server URL, how to mint a short-lived service-account token, and how to choose between system trust, a private CA, and a temporary skip-TLS path
+  - token paste handling strips a leading `Bearer` prefix, spaces, and accidental line breaks automatically while keeping the token hidden by default and out of notices, screenshots, and saved settings
+  - field-level validation now lands under the endpoint, token, output, and TLS acknowledgement inputs and the first invalid field is focused when operators try preflight or launch with an incomplete setup
+  - the review card now summarizes endpoint target, auth mode, TLS trust mode, namespace scope, compare baseline, exports, output path, and obvious risk flags before launch
   - context discovery can load named contexts from the current login or kubeconfig inputs before the scan starts
 - `Live Run`: progress events, warnings, structured logs, and cancel
 - `Results`: Overview, Findings, Restore Readiness, Compare, Inventory, and Remediation
@@ -89,6 +94,7 @@ That keeps degraded-mode behavior explicit and gives platform teams a concrete s
 - On a desktop or jumpbox, leave the app on `Current login` when `kubectl get nodes` already works from that machine.
 - Use `Kubeconfig file` or `Paste kubeconfig` when operators receive a kubeconfig through a secure file handoff or vault workflow.
 - Use `API endpoint` when you need to enter a control-plane host or IP directly. The current direct-endpoint mode is intentionally bearer-token based. If the cluster depends on exec plugins, cloud auth helpers, or client certificates, kubeconfig mode remains the better fit.
+- In API endpoint mode, use the assistant rail to copy the current `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'` endpoint discovery command and the `kubectl create token <service-account> --namespace <namespace>` short-lived token pattern instead of guessing the flow from memory.
 - Run **Detect Contexts** to load named contexts before preflight when you are using the current login or a kubeconfig source.
 
 ## Settings Behavior

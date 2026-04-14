@@ -11,7 +11,8 @@ import type {
   Settings,
   Workspace,
 } from "./lib/types";
-import { haveContextInputsChanged, prepareScanRequest, sanitizeScanForm, validateContextDiscovery, validateScanForm } from "./lib/scanForm";
+import type { ScanFieldName } from "./lib/scanForm";
+import { haveContextInputsChanged, inspectScanForm, prepareScanRequest, sanitizeScanForm, validateContextDiscovery } from "./lib/scanForm";
 import { Badge, applyTheme, exportMessage, titleCase, toneForMaturity } from "./components/ui";
 import { HomeView, ProjectsView } from "./views/HomeProjectsView";
 import { ScanView } from "./views/ScanView";
@@ -31,8 +32,12 @@ const navItems: Array<{ id: View; label: string }> = [
   { id: "settings", label: "Settings" },
 ];
 
+function searchParams() {
+  return new URLSearchParams(window.location.search);
+}
+
 function initialView(): View {
-  const value = new URLSearchParams(window.location.search).get("view");
+  const value = searchParams().get("view");
   if (value && navItems.some((item) => item.id === value)) {
     return value as View;
   }
@@ -59,7 +64,7 @@ function isBrowserDemo() {
 }
 
 function initialLiveEvents(): RunEvent[] {
-  if (new URLSearchParams(window.location.search).get("view") !== "live") {
+  if (searchParams().get("view") !== "live") {
     return [];
   }
   return [
@@ -93,8 +98,16 @@ function defaultBundleInputPath(browserDemo: boolean) {
 }
 
 function defaultScanForm(browserDemo: boolean): ScanRequest {
+  const requestedConnection = browserDemo ? searchParams().get("scanConnection") : "";
+  const connectionMethod =
+    requestedConnection === "kubeconfig_file" ||
+    requestedConnection === "kubeconfig_inline" ||
+    requestedConnection === "api_endpoint"
+      ? requestedConnection
+      : "current";
+
   return {
-    connectionMethod: "current",
+    connectionMethod,
     outputDir: "./out",
     target: "vm",
     minScore: 0,
@@ -112,14 +125,16 @@ function defaultScanForm(browserDemo: boolean): ScanRequest {
     environment: browserDemo ? "production" : "",
     customerId: browserDemo ? "acme-hospitality" : "",
     site: browserDemo ? "us-east-1a" : "",
-    contextName: browserDemo ? "prod-east-admin" : "",
+    contextName: browserDemo && connectionMethod !== "api_endpoint" ? "prod-east-admin" : "",
+    apiServerEndpoint: browserDemo && connectionMethod === "api_endpoint" ? "https://prod-east.example.net:6443" : "",
+    caCertPath: browserDemo && connectionMethod === "api_endpoint" ? "./demo-certs/prod-east-ca.pem" : "",
   };
 }
 
 export default function App() {
   const browserDemo = isBrowserDemo();
   const [view, setView] = useState<View>(initialView);
-  const [resultTab, setResultTab] = useState(normalizeResultTab(new URLSearchParams(window.location.search).get("tab")));
+  const [resultTab, setResultTab] = useState(normalizeResultTab(searchParams().get("tab")));
   const [settings, setSettings] = useState<Settings>({
     workspaceRoot: ".",
     defaultOutputDir: "./out",
@@ -136,23 +151,28 @@ export default function App() {
   const [contextCatalog, setContextCatalog] = useState<ContextCatalog | null>(null);
   const [events, setEvents] = useState<RunEvent[]>(initialLiveEvents());
   const [activeRunId, setActiveRunId] = useState<string | null>(
-    new URLSearchParams(window.location.search).get("view") === "live" ? "demo-live" : null,
+    searchParams().get("view") === "live" ? "demo-live" : null,
   );
   const [busy, setBusy] = useState(false);
   const [detectingContexts, setDetectingContexts] = useState(false);
+  const [insecureAcknowledged, setInsecureAcknowledged] = useState(false);
+  const [scanValidationRequest, setScanValidationRequest] = useState<{ version: number; field?: ScanFieldName }>({ version: 0 });
   const [statusMessage, setStatusMessage] = useState("Workspace ready.");
   const [actionBanner, setActionBanner] = useState<{ tone: BannerTone; message: string } | null>(null);
   const [openBundlePath, setOpenBundlePath] = useState(defaultBundleInputPath(browserDemo));
   const [exportNotice, setExportNotice] = useState("");
   const [findingFilter, setFindingFilter] = useState("ALL");
   const [scanForm, setScanForm] = useState<ScanRequest>(defaultScanForm(browserDemo));
-  const validationErrors = validateScanForm(scanForm);
+  const scanValidation = inspectScanForm(scanForm, { insecureAcknowledged });
 
   function updateScanForm(updater: (current: ScanRequest) => ScanRequest) {
     const next = sanitizeScanForm(updater(scanForm));
     setPreflight(null);
     if (haveContextInputsChanged(scanForm, next)) {
       setContextCatalog(null);
+    }
+    if (next.connectionMethod !== "api_endpoint" || !next.insecure) {
+      setInsecureAcknowledged(false);
     }
     setScanForm(next);
   }
@@ -256,9 +276,10 @@ export default function App() {
 
   async function handlePreflight() {
     const request = prepareScanRequest(scanForm);
-    const errors = validateScanForm(request);
-    if (errors.length > 0) {
-      showBanner("info", errors[0]);
+    const validation = inspectScanForm(request, { insecureAcknowledged });
+    if (validation.errors.length > 0) {
+      setScanValidationRequest((current) => ({ version: current.version + 1, field: validation.firstInvalidField }));
+      showBanner("info", validation.errors[0]);
       setStatusMessage("Scan setup needs attention before preflight.");
       return;
     }
@@ -280,9 +301,10 @@ export default function App() {
 
   async function handleStartScan() {
     const request = prepareScanRequest(scanForm);
-    const errors = validateScanForm(request);
-    if (errors.length > 0) {
-      showBanner("info", errors[0]);
+    const validation = inspectScanForm(request, { insecureAcknowledged });
+    if (validation.errors.length > 0) {
+      setScanValidationRequest((current) => ({ version: current.version + 1, field: validation.firstInvalidField }));
+      showBanner("info", validation.errors[0]);
       setStatusMessage("Scan setup needs attention before the run can start.");
       return;
     }
@@ -587,7 +609,27 @@ export default function App() {
             />
           )}
           {view === "projects" && <ProjectsView projects={projects} busy={busy} onPickBundle={handlePickBundle} />}
-          {view === "scan" && <ScanView busy={busy} scanForm={scanForm} setScanForm={updateScanForm} preflight={preflight} contextCatalog={contextCatalog} detectingContexts={detectingContexts} validationErrors={validationErrors} onPreflight={handlePreflight} onStartScan={handleStartScan} onDetectContexts={handleDetectContexts} onBrowseOutput={handleBrowseOutput} onBrowseKubeconfig={handleBrowseKubeconfig} onBrowseCACert={handleBrowseCACert} />}
+          {view === "scan" && (
+            <ScanView
+              busy={busy}
+              scanForm={scanForm}
+              setScanForm={updateScanForm}
+              preflight={preflight}
+              contextCatalog={contextCatalog}
+              detectingContexts={detectingContexts}
+              validation={scanValidation}
+              showValidationErrors={scanValidationRequest.version > 0}
+              validationRequest={scanValidationRequest}
+              insecureAcknowledged={insecureAcknowledged}
+              onSetInsecureAcknowledged={setInsecureAcknowledged}
+              onPreflight={handlePreflight}
+              onStartScan={handleStartScan}
+              onDetectContexts={handleDetectContexts}
+              onBrowseOutput={handleBrowseOutput}
+              onBrowseKubeconfig={handleBrowseKubeconfig}
+              onBrowseCACert={handleBrowseCACert}
+            />
+          )}
           {view === "live" && <LiveView events={events} activeRunId={activeRunId} activePercent={activePercent} onCancel={handleCancelRun} />}
           {view === "results" && workspace && <ResultsView workspace={workspace} resultTab={resultTab} setResultTab={setResultTab} findingFilter={findingFilter} setFindingFilter={setFindingFilter} exportNotice={exportNotice} onExport={handleExport} />}
           {view === "settings" && <SettingsView settings={settings} busy={busy} setSettings={setSettings} openBundlePath={openBundlePath} setOpenBundlePath={setOpenBundlePath} onSave={handleSaveSettings} onOpenBundle={() => handleOpenBundlePath(openBundlePath)} />}

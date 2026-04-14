@@ -10,7 +10,7 @@ const previewUrl = "http://127.0.0.1:4173";
 
 const pages = [
   { url: `${previewUrl}/?view=home`, file: path.join(repoRoot, "images", "gui-dashboard.png") },
-  { url: `${previewUrl}/?view=scan`, file: path.join(repoRoot, "images", "gui-scan-setup.png") },
+  { url: `${previewUrl}/?view=scan&scanConnection=api_endpoint`, file: path.join(repoRoot, "images", "gui-scan-setup.png") },
   { url: `${previewUrl}/?view=live`, file: path.join(repoRoot, "images", "gui-live-run.png") },
   { url: `${previewUrl}/?view=results&tab=Findings`, file: path.join(repoRoot, "images", "gui-results-findings.png") },
   { url: `${previewUrl}/?view=results&tab=Compare`, file: path.join(repoRoot, "images", "gui-compare.png") },
