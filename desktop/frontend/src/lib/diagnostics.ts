@@ -58,6 +58,16 @@ export function diagnoseFailure(request: Pick<ScanRequest, "connectionMethod">, 
   }
 
   if (isReachabilityFailure(lower)) {
+    if (request.connectionMethod === "kubeconfig_file" || request.connectionMethod === "kubeconfig_inline") {
+      return {
+        code: "endpoint_unreachable",
+        label: "Cluster reachability",
+        summary: "The kubeconfig was accepted, but the cluster API it points to is not reachable from this machine.",
+        detail,
+        nextAction:
+          "The file is valid. Check VPN, private DNS, firewall path, proxy, or whether the kubeconfig points at an internal-only control-plane endpoint that only works from a work jumpbox or cluster network.",
+      };
+    }
     return {
       code: "endpoint_unreachable",
       label: "API reachability",

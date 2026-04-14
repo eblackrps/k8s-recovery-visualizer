@@ -134,7 +134,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.0`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.1`.
 
 ## CLI And Desktop At A Glance
 

@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.9.1] - 2026-04-14
+
+Patch release for `k8s-recovery-visualizer`: this follow-up fixes the broken first-run Home layout and makes kubeconfig connection failures much clearer when a valid file points at a cluster API that is unreachable from the current machine.
+
+### Fixed
+
+- Corrected the first-run Home grid so the primary onboarding panel no longer collapses into a narrow unreadable column.
+- Updated desktop connection diagnostics so kubeconfig mode can say the file was accepted while the cluster API inside it is still unreachable from the current machine.
+- Surfaced kubeconfig reachability warnings directly on the kubeconfig field during connection testing instead of only in generic failure copy.
+- Refreshed the maintained dashboard screenshot so the repo gallery matches the repaired first-run layout.
+
 ## [1.9.0] - 2026-04-14
 
 Minor release for `k8s-recovery-visualizer`: this release turns the desktop app into a more guided first-run product by making connection choice clearer, kubeconfig intake more forgiving, failure handling more actionable, and successful scan handoff much more explicit.

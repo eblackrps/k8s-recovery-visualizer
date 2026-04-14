@@ -232,6 +232,57 @@ describe("ScanView", () => {
     expect(screen.getByText(/does not trust the api server certificate/i)).toBeInTheDocument();
   });
 
+  it("tells kubeconfig users when the file was accepted but the cluster is unreachable from this machine", () => {
+    renderScanView({
+      scanForm: {
+        ...baseRequest,
+        connectionMethod: "kubeconfig_file",
+        kubeconfigPath: "C:/handoff/prod-cluster.backup",
+      },
+      connectionTest: {
+        canConnect: false,
+        source: "kubeconfig file",
+        server: "https://prod-api.internal:6443",
+        contextName: "prod-east-admin",
+        summary: "The kubeconfig was accepted, but the cluster API it points to is not reachable from this machine.",
+        nextAction:
+          "The file is valid. Check VPN, private DNS, firewall path, proxy, or whether the kubeconfig points at an internal-only control-plane endpoint that only works from a work jumpbox or cluster network.",
+        diagnosis: {
+          code: "endpoint_unreachable",
+          label: "Cluster reachability",
+          summary: "The kubeconfig was accepted, but the cluster API it points to is not reachable from this machine.",
+          detail: "dial tcp: lookup prod-api.internal: no such host",
+          nextAction:
+            "The file is valid. Check VPN, private DNS, firewall path, proxy, or whether the kubeconfig points at an internal-only control-plane endpoint that only works from a work jumpbox or cluster network.",
+        },
+        fieldWarnings: {
+          kubeconfigPath:
+            "The kubeconfig parsed correctly, but the cluster API inside it is not reachable from this machine.",
+        },
+        checks: [
+          { id: "config", title: "Connection settings loaded", status: "pass", detail: "Kubeconfig loaded." },
+          {
+            id: "transport",
+            title: "Cluster API reachability",
+            status: "fail",
+            detail: "dial tcp: lookup prod-api.internal: no such host",
+          },
+        ],
+      },
+    });
+
+    expect(screen.getAllByText("Cluster reachability").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/the kubeconfig was accepted, but the cluster api it points to is not reachable from this machine/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(screen.getByLabelText("Kubeconfig file").closest("label") as HTMLElement).getByText(
+        /the kubeconfig parsed correctly, but the cluster api inside it is not reachable from this machine/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows machine readiness guidance when existing access is not ready", () => {
     renderScanView({
       connectionAdvisor: {

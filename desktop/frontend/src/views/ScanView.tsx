@@ -115,11 +115,14 @@ export function ScanView(props: {
     props.setScanForm((current) => ({ ...current, [key]: value }));
   };
   const connectionFieldError = (field: ScanFieldName) =>
-    props.showValidationErrors ? props.connectionValidation.fieldErrors[field] : undefined;
+    props.connectionTest?.fieldErrors?.[field] ||
+    (props.showValidationErrors ? props.connectionValidation.fieldErrors[field] : undefined);
   const scanFieldError = (field: ScanFieldName) =>
     props.showValidationErrors ? props.validation.fieldErrors[field] : undefined;
   const fieldWarning = (field: ScanFieldName) =>
-    props.connectionValidation.fieldWarnings[field] || props.validation.fieldWarnings[field];
+    props.connectionTest?.fieldWarnings?.[field] ||
+    props.connectionValidation.fieldWarnings[field] ||
+    props.validation.fieldWarnings[field];
 
   return (
     <section className="page-grid scan-grid scan-workflow-grid">
@@ -244,6 +247,7 @@ export function ScanView(props: {
                     contextCatalog={props.contextCatalog}
                     detectingContexts={props.detectingContexts}
                     fieldError={connectionFieldError}
+                    fieldWarning={fieldWarning}
                     onBrowseKubeconfig={props.onBrowseKubeconfig}
                     onInspectKubeconfig={props.onInspectKubeconfig}
                     onDetectContexts={props.onDetectContexts}
@@ -261,6 +265,7 @@ export function ScanView(props: {
                     detectingContexts={props.detectingContexts}
                     scanForm={props.scanForm}
                     fieldError={connectionFieldError}
+                    fieldWarning={fieldWarning}
                     onInspectKubeconfig={props.onInspectKubeconfig}
                     onDetectContexts={props.onDetectContexts}
                     updateForm={updateForm}
@@ -471,6 +476,7 @@ function KubeconfigFileSetup(props: {
   contextCatalog: ContextCatalog | null;
   detectingContexts: boolean;
   fieldError: (field: ScanFieldName) => string | undefined;
+  fieldWarning: (field: ScanFieldName) => string | undefined;
   onBrowseKubeconfig: () => void | Promise<void>;
   onInspectKubeconfig: () => void | Promise<void>;
   onDetectContexts: () => void | Promise<void>;
@@ -482,7 +488,7 @@ function KubeconfigFileSetup(props: {
 }) {
   return (
     <div className="scan-stage-stack">
-      <Field label="Kubeconfig file" hint="Any valid kubeconfig works here, including config, .yaml, .backup, or a file with no extension. If browsing is awkward, use Paste kubeconfig instead." error={props.fieldError("kubeconfigPath")}>
+      <Field label="Kubeconfig file" hint="Any valid kubeconfig works here, including config, .yaml, .backup, or a file with no extension. If browsing is awkward, use Paste kubeconfig instead." warning={props.fieldWarning("kubeconfigPath")} error={props.fieldError("kubeconfigPath")}>
         <div className="inline-field">
           <input aria-label="Kubeconfig file" data-scan-field="kubeconfigPath" placeholder="C:\\Users\\you\\.kube\\config" value={props.scanForm.kubeconfigPath || ""} onChange={(event) => props.updateForm("kubeconfigPath", event.target.value)} />
           <button type="button" className="button secondary" onClick={() => void props.onBrowseKubeconfig()} disabled={props.busy}>Browse</button>
@@ -514,6 +520,7 @@ function KubeconfigInlineSetup(props: {
   detectingContexts: boolean;
   scanForm: ScanRequest;
   fieldError: (field: ScanFieldName) => string | undefined;
+  fieldWarning: (field: ScanFieldName) => string | undefined;
   onInspectKubeconfig: () => void | Promise<void>;
   onDetectContexts: () => void | Promise<void>;
   updateForm: <K extends keyof ScanRequest>(key: K, value: ScanRequest[K]) => void;
@@ -527,7 +534,7 @@ function KubeconfigInlineSetup(props: {
         loadedLabel={props.loadedKubeconfigLabel}
         onLoadDroppedKubeconfig={props.onLoadDroppedKubeconfig}
       />
-      <Field label="Pasted kubeconfig" hint="Paste raw kubeconfig YAML exactly as provided. No renaming, wrapping, or conversion is needed." error={props.fieldError("kubeconfigContent")}>
+      <Field label="Pasted kubeconfig" hint="Paste raw kubeconfig YAML exactly as provided. No renaming, wrapping, or conversion is needed." warning={props.fieldWarning("kubeconfigContent")} error={props.fieldError("kubeconfigContent")}>
         <textarea aria-label="Pasted kubeconfig" data-scan-field="kubeconfigContent" rows={12} placeholder={"apiVersion: v1\nkind: Config\nclusters:\n- name: prod-east"} value={props.scanForm.kubeconfigContent || ""} onChange={(event) => props.updateForm("kubeconfigContent", event.target.value)} spellCheck={false} />
       </Field>
       <div className="toolbar wrap-toolbar">

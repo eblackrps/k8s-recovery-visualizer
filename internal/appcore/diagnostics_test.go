@@ -54,6 +54,26 @@ func TestDiagnoseFailureCategorizesCommonOperatorIssues(t *testing.T) {
 	}
 }
 
+func TestDiagnoseFailureMarksKubeconfigReachabilitySeparately(t *testing.T) {
+	diagnosis := diagnoseFailure(
+		ScanRequest{ConnectionMethod: ConnectionMethodKubeconfigFile},
+		`Get "https://prod-api.internal:6443/version": dial tcp: lookup prod-api.internal: no such host`,
+	)
+
+	if diagnosis.Code != "endpoint_unreachable" {
+		t.Fatalf("diagnoseFailure() code = %q, want endpoint_unreachable", diagnosis.Code)
+	}
+	if diagnosis.Label != "Cluster reachability" {
+		t.Fatalf("diagnoseFailure() label = %q, want Cluster reachability", diagnosis.Label)
+	}
+	if diagnosis.Summary != "The kubeconfig was accepted, but the cluster API it points to is not reachable from this machine." {
+		t.Fatalf("diagnoseFailure() summary = %q", diagnosis.Summary)
+	}
+	if diagnosis.NextAction == "" {
+		t.Fatalf("diagnoseFailure() nextAction = empty, want actionable follow-up")
+	}
+}
+
 func TestReportConnectionFailureAppliesFieldFeedbackForKnownFailures(t *testing.T) {
 	report := reportConnectionFailure(
 		ScanRequest{ConnectionMethod: ConnectionMethodAPIEndpoint},
@@ -68,6 +88,26 @@ func TestReportConnectionFailureAppliesFieldFeedbackForKnownFailures(t *testing.
 	}
 	if report.FieldErrors["caTrust"] == "" {
 		t.Fatalf("FieldErrors = %#v, want caTrust feedback", report.FieldErrors)
+	}
+}
+
+func TestReportConnectionFailureWarnsWhenAcceptedKubeconfigCannotReachCluster(t *testing.T) {
+	report := reportConnectionFailure(
+		ScanRequest{ConnectionMethod: ConnectionMethodKubeconfigFile},
+		"kubeconfig file",
+		"https://prod-api.internal:6443",
+		"prod-east-admin",
+		testError(`Get "https://prod-api.internal:6443/version": dial tcp: lookup prod-api.internal: no such host`),
+	)
+
+	if report.Diagnosis == nil || report.Diagnosis.Code != "endpoint_unreachable" {
+		t.Fatalf("Diagnosis = %#v, want endpoint_unreachable", report.Diagnosis)
+	}
+	if report.FieldWarnings["kubeconfigPath"] == "" {
+		t.Fatalf("FieldWarnings = %#v, want kubeconfigPath feedback", report.FieldWarnings)
+	}
+	if len(report.Checks) == 0 || report.Checks[len(report.Checks)-1].Title != "Cluster API reachability" {
+		t.Fatalf("Checks = %#v, want Cluster API reachability check", report.Checks)
 	}
 }
 

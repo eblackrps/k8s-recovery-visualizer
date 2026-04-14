@@ -240,9 +240,15 @@ func reportConnectionFailure(req ScanRequest, source, server, contextName string
 		if req.ConnectionMethod == ConnectionMethodAPIEndpoint {
 			report.FieldErrors["apiServerEndpoint"] = "K8V could not reach this API server address from the current machine."
 		}
+		if req.ConnectionMethod == ConnectionMethodKubeconfigFile {
+			report.FieldWarnings["kubeconfigPath"] = "The kubeconfig parsed correctly, but the cluster API inside it is not reachable from this machine."
+		}
+		if req.ConnectionMethod == ConnectionMethodKubeconfigInline {
+			report.FieldWarnings["kubeconfigContent"] = "The kubeconfig parsed correctly, but the cluster API inside it is not reachable from this machine."
+		}
 		report.Checks = append(report.Checks, ConnectionTestCheck{
 			ID:     "transport",
-			Title:  "API server reachability",
+			Title:  "Cluster API reachability",
 			Status: "fail",
 			Detail: message,
 			Hint:   diagnosis.NextAction,

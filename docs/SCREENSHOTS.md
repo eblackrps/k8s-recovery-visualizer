@@ -1,6 +1,6 @@
 # Desktop Screenshot Workflow
 
-The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current six-image set reflects the guided operator-console desktop UX shipped in the `v1.9.0` release line.
+The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current six-image set reflects the guided operator-console desktop UX shipped in the `v1.9.1` release line.
 
 ## Current Screenshot Set
 

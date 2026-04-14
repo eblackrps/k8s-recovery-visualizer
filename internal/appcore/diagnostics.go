@@ -48,6 +48,15 @@ func diagnoseFailure(req ScanRequest, message string) FailureDiagnosis {
 			NextAction: "Add the issuing CA, use a kubeconfig with embedded CA data, or use skip-TLS only as a temporary workaround in a trusted environment.",
 		}
 	case isReachabilityFailure(lower):
+		if req.ConnectionMethod == ConnectionMethodKubeconfigFile || req.ConnectionMethod == ConnectionMethodKubeconfigInline {
+			return FailureDiagnosis{
+				Code:       "endpoint_unreachable",
+				Label:      "Cluster reachability",
+				Summary:    "The kubeconfig was accepted, but the cluster API it points to is not reachable from this machine.",
+				Detail:     detail,
+				NextAction: "The file is valid. Check VPN, private DNS, firewall path, proxy, or whether the kubeconfig points at an internal-only control-plane endpoint that only works from a work jumpbox or cluster network.",
+			}
+		}
 		return FailureDiagnosis{
 			Code:       "endpoint_unreachable",
 			Label:      "API reachability",

@@ -415,12 +415,12 @@ code {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.home-actions-panel {
-  grid-column: span 5;
+.home-start-panel {
+  grid-column: span 7;
 }
 
 .home-posture-panel {
-  grid-column: span 7;
+  grid-column: span 5;
 }
 
 .home-bundles-panel {
@@ -837,6 +837,10 @@ code {
 
 .action-grid-two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-start-panel .action-grid-two {
+  grid-template-columns: 1fr;
 }
 
 .action-tile {
@@ -1856,7 +1860,7 @@ tbody tr:hover {
 }
 
 @media (max-width: 1180px) {
-  .home-actions-panel,
+  .home-start-panel,
   .home-posture-panel,
   .home-bundles-panel,
   .home-watch-panel,

@@ -8,7 +8,7 @@ const (
 )
 
 var (
-	Version   = "1.9.0"
+	Version   = "1.9.1"
 	BuildDate = "unknown"
 )
 
