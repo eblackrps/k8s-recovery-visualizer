@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { backend, mockWorkspace } from "./lib/backend";
 import type {
   AppAlert,
@@ -20,7 +20,8 @@ import type {
 import type { ScanFieldName } from "./lib/scanForm";
 import { diagnoseFailure as diagnoseUiFailure } from "./lib/diagnostics";
 import { haveConnectionInputsChanged, haveContextInputsChanged, inspectConnectionSetup, inspectScanForm, prepareScanRequest, sanitizeScanForm, validateContextDiscovery } from "./lib/scanForm";
-import { Badge, applyTheme, exportMessage, titleCase, toneForMaturity } from "./components/ui";
+import { applyTheme, exportMessage, titleCase } from "./components/ui";
+import { NavIcon, type NavIconName, navIcons } from "./components/NavIcons";
 import { HomeView, ProjectsView } from "./views/HomeProjectsView";
 import { ScanView } from "./views/ScanView";
 import { LiveView } from "./views/LiveView";
@@ -39,6 +40,15 @@ const navItems: Array<{ id: Exclude<View, "complete">; label: string }> = [
   { id: "results", label: "Results" },
   { id: "settings", label: "Settings" },
 ];
+
+const navIconNames: Partial<Record<Exclude<View, "complete">, NavIconName>> = {
+  home: "home",
+  projects: "projects",
+  scan: "scan",
+  live: "live",
+  results: "results",
+  settings: "settings",
+};
 
 function searchParams() {
   return new URLSearchParams(window.location.search);
@@ -159,6 +169,41 @@ function defaultScanForm(browserDemo: boolean): ScanRequest {
     apiServerEndpoint: browserDemo && connectionMethod === "api_endpoint" ? "https://prod-east.example.net:6443" : "",
     caCertPath: browserDemo && connectionMethod === "api_endpoint" ? "./demo-certs/prod-east-ca.pem" : "",
   };
+}
+
+function buildInitialScanRequest(browserDemo: boolean, settings: Settings): ScanRequest {
+  const base = defaultScanForm(browserDemo);
+  return sanitizeScanForm({
+    ...base,
+    outputDir: settings.defaultOutputDir || base.outputDir,
+    profileName: settings.defaultProfile || base.profileName,
+    summary: settings.summary,
+    runbook: settings.runbook,
+    redact: settings.redact,
+    csvExport: settings.csvExport,
+    includeSecretMetadata: settings.includeSecretMetadata,
+  });
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && (
+      target.isContentEditable ||
+      target.closest("[contenteditable='true'], [contenteditable='']") !== null
+    ));
+}
+
+function navButtonTitle(view: Exclude<View, "complete">, label: string) {
+  switch (view) {
+    case "home":
+      return `${label} (Ctrl+H)`;
+    case "scan":
+      return `${label} (Ctrl+N)`;
+    default:
+      return label;
+  }
 }
 
 const scanFieldOrder: ScanFieldName[] = [
@@ -299,9 +344,17 @@ export default function App() {
   const [runFailure, setRunFailure] = useState<FailureDiagnosis | null>(null);
   const [exportNotice, setExportNotice] = useState("");
   const [findingFilter, setFindingFilter] = useState("ALL");
+  const [scanFormTouched, setScanFormTouched] = useState(false);
   const [scanForm, setScanForm] = useState<ScanRequest>(defaultScanForm(browserDemo));
   const connectionValidation = mergeFieldFeedback(inspectConnectionSetup(scanForm, { insecureAcknowledged }), fieldErrors, fieldWarnings);
   const scanValidation = mergeFieldFeedback(inspectScanForm(scanForm, { insecureAcknowledged }), fieldErrors, fieldWarnings);
+  const canResetScanForm =
+    scanFormTouched || Boolean(connectionTest) || Boolean(preflight) || scanStage !== "connect";
+  const hasMeaningfulScanState = scanStage !== "connect" && (
+    Boolean(connectionTest) ||
+    Boolean(preflight) ||
+    scanFormTouched
+  );
 
   function updateScanForm(updater: (current: ScanRequest) => ScanRequest) {
     const proposed = updater(scanForm);
@@ -338,6 +391,7 @@ export default function App() {
       setInsecureAcknowledged(false);
     }
     setRunFailure(null);
+    setScanFormTouched(true);
     setScanForm(next);
   }
 
@@ -447,19 +501,9 @@ export default function App() {
   const bundle = workspace?.bundle;
   const activePercent = events.length > 0 ? events[events.length - 1].percent || 0 : 0;
   const currentViewLabel = describeView(view);
+  const isScanView = view === "scan";
   const environmentLabel = bundle?.metadata.environment || (browserDemo ? "production" : "ready");
   const clusterLabel = bundle?.metadata.clusterName || (browserDemo ? "demo-workspace" : "no bundle");
-  const providerLabel = bundle?.cluster.platform?.provider || (browserDemo ? "fixture bundle" : "no bundle");
-  const versionLabel = bundle?.cluster.platform?.k8sVersion || (browserDemo ? "preview" : "idle");
-  const statusDetail = bundle
-    ? `${bundle.cluster.platform?.provider || "Unknown platform"} ${bundle.cluster.platform?.k8sVersion || ""}`.trim()
-    : browserDemo
-      ? firstRunDemo
-        ? "A live scan writes a portable bundle and report to your chosen output directory."
-        : view === "complete"
-          ? "The portable bundle and offline reports are ready for review and handoff."
-          : "Fixture bundle loaded for preview."
-      : "A live scan writes a portable bundle and report to your chosen output directory.";
 
   function showBanner(tone: BannerTone, message: string) {
     setActionBanner({ tone, message });
@@ -512,6 +556,7 @@ export default function App() {
       connectionMethod: "kubeconfig_file",
       kubeconfigPath: connectionAdvisor.defaultKubeconfigPath,
     });
+    setScanFormTouched(true);
     setScanForm(nextRequest);
     setScanStage("validate");
     await handleInspectKubeconfig(nextRequest);
@@ -850,6 +895,7 @@ export default function App() {
     setPreflight(null);
     setContextCatalog(null);
     applyFieldFeedback({}, {});
+    setScanFormTouched(true);
     setScanForm(nextRequest);
     setScanStage("validate");
     setBusy(true);
@@ -919,6 +965,7 @@ export default function App() {
     setPreflight(null);
     setFieldErrors({});
     setFieldWarnings({});
+    setScanFormTouched(false);
     setRecentCompletion(null);
     setRunFailure(null);
     setScanStage(stage);
@@ -926,8 +973,103 @@ export default function App() {
     setView("scan");
   }
 
+  function handleResetScanForm() {
+    clearBanner();
+    setConnectionTest(null);
+    setPreflight(null);
+    setKubeconfigInspection(null);
+    setContextCatalog(null);
+    setFieldErrors({});
+    setFieldWarnings({});
+    setLoadedKubeconfigLabel("");
+    setInsecureAcknowledged(false);
+    setRunFailure(null);
+    setScanValidationRequest({ version: 0 });
+    setScanFormTouched(false);
+    setScanForm(buildInitialScanRequest(browserDemo, settings));
+    setScanStage("connect");
+    setStatusMessage("Choose a connection path and validate it before the scan.");
+  }
+
+  function confirmLeavingScanSetup(nextView: View) {
+    if (view !== "scan" || nextView === "scan" || !hasMeaningfulScanState) {
+      return true;
+    }
+    return window.confirm("Leave scan setup? Your connection test and preflight results will be kept, but form changes may be lost.");
+  }
+
+  function handleSidebarNavigation(nextView: Exclude<View, "complete">) {
+    if (nextView === "scan") {
+      handleOpenScan("connect");
+      return;
+    }
+    if (nextView === view) {
+      return;
+    }
+    if (!confirmLeavingScanSetup(nextView)) {
+      return;
+    }
+    setView(nextView);
+  }
+
+  const handlersRef = useRef({
+    handleOpenScan,
+    handlePickBundle,
+    handleSidebarNavigation,
+  });
+
+  useEffect(() => {
+    handlersRef.current = {
+      handleOpenScan,
+      handlePickBundle,
+      handleSidebarNavigation,
+    };
+  });
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (busy || !event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+      const { handleOpenScan: openScan, handlePickBundle: pickBundle, handleSidebarNavigation: navigateSidebar } =
+        handlersRef.current;
+      switch (event.key.toLowerCase()) {
+        case "n":
+          event.preventDefault();
+          openScan("connect");
+          break;
+        case "o":
+          event.preventDefault();
+          void pickBundle();
+          break;
+        case "h":
+          event.preventDefault();
+          navigateSidebar("home");
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [busy]);
+
+  const topbarActions = view === "results" && bundle ? (
+    <>
+      <button type="button" className="button primary" onClick={() => handleOpenScan("connect")}>
+        Run new scan
+      </button>
+      <button type="button" className="button secondary quiet" onClick={() => setView("settings")}>
+        Settings
+      </button>
+    </>
+  ) : null;
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isScanView ? " scan-shell" : ""}`}>
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">K8V</div>
@@ -937,17 +1079,27 @@ export default function App() {
           </div>
         </div>
         <nav className="nav">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`nav-link ${view === item.id || (view === "complete" && item.id === "results") ? "is-active" : ""}`}
-              onClick={() => (item.id === "scan" ? handleOpenScan("connect") : setView(item.id))}
-              aria-current={view === item.id || (view === "complete" && item.id === "results") ? "page" : undefined}
-            >
-              {item.label}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const iconName = navIconNames[item.id];
+            const hasIcon = iconName ? Boolean(navIcons[iconName]) : false;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-link ${view === item.id || (view === "complete" && item.id === "results") ? "is-active" : ""}`}
+                onClick={() => handleSidebarNavigation(item.id)}
+                aria-current={view === item.id || (view === "complete" && item.id === "results") ? "page" : undefined}
+                title={navButtonTitle(item.id, item.label)}
+              >
+                {hasIcon && iconName ? (
+                  <span className="nav-icon" aria-hidden="true">
+                    <NavIcon name={iconName} />
+                  </span>
+                ) : null}
+                <span className="nav-label">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
         <div className="sidebar-footer">
           <p className="eyebrow">Workspace</p>
@@ -955,12 +1107,11 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="workspace">
+      <div className={`workspace${isScanView ? " scan-workspace" : ""}`}>
         <header className="topbar">
           <div className="status-stack">
             <p className="eyebrow">{currentViewLabel}</p>
             <h2>{statusMessage}</h2>
-            <p className="muted">{statusDetail}</p>
           </div>
           <div className="topbar-actions">
             {bundle ? (
@@ -968,13 +1119,6 @@ export default function App() {
                 <div className="context-cluster">
                   <strong>{clusterLabel}</strong>
                   <span className="muted">{environmentLabel}</span>
-                </div>
-                <div className="context-meta">
-                  <Badge>{providerLabel}</Badge>
-                  <Badge>{versionLabel}</Badge>
-                  <Badge tone={toneForMaturity(bundle.score.maturity || (browserDemo ? "GOLD" : ""))}>
-                    {`${bundle.score.maturity} ${bundle.score.overall.final}`}
-                  </Badge>
                 </div>
               </div>
             ) : (
@@ -985,14 +1129,16 @@ export default function App() {
                 <p className="muted">Run a scan to create a portable bundle, or open an existing bundle for offline review.</p>
               </div>
             )}
-            <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy}>
-              Open Existing Bundle
-            </button>
+            {topbarActions}
+            {topbarActions ? null : (
+              <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy} title="Open existing bundle (Ctrl+O)">
+                Open Existing Bundle
+              </button>
+            )}
           </div>
         </header>
-        {actionBanner ? <p className={`notice notice-${actionBanner.tone}`}>{actionBanner.message}</p> : null}
-
-        <main className="main-content">
+        <main className={`main-content${isScanView ? " scan-view-content" : ""}`}>
+          {actionBanner ? <p className={`notice notice-${actionBanner.tone} action-banner`}>{actionBanner.message}</p> : null}
           {view === "home" && (
             <HomeView
               workspace={workspace}
@@ -1038,6 +1184,8 @@ export default function App() {
               onBrowseOutput={handleBrowseOutput}
               onBrowseKubeconfig={handleBrowseKubeconfig}
               onBrowseCACert={handleBrowseCACert}
+              canReset={canResetScanForm}
+              onResetScanForm={handleResetScanForm}
               onLoadDroppedKubeconfig={handleLoadDroppedKubeconfig}
               loadedKubeconfigLabel={loadedKubeconfigLabel}
             />

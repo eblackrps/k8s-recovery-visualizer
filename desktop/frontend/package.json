@@ -1,11 +1,12 @@
 {
   "name": "k8s-recovery-visualizer-desktop",
   "private": true,
-  "version": "1.9.2",
+  "version": "1.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "test": "vitest run",
     "screenshots": "npm run build && node ./scripts/screenshots.mjs"

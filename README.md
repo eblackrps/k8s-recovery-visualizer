@@ -7,8 +7,10 @@
 
 `k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
+<!-- TODO: refresh screenshot for v1.10.0 -->
+- Home view placeholder: first-run onboarding, machine readiness, tighter enterprise surfaces, and the trimmed topbar now define the refreshed desktop entry point.
+
 <p align="center">
-  <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
   <img alt="K8V findings workspace with prioritized recovery actions" src="images/gui-results-findings.png" width="49%" />
 </p>
 
@@ -68,6 +70,7 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 5. In **New Scan**, follow the guided four-step flow:
    choose a connection, test it, choose scope and outputs, then run preflight before launch.
    The Home view and Step 1 now include a machine-readiness summary so you can see whether current login, a default kubeconfig, or only manual access paths are actually available on that machine.
+   Profile, recovery target, timeout, and compare baseline stay visible in the scope step; customer, site, and enterprise metadata toggles stay tucked into the **Enterprise metadata** accordion.
 6. Start with **Use existing access** when `kubectl` or the default kubeconfig already reaches the cluster from that machine.
 7. Use **Load kubeconfig file** or **Paste kubeconfig** when operators hand you kubeconfig access. `K8V` validates kubeconfig content, so files like `prod-cluster.backup`, `config`, or extensionless names are all accepted if the contents are valid.
    If the desktop inspector flags missing local CA or client-certificate files, the kubeconfig YAML copied over but the supporting files did not. Bring those files too or export a self-contained kubeconfig with embedded `*-data` fields.
@@ -78,6 +81,12 @@ Deprecated release surfaces and contributor-only build paths are documented in [
    The Results workspace also keeps the output directory, bundle path, and primary report path visible so first-time operators know exactly what was generated and where it landed.
    After a live run finishes, K8V now shows a quieter scan-complete handoff with the primary next steps visible first and secondary file actions grouped under `More actions`.
    That completion step appears before the operator has to navigate results tabs, so the “what happened” and “what do I do next” answers are explicit.
+
+#### Keyboard shortcuts
+
+- `Ctrl+N` opens **New Scan**.
+- `Ctrl+O` opens **Open Existing Bundle**.
+- `Ctrl+H` returns to **Home**.
 
 ### Desktop Development Quickstart
 
@@ -123,8 +132,10 @@ make build
 
 ## Latest Desktop Screenshots
 
+<!-- TODO: refresh screenshot for v1.10.0 -->
+- Home view placeholder: onboarding cards appear only on the first run, while returning operators see the tighter four-panel workspace without repeated explainer content.
+
 <p align="center">
-  <img alt="K8V first-run onboarding and machine readiness" src="images/gui-dashboard.png" width="32%" />
   <img alt="K8V guided API endpoint scan setup" src="images/gui-scan-setup.png" width="32%" />
   <img alt="K8V live run progress" src="images/gui-live-run.png" width="32%" />
 </p>
@@ -135,7 +146,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.2`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.10.0`.
 
 ## CLI And Desktop At A Glance
 

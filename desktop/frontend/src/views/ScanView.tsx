@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import type {
   ConnectionAdvisor,
@@ -25,7 +25,6 @@ import {
   Field,
   KeyValueGrid,
   MetricCard,
-  ReadinessList,
   ReviewCard,
   SectionHeader,
   Stepper,
@@ -55,6 +54,27 @@ const connectionChoices: Record<ConnectionMethod, { label: string; description: 
   },
 };
 
+type LaunchGateKind =
+  | "connection_required"
+  | "connection_failed"
+  | "validation_errors"
+  | "preflight_blocked"
+  | "preflight_passed"
+  | "risks_present"
+  | "ready";
+
+type LaunchGate = {
+  kind: LaunchGateKind;
+  tone: "error" | "warning" | "info";
+  title: string;
+  detail: string;
+  step: "validate" | "outputs" | null;
+};
+
+function launchGateButtonLabel(step: "validate" | "outputs") {
+  return step === "validate" ? "Go to connection test" : "Go to scope & outputs";
+}
+
 export function ScanView(props: {
   busy: boolean;
   scanForm: ScanRequest;
@@ -82,22 +102,45 @@ export function ScanView(props: {
   onBrowseOutput: () => void | Promise<void>;
   onBrowseKubeconfig: () => void | Promise<void>;
   onBrowseCACert: () => void | Promise<void>;
+  canReset: boolean;
+  onResetScanForm: () => void;
   onLoadDroppedKubeconfig: (fileName: string, content: string) => void | Promise<void>;
   loadedKubeconfigLabel?: string;
 }) {
   const [tokenVisible, setTokenVisible] = useState(false);
   const connectionMethod = props.scanForm.connectionMethod || "current";
+  const previousConnectionMethodRef = useRef(connectionMethod);
   const trustMode = describeTrustMode(props.scanForm);
   const authMode = describeAuthMode(props.scanForm);
   const selectedChoice = connectionChoices[connectionMethod];
   const reviewCards = buildReviewCards(props.scanForm, authMode, trustMode, props.validation.riskFlags);
-  const artifacts = plannedArtifactsForScan(props.scanForm);
+  const launchGate = computeLaunchGate({
+    connectionTest: props.connectionTest,
+    preflight: props.preflight,
+    showValidationErrors: props.showValidationErrors,
+    validation: props.validation,
+    connectionMethod,
+    insecure: Boolean(props.scanForm.insecure),
+  });
+  const launchGateRole = launchGate.tone === "error" ? "alert" : "status";
 
   useEffect(() => {
     if (connectionMethod !== "api_endpoint") {
       setTokenVisible(false);
     }
   }, [connectionMethod]);
+
+  useEffect(() => {
+    if (
+      previousConnectionMethodRef.current !== connectionMethod &&
+      connectionMethod === "current" &&
+      !props.contextCatalog &&
+      !props.detectingContexts
+    ) {
+      void props.onDetectContexts();
+    }
+    previousConnectionMethodRef.current = connectionMethod;
+  }, [connectionMethod, props.contextCatalog, props.detectingContexts, props.onDetectContexts]);
 
   useEffect(() => {
     if (!props.validationRequest.version || !props.validationRequest.field) {
@@ -131,6 +174,20 @@ export function ScanView(props: {
           eyebrow="Guided Scan"
           title="Connect, validate, scope, and launch"
           description="Pick the simplest access path, prove the connection works, decide what to collect and write, then run preflight before the full bundle collection starts."
+          actions={props.canReset ? (
+            <button
+              type="button"
+              className="button secondary quiet"
+              onClick={() => {
+                if (window.confirm("Reset scan setup? This will clear the current form values and return to Step 1.")) {
+                  props.onResetScanForm();
+                }
+              }}
+              disabled={props.busy}
+            >
+              Reset form
+            </button>
+          ) : undefined}
         />
 
         <Stepper
@@ -186,7 +243,6 @@ export function ScanView(props: {
                       </button>
                     ) : null}
                   </div>
-                  <ReadinessList className="compact-readiness-list" items={machineReadinessItems(props.connectionAdvisor)} />
                 </div>
               ) : null}
 
@@ -351,6 +407,10 @@ export function ScanView(props: {
                       <button type="button" className="button secondary" onClick={() => void props.onBrowseOutput()} disabled={props.busy}>Browse</button>
                     </div>
                   </Field>
+                  <Field label="Profile" hint="Standard is the safest default for most first runs."><select value={props.scanForm.profileName || "standard"} onChange={(event) => updateForm("profileName", event.target.value)}><option value="standard">standard</option><option value="enterprise">enterprise</option><option value="dev">dev</option><option value="airgap">airgap</option></select></Field>
+                  <Field label="Recovery target"><select value={props.scanForm.target || "vm"} onChange={(event) => updateForm("target", event.target.value)}><option value="vm">vm</option><option value="baremetal">baremetal</option></select></Field>
+                  <Field label="Timeout (seconds)" hint="Increase this for slower networks or especially large clusters." error={scanFieldError("timeoutSeconds")}><input aria-label="Timeout seconds" data-scan-field="timeoutSeconds" type="number" min={10} value={props.scanForm.timeoutSeconds || 60} onChange={(event) => updateForm("timeoutSeconds", Number(event.target.value))} /></Field>
+                  <Field label="Compare baseline" hint="Optional path to a previous bundle for drift and progress comparisons."><input aria-label="Compare baseline" placeholder="C:\\scans\\previous\\recovery-scan.json" value={props.scanForm.compareTo || ""} onChange={(event) => updateForm("compareTo", event.target.value)} /></Field>
                 </div>
 
                 <section className="artifact-section" aria-label="Output artifacts">
@@ -363,19 +423,10 @@ export function ScanView(props: {
                   </div>
                 </section>
 
-                <section className="artifact-section" aria-label="Planned output files">
-                  <SectionHeader compact title="What will be written" description="This makes the bundle workflow explicit before the run starts." />
-                  <div className="artifact-list">{artifacts.map((artifact) => <div key={artifact.name} className="artifact-row"><strong>{artifact.name}</strong><p className="muted">{artifact.detail}</p></div>)}</div>
-                </section>
-
                 <details className="advanced-panel">
-                  <summary>Advanced settings</summary>
+                  <summary>Enterprise metadata (optional)</summary>
                   <div className="advanced-panel-body">
                     <div className="form-grid">
-                      <Field label="Compare baseline" hint="Optional path to a previous bundle for drift and progress comparisons."><input aria-label="Compare baseline" placeholder="C:\\scans\\previous\\recovery-scan.json" value={props.scanForm.compareTo || ""} onChange={(event) => updateForm("compareTo", event.target.value)} /></Field>
-                      <Field label="Profile" hint="Standard is the safest default for most first runs."><select value={props.scanForm.profileName || "standard"} onChange={(event) => updateForm("profileName", event.target.value)}><option value="standard">standard</option><option value="enterprise">enterprise</option><option value="dev">dev</option><option value="airgap">airgap</option></select></Field>
-                      <Field label="Recovery target"><select value={props.scanForm.target || "vm"} onChange={(event) => updateForm("target", event.target.value)}><option value="vm">vm</option><option value="baremetal">baremetal</option></select></Field>
-                      <Field label="Timeout (seconds)" hint="Increase this for slower networks or especially large clusters." error={scanFieldError("timeoutSeconds")}><input aria-label="Timeout seconds" data-scan-field="timeoutSeconds" type="number" min={10} value={props.scanForm.timeoutSeconds || 60} onChange={(event) => updateForm("timeoutSeconds", Number(event.target.value))} /></Field>
                       <Field label="Customer ID (optional)"><input aria-label="Customer ID" placeholder="customer-123" value={props.scanForm.customerId || ""} onChange={(event) => updateForm("customerId", event.target.value)} /></Field>
                       <Field label="Site (optional)"><input aria-label="Site" placeholder="us-east-1a" value={props.scanForm.site || ""} onChange={(event) => updateForm("site", event.target.value)} /></Field>
                     </div>
@@ -398,11 +449,37 @@ export function ScanView(props: {
             <div className="scan-stage-stack">
               <Card title="4. Review, run preflight, then start the scan" description="Preflight checks the final transport, RBAC, scope, and collection readiness using the exact scope and output settings you selected. The real scan collects evidence and writes the bundle afterwards.">
                 <div className="review-grid">{reviewCards.map((card) => <ReviewCard key={card.label} label={card.label} value={card.value} detail={card.detail} tone={card.tone} />)}</div>
-                {props.showValidationErrors && props.validation.errors.length ? <div className="notice notice-error"><strong>Fix these before preflight or launch</strong><ul className="notice-list">{props.validation.errors.map((error) => <li key={error}>{error}</li>)}</ul></div> : null}
-                {props.validation.riskFlags.length ? <div className="notice notice-warning"><strong>Operator risks to double-check</strong><ul className="notice-list">{props.validation.riskFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul></div> : null}
-                {!props.connectionTest?.canConnect ? <div className="notice notice-error"><strong>Connection test still needs to pass</strong><p className="muted">Go back to Step 2 first. Preflight assumes the basic transport, credentials, and TLS path already work.</p></div> : null}
-                {props.connectionTest?.canConnect && !props.preflight ? <div className="notice notice-info"><strong>Ready for full preflight</strong><p className="muted">Run preflight now to check RBAC, scope, and collection readiness with the final settings shown above.</p></div> : null}
-                {props.preflight ? <div className={`notice ${props.preflight.canRun ? "notice-info" : "notice-error"}`}><strong>{props.preflight.canRun ? "Preflight passed" : "Preflight found blockers"}</strong><p className="muted">{props.preflight.canRun ? "The full scan can start. Results and exports will be written to the chosen output directory." : "Resolve the blocking checks in the rail before starting the scan."}</p></div> : null}
+                <div className={`notice notice-${launchGate.tone}`} role={launchGateRole}>
+                  <div className="toolbar wrap-toolbar">
+                    <strong>{launchGate.title}</strong>
+                    {launchGate.step ? (
+                      <button
+                        type="button"
+                        className="button secondary quiet"
+                        onClick={() => launchGate.step && props.onSetScanStage(launchGate.step)}
+                      >
+                        {launchGateButtonLabel(launchGate.step)}
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="muted">{launchGate.detail}</p>
+                  {launchGate.kind === "validation_errors" ? (
+                    <div className="launch-gate-secondary">
+                      <p className="muted assistant-footnote">Resolve these before preflight or launch:</p>
+                      <ul className="notice-list compact-list">
+                        {props.validation.errors.map((error) => <li key={error}>{error}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {props.validation.riskFlags.length ? (
+                    <div className="launch-gate-secondary">
+                      <p className="muted assistant-footnote">Risk flags to confirm:</p>
+                      <ul className="notice-list compact-list">
+                        {props.validation.riskFlags.map((flag) => <li key={flag}>{flag}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="form-actions stage-actions">
                   <button type="button" className="button secondary quiet" onClick={() => props.onSetScanStage("outputs")}>Back to scope and outputs</button>
                   <button type="button" className="button secondary" onClick={() => void props.onPreflight()} disabled={!props.connectionTest?.canConnect || props.busy}>{props.preflight ? "Run preflight again" : "Run preflight"}</button>
@@ -420,7 +497,9 @@ export function ScanView(props: {
           title={props.preflight ? "Connection, RBAC, and collection readiness" : props.connectionTest ? "Transport, auth, and TLS result" : assistantTitle(connectionMethod)}
           description={props.preflight ? "The rail stays focused on blockers, degraded-but-runnable gaps, next actions, and copyable guidance." : props.connectionTest ? "The lightweight test gives the fastest answer to whether this connection works before the deeper preflight pass." : "The rail adapts to the selected connection method so first-time operators can prepare the right endpoint, credentials, and trust path before testing."}
         />
-        {props.preflight ? <PreflightPanel preflight={props.preflight} connectionMethod={connectionMethod} insecure={Boolean(props.scanForm.insecure)} /> : props.connectionTest ? <ConnectionTestPanel report={props.connectionTest} /> : <ConnectionAssistant connectionMethod={connectionMethod} connectionAdvisor={props.connectionAdvisor} kubeconfigInspection={props.kubeconfigInspection} trustMode={trustMode} insecure={Boolean(props.scanForm.insecure)} />}
+        <div className="scan-rail-content">
+          {props.preflight ? <PreflightPanel preflight={props.preflight} connectionMethod={connectionMethod} insecure={Boolean(props.scanForm.insecure)} /> : props.connectionTest ? <ConnectionTestPanel report={props.connectionTest} /> : <ConnectionAssistant connectionMethod={connectionMethod} connectionAdvisor={props.connectionAdvisor} kubeconfigInspection={props.kubeconfigInspection} trustMode={trustMode} insecure={Boolean(props.scanForm.insecure)} />}
+        </div>
       </section>
     </section>
   );
@@ -926,56 +1005,6 @@ function connectionChoiceDetail(method: ConnectionMethod, advisor: ConnectionAdv
   }
 }
 
-function machineReadinessItems(connectionAdvisor: ConnectionAdvisor | null) {
-  if (!connectionAdvisor) {
-    return [
-      {
-        label: "Local access",
-        value: "Checking",
-        detail: "K8V is still checking whether current login or a default kubeconfig is available here.",
-        state: "neutral" as const,
-      },
-    ];
-  }
-
-  return [
-    {
-      label: "Existing access",
-      value: connectionAdvisor.currentContext || (connectionAdvisor.currentLoginAvailable ? "Detected" : "Not detected"),
-      detail:
-        connectionAdvisor.currentLoginWarning ||
-        connectionAdvisor.currentLoginDetail ||
-        "No working local Kubernetes access was detected yet on this machine.",
-      state: connectionAdvisor.currentLoginAvailable
-        ? connectionAdvisor.currentLoginWarning
-          ? ("caution" as const)
-          : ("ready" as const)
-        : ("missing" as const),
-    },
-    {
-      label: "Default kubeconfig",
-      value: connectionAdvisor.defaultKubeconfigPath || "Not found",
-      detail:
-        connectionAdvisor.defaultKubeconfigWarning ||
-        connectionAdvisor.defaultKubeconfigDetail ||
-        "No default kubeconfig was detected in the standard local locations.",
-      state: connectionAdvisor.defaultKubeconfigAvailable
-        ? connectionAdvisor.defaultKubeconfigPortable === false || Boolean(connectionAdvisor.defaultKubeconfigWarning)
-          ? ("caution" as const)
-          : ("ready" as const)
-        : ("missing" as const),
-    },
-    {
-      label: "kubectl CLI (optional)",
-      value: connectionAdvisor.kubectlAvailable ? "Detected" : "Not detected",
-      detail: connectionAdvisor.kubectlAvailable
-        ? connectionAdvisor.kubectlPath || "Useful for endpoint discovery and token commands, but not required for the scan itself."
-        : "Helpful for endpoint discovery and token commands, but K8V can still scan with a kubeconfig or direct API setup.",
-      state: connectionAdvisor.kubectlAvailable ? ("ready" as const) : ("neutral" as const),
-    },
-  ];
-}
-
 function ArtifactToggle(props: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <label className="toggle-card artifact-choice">
@@ -1127,16 +1156,81 @@ function assistantTitle(connectionMethod: ConnectionMethod) {
   }
 }
 
-function plannedArtifactsForScan(scanForm: ScanRequest) {
-  const artifacts = [
-    { name: "recovery-scan.json", detail: "Portable bundle with the collected scan evidence. This is the main file you reopen later." },
-    { name: "recovery-report.html", detail: "Primary operator-facing report view for offline review and handoff." },
-  ];
-  if (scanForm.summary) artifacts.push({ name: "recovery-summary.html", detail: "Condensed summary for leadership, tickets, or quick sharing." });
-  if (scanForm.runbook) artifacts.push({ name: "recovery-runbook.html", detail: "Operator-oriented runbook with follow-up and recovery guidance." });
-  if (scanForm.csvExport) artifacts.push({ name: "csv/", detail: "CSV tables for spreadsheet analysis and evidence export." });
-  if (scanForm.redact) artifacts.push({ name: "recovery-report-redacted.html", detail: "Redacted report for lower-sensitivity sharing." });
-  return artifacts;
+function computeLaunchGate(props: {
+  connectionTest: ConnectionTestReport | null;
+  preflight: PreflightReport | null;
+  showValidationErrors: boolean;
+  validation: ScanValidation;
+  connectionMethod: ConnectionMethod;
+  insecure: boolean;
+}): LaunchGate {
+  if (!props.connectionTest) {
+    return {
+      kind: "connection_required",
+      tone: "error",
+      title: "Connection test required",
+      detail: "Go to Step 2 first. Preflight assumes the basic transport, credentials, and TLS path already work.",
+      step: "validate",
+    };
+  }
+
+  if (!props.connectionTest.canConnect) {
+    return {
+      kind: "connection_failed",
+      tone: "error",
+      title: "Connection test failed",
+      detail: props.connectionTest.nextAction || "Adjust the connection details and rerun the connection test before moving on.",
+      step: "validate",
+    };
+  }
+
+  if (props.showValidationErrors && props.validation.errors.length) {
+    return {
+      kind: "validation_errors",
+      tone: "error",
+      title: "Validation errors",
+      detail: "Resolve the remaining scope, output, or safety settings before preflight or scan start.",
+      step: "outputs",
+    };
+  }
+
+  if (props.preflight) {
+    if (props.preflight.canRun) {
+      return {
+        kind: "preflight_passed",
+        tone: "info",
+        title: "Preflight passed - ready to scan",
+        detail: "The full scan can start. Results and exports will be written to the chosen output directory.",
+        step: null,
+      };
+    }
+
+    return {
+      kind: "preflight_blocked",
+      tone: "error",
+      title: "Preflight found blockers",
+      detail: preflightNextAction(props.preflight, props.connectionMethod, props.insecure),
+      step: null,
+    };
+  }
+
+  if (props.validation.riskFlags.length) {
+    return {
+      kind: "risks_present",
+      tone: "warning",
+      title: "Operator risks to confirm",
+      detail: "Review the flagged transport, trust, or scope risks before you run full preflight.",
+      step: null,
+    };
+  }
+
+  return {
+    kind: "ready",
+    tone: "info",
+    title: "Ready for preflight",
+    detail: "Run preflight now to check RBAC, scope, and collection readiness with the final settings shown above.",
+    step: null,
+  };
 }
 
 function reportSummary(scanForm: ScanRequest) {

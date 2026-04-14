@@ -49,6 +49,8 @@ function renderScanView(overrides: Partial<ComponentProps<typeof ScanView>> = {}
       onBrowseOutput={() => undefined}
       onBrowseKubeconfig={() => undefined}
       onBrowseCACert={() => undefined}
+      canReset={false}
+      onResetScanForm={() => undefined}
       onLoadDroppedKubeconfig={() => undefined}
       loadedKubeconfigLabel=""
       {...overrides}
@@ -260,6 +262,16 @@ describe("ScanView", () => {
     expect(screen.getByText(/does not trust the api server certificate/i)).toBeInTheDocument();
   });
 
+  it("announces blocking launch gates as alerts", () => {
+    renderScanView({
+      scanStage: "launch",
+    });
+
+    const gate = screen.getByRole("alert");
+    expect(within(gate).getByText("Connection test required")).toBeInTheDocument();
+    expect(within(gate).getByRole("button", { name: "Go to connection test" })).toBeInTheDocument();
+  });
+
   it("tells kubeconfig users when the file was accepted but the cluster is unreachable from this machine", () => {
     renderScanView({
       scanForm: {
@@ -331,8 +343,8 @@ describe("ScanView", () => {
     });
 
     expect(screen.getByText("Recommended start on this machine")).toBeInTheDocument();
-    expect(screen.getByText("Default kubeconfig")).toBeInTheDocument();
-    expect(screen.getByText("kubectl CLI (optional)")).toBeInTheDocument();
+    expect(screen.getByText("Fallback if existing access does not work")).toBeInTheDocument();
+    expect(screen.getByText("Use detected kubeconfig")).toBeInTheDocument();
     expect(screen.getAllByText(/missing on this machine/i).length).toBeGreaterThan(0);
     expect(screen.getByText("No local access was positively detected")).toBeInTheDocument();
   });

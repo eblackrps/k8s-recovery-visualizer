@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, vi } from "vitest";
 import App from "./App";
@@ -33,12 +33,48 @@ describe("desktop shell", () => {
     expect(screen.getByText("Connection assistant")).toBeInTheDocument();
   });
 
+  it("supports keyboard shortcuts for new scan, home, and open bundle", async () => {
+    vi.spyOn(mockBackend, "PickBundleFile").mockResolvedValueOnce("");
+
+    render(<App />);
+
+    expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "n", ctrlKey: true });
+    expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+    expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "o", ctrlKey: true });
+    expect(mockBackend.PickBundleFile).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Bundle open canceled.", { selector: "p.notice" })).toBeInTheDocument();
+  });
+
+  it("ignores keyboard shortcuts while focus is inside contenteditable text", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+    editor.textContent = "notes";
+    document.body.appendChild(editor);
+
+    fireEvent.keyDown(editor, { key: "n", ctrlKey: true });
+
+    expect(screen.queryByText("Connect, validate, scope, and launch")).not.toBeInTheDocument();
+    expect(screen.getByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+
+    editor.remove();
+  });
+
   it("uses a first-run home state that explains how the app works", async () => {
     window.history.replaceState({}, "", "/?view=home&firstRun=1");
 
     render(<App />);
 
-    expect(await screen.findByText("No active bundle loaded yet")).toBeInTheDocument();
+    expect(await screen.findByText("Run one scan, then work from the bundle")).toBeInTheDocument();
     expect(screen.getByText("How K8V works")).toBeInTheDocument();
     expect(screen.getByText("What a scan produces")).toBeInTheDocument();
     expect(screen.getByText("Machine readiness")).toBeInTheDocument();
@@ -84,6 +120,68 @@ describe("desktop shell", () => {
     expect(await screen.findByText("Saved desktop settings could not be loaded.", { selector: "p.notice" })).toBeInTheDocument();
   });
 
+  it("resets the scan form after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValueOnce(true);
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "New Scan" }));
+    expect(screen.queryByRole("button", { name: "Reset form" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /load kubeconfig file/i }));
+    expect(screen.getByRole("button", { name: "Reset form" })).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Kubeconfig file"), "C:\\temp\\prod-cluster.backup");
+    await userEvent.click(screen.getByRole("button", { name: "Reset form" }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("radio", { name: /use existing access/i })).toBeChecked();
+    expect(screen.queryByLabelText("Kubeconfig file")).not.toBeInTheDocument();
+  });
+
+  it("confirms before leaving a mid-wizard scan from the sidebar", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "New Scan" }));
+    await userEvent.click(screen.getByRole("radio", { name: /load kubeconfig file/i }));
+    await userEvent.type(screen.getByLabelText("Kubeconfig file"), "C:\\temp\\prod-cluster.backup");
+    await userEvent.click(screen.getByRole("button", { name: "Continue to validation" }));
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith("Leave scan setup? Your connection test and preflight results will be kept, but form changes may be lost.");
+    expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+    expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+  });
+
+  it("does not prompt when scan setup was only auto-populated by the connection advisor", async () => {
+    vi.spyOn(mockBackend, "GetConnectionAdvisor").mockResolvedValueOnce({
+      recommendedMethod: "kubeconfig_file",
+      recommendedReason: "Use the detected kubeconfig on this machine.",
+      currentLoginAvailable: true,
+      currentContext: "prod-east-admin",
+      defaultKubeconfigAvailable: true,
+      defaultKubeconfigPath: "C:/Users/demo/.kube/prod-cluster.backup",
+      defaultKubeconfigCurrentContext: "prod-east-admin",
+    });
+    const confirmSpy = vi.spyOn(window, "confirm");
+
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "New Scan" }));
+    const kubeconfigRadio = await screen.findByRole("radio", { name: /load kubeconfig file/i });
+    expect(kubeconfigRadio).toBeChecked();
+
+    await userEvent.click(screen.getByRole("button", { name: "Continue to validation" }));
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
+  });
+
   it("shows cancel as unavailable when no live run is active", async () => {
     render(<App />);
 
@@ -111,6 +209,19 @@ describe("desktop shell", () => {
     expect(screen.getByText("Assessment ready")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open output folder" })).toBeInTheDocument();
     expect(screen.getByText("More actions")).toBeInTheDocument();
+  });
+
+  it("shows a run new scan action from the results topbar", async () => {
+    window.history.replaceState({}, "", "/?view=results");
+
+    render(<App />);
+
+    const runNewScan = await screen.findByRole("button", { name: "Run new scan" });
+    expect(runNewScan).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Existing Bundle" })).not.toBeInTheDocument();
+
+    await userEvent.click(runNewScan);
+    expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
   });
 
   it("keeps the real scan failure visible in the main status line", async () => {

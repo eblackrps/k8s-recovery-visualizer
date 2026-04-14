@@ -36,6 +36,7 @@ export function SectionHeader(props: {
   description?: ReactNode;
   actions?: ReactNode;
   compact?: boolean;
+  dense?: boolean;
   className?: string;
 }) {
   return (
@@ -43,7 +44,7 @@ export function SectionHeader(props: {
       <div className="section-heading">
         {props.eyebrow ? <p className="eyebrow">{props.eyebrow}</p> : null}
         <h3>{props.title}</h3>
-        {props.description ? <p className="muted section-copy">{props.description}</p> : null}
+        {props.description && !props.dense ? <p className="muted section-copy">{props.description}</p> : null}
       </div>
       {props.actions ? <div className="toolbar">{props.actions}</div> : null}
     </div>

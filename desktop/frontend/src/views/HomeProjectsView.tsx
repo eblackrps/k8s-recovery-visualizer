@@ -43,48 +43,51 @@ export function HomeView(props: {
           eyebrow="Start Here"
           title="Assess a cluster or reopen a saved bundle"
           description="K8V checks Kubernetes disaster-recovery readiness. A live scan validates access, collects cluster evidence, and writes a portable bundle you can reopen later without cluster access."
+          dense={!isFirstRun}
         />
         <div className="action-grid action-grid-two">
           <button type="button" className="action-tile action-primary" onClick={props.onStartScan}>
             <span className="eyebrow">Primary path</span>
             <strong>Connect to a cluster</strong>
-            <p>Choose the simplest connection that already works here, test it, run preflight, then collect a fresh recovery bundle.</p>
+            <p>Test access, run preflight, then collect a fresh recovery bundle.</p>
           </button>
           <button type="button" className="action-tile" onClick={props.onPickBundle} disabled={props.busy}>
             <span className="eyebrow">Offline review</span>
             <strong>Open an existing bundle</strong>
-            <p>Review prior findings, compare drift, or export reports without needing live cluster access.</p>
+            <p>Review findings, compare drift, or export reports offline.</p>
           </button>
         </div>
-        <div className="summary-three-up onboarding-grid">
-          <Card title="How K8V works">
-            <ol className="workflow-list">
-              <li>Choose the access path that is most likely to work on this machine.</li>
-              <li>Test the connection, then run preflight to check RBAC and collection readiness.</li>
-              <li>Run the scan to write a portable bundle and offline report outputs.</li>
-              <li>Reopen that bundle later for findings, compare, inventory, and exports.</li>
-            </ol>
-          </Card>
-          <Card title="What a scan produces">
-            <div className="artifact-list">
-              <div className="artifact-row">
-                <strong>Portable bundle</strong>
-                <p className="muted">`recovery-scan.json` plus enriched metadata for offline review and comparison.</p>
+        {isFirstRun ? (
+          <div className="summary-three-up onboarding-grid">
+            <Card title="How K8V works">
+              <ol className="workflow-list">
+                <li>Choose the access path that is most likely to work on this machine.</li>
+                <li>Test the connection, then run preflight to check RBAC and collection readiness.</li>
+                <li>Run the scan to write a portable bundle and offline report outputs.</li>
+                <li>Reopen that bundle later for findings, compare, inventory, and exports.</li>
+              </ol>
+            </Card>
+            <Card title="What a scan produces">
+              <div className="artifact-list">
+                <div className="artifact-row">
+                  <strong>Portable bundle</strong>
+                  <p className="muted">`recovery-scan.json` plus enriched metadata for offline review and comparison.</p>
+                </div>
+                <div className="artifact-row">
+                  <strong>Offline reports</strong>
+                  <p className="muted">HTML and Markdown outputs that can be shared without staying connected to the cluster.</p>
+                </div>
+                <div className="artifact-row">
+                  <strong>Optional extras</strong>
+                  <p className="muted">Summary, runbook, CSV, and redacted exports when you need them.</p>
+                </div>
               </div>
-              <div className="artifact-row">
-                <strong>Offline reports</strong>
-                <p className="muted">HTML and Markdown outputs that can be shared without staying connected to the cluster.</p>
-              </div>
-              <div className="artifact-row">
-                <strong>Optional extras</strong>
-                <p className="muted">Summary, runbook, CSV, and redacted exports when you need them.</p>
-              </div>
-            </div>
-          </Card>
-          <Card title="Machine readiness" description="K8V checks what is already available on this machine so first-time operators know where to start.">
-            <ReadinessList items={machineReadinessItems(props.connectionAdvisor)} />
-          </Card>
-        </div>
+            </Card>
+            <Card title="Machine readiness" description="K8V checks what is already available on this machine so first-time operators know where to start.">
+              <ReadinessList items={machineReadinessItems(props.connectionAdvisor)} />
+            </Card>
+          </div>
+        ) : null}
       </section>
 
       <section className="panel home-posture-panel">
@@ -146,9 +149,42 @@ export function HomeView(props: {
               </Card>
             </div>
           </>
-        ) : (
+        ) : isFirstRun ? (
           <EmptyState
             eyebrow="First Run"
+            title="Run one scan, then work from the bundle"
+            description="K8V writes a portable bundle and offline reports so operators can reopen results, compare drift, and export handoff material without staying connected to the cluster."
+          >
+            <div className="results-stack">
+              {props.connectionAdvisor?.recommendedReason ? (
+                <div className="notice notice-info compact">
+                  <strong>Recommended on this machine</strong>
+                  <p className="muted">{props.connectionAdvisor.recommendedReason}</p>
+                </div>
+              ) : null}
+              <div className="stack-list compact-stack">
+                <div className="empty-state-note">
+                  <strong>Start with existing access</strong>
+                  <p className="muted">Best when `kubectl` or the default kubeconfig already works on this desktop or jumpbox.</p>
+                </div>
+                <div className="empty-state-note">
+                  <strong>Fallback to kubeconfig when needed</strong>
+                  <p className="muted">Bring a kubeconfig file or paste raw kubeconfig content if the local login path is not the better fit here.</p>
+                </div>
+                <div className="empty-state-note">
+                  <strong>Use direct API mode only when necessary</strong>
+                  <p className="muted">Manual endpoint, bearer token, and CA setup is still available for clusters where kubeconfig mode is not the better option.</p>
+                </div>
+                <div className="empty-state-note">
+                  <strong>Reopen the bundle later</strong>
+                  <p className="muted">The scan output becomes the offline review package for findings, compare, inventory, and export refreshes.</p>
+                </div>
+              </div>
+            </div>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            eyebrow="Bundle Needed"
             title="No active bundle loaded yet"
             description="Start with a cluster connection if you want a fresh assessment, or open an existing bundle if someone already ran the scan."
           >
@@ -196,6 +232,7 @@ export function HomeView(props: {
               </button>
             ) : null
           }
+          dense={!isFirstRun}
         />
         <div className="project-list compact">
           {hasHistory ? (
@@ -224,65 +261,68 @@ export function HomeView(props: {
         </div>
       </section>
 
-      <section className="panel home-watch-panel">
-        {bundle ? (
-          <>
-            <SectionHeader
-              eyebrow="Operational Watch"
-              title="What changed and what needs attention"
-              description="The watchlist keeps regressions, new gaps, and restore-readiness movement visible without forcing you into the full report first."
-              actions={
-                <button type="button" className="button secondary quiet" onClick={props.onReviewFindings}>
-                  Review Findings
-                </button>
-              }
-            />
-            <div className="watch-grid">
-              <article className="watch-item">
-                <span>Regressed findings</span>
-                <strong>{comparison?.findingsRegressed?.length || 0}</strong>
-                <p>{comparison?.findingsRegressed?.[0]?.message || "No regressions detected in the loaded comparison set."}</p>
-              </article>
-              <article className="watch-item">
-                <span>New findings</span>
-                <strong>{comparison?.findingsNew?.length || 0}</strong>
-                <p>{comparison?.findingsNew?.[0]?.message || "No new findings in the current comparison set."}</p>
-              </article>
-              <article className="watch-item">
-                <span>Persistent issues</span>
-                <strong>{comparison?.persistentFindingCount || 0}</strong>
-                <p>Persistent issues stay visible across runs and usually deserve scheduling or ownership cleanup.</p>
-              </article>
-            </div>
-            <Card title="Trend history" className="compact-card">
-              <TrendRail entries={historyEntries} />
-            </Card>
-          </>
-        ) : (
-          <EmptyState
-            eyebrow="Why Bundles Matter"
-            title={isFirstRun ? "Scans are designed for offline follow-up" : "Load a bundle to unlock deeper review"}
-            description="K8V is built around portable bundle review so operators can compare, export, and triage recovery evidence without staying connected to the cluster."
-          >
-            <Card title="Bundle workflow">
-              <div className="stack-list compact-stack">
-                <div className="empty-state-note">
-                  <strong>Run a scan once</strong>
-                  <p className="muted">The scan writes bundle and report files into the output directory you choose.</p>
-                </div>
-                <div className="empty-state-note">
-                  <strong>Reopen it later</strong>
-                  <p className="muted">Use Open Existing Bundle to review findings, compare drift, and refresh exports without live access.</p>
-                </div>
-                <div className="empty-state-note">
-                  <strong>Share carefully</strong>
-                  <p className="muted">Optional summary, runbook, CSV, and redacted outputs are available when you need to hand off results.</p>
-                </div>
+      {isFirstRun ? null : (
+        <section className="panel home-watch-panel">
+          {bundle ? (
+            <>
+              <SectionHeader
+                eyebrow="Operational Watch"
+                title="What changed and what needs attention"
+                description="The watchlist keeps regressions, new gaps, and restore-readiness movement visible without forcing you into the full report first."
+                actions={
+                  <button type="button" className="button secondary quiet" onClick={props.onReviewFindings}>
+                    Review Findings
+                  </button>
+                }
+                dense={!isFirstRun}
+              />
+              <div className="watch-grid">
+                <article className="watch-item">
+                  <span>Regressed findings</span>
+                  <strong>{comparison?.findingsRegressed?.length || 0}</strong>
+                  <p>{comparison?.findingsRegressed?.[0]?.message || "No regressions detected in the loaded comparison set."}</p>
+                </article>
+                <article className="watch-item">
+                  <span>New findings</span>
+                  <strong>{comparison?.findingsNew?.length || 0}</strong>
+                  <p>{comparison?.findingsNew?.[0]?.message || "No new findings in the current comparison set."}</p>
+                </article>
+                <article className="watch-item">
+                  <span>Persistent issues</span>
+                  <strong>{comparison?.persistentFindingCount || 0}</strong>
+                  <p>Persistent issues stay visible across runs and usually deserve scheduling or ownership cleanup.</p>
+                </article>
               </div>
-            </Card>
-          </EmptyState>
-        )}
-      </section>
+              <Card title="Trend history" className="compact-card">
+                <TrendRail entries={historyEntries} />
+              </Card>
+            </>
+          ) : (
+            <EmptyState
+              eyebrow="Why Bundles Matter"
+              title="Load a bundle to unlock deeper review"
+              description="K8V is built around portable bundle review so operators can compare, export, and triage recovery evidence without staying connected to the cluster."
+            >
+              <Card title="Bundle workflow">
+                <div className="stack-list compact-stack">
+                  <div className="empty-state-note">
+                    <strong>Run a scan once</strong>
+                    <p className="muted">The scan writes bundle and report files into the output directory you choose.</p>
+                  </div>
+                  <div className="empty-state-note">
+                    <strong>Reopen it later</strong>
+                    <p className="muted">Use Open Existing Bundle to review findings, compare drift, and refresh exports without live access.</p>
+                  </div>
+                  <div className="empty-state-note">
+                    <strong>Share carefully</strong>
+                    <p className="muted">Optional summary, runbook, CSV, and redacted outputs are available when you need to hand off results.</p>
+                  </div>
+                </div>
+              </Card>
+            </EmptyState>
+          )}
+        </section>
+      )}
     </section>
   );
 }

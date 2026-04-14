@@ -6,6 +6,31 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.0] - 2026-04-14
+
+### Added
+
+- Enterprise-styled nav sidebar with iconography for each view.
+- Keyboard shortcuts: Ctrl+N (new scan), Ctrl+O (open bundle), Ctrl+H (home).
+- Reset button in scan wizard to restore initial form state after confirmation.
+- Run new scan shortcut pinned to the results view topbar.
+- Launch gate in scan review step consolidates connection, validation, and preflight status into one action-oriented notice.
+- First-run guided onboarding cards on the home screen, hidden automatically for returning operators.
+
+### Changed
+
+- Scan wizard now fits a single viewport per stage; internal scroll only when content overflows.
+- Border radii tightened across surfaces for a more conservative, enterprise-appropriate tone.
+- Topbar simplified to cluster/environment only; maturity and bundle metadata moved to the posture panel.
+- Home screen trims onboarding content after the first scan completes.
+- Advanced scan settings split: profile, recovery target, timeout, and compare baseline are now always visible; customer ID, site, and TLS/metadata toggles move to an Enterprise metadata accordion.
+
+### Fixed
+
+- Action banner no longer overflows the workspace grid on non-scan views.
+- Launch-gate secondary content now uses a stable discriminator instead of matching copy text.
+- Connection assistant readiness list no longer duplicates in both the main column and the rail.
+
 ## [1.9.2] - 2026-04-14
 
 Patch release for `k8s-recovery-visualizer`: this follow-up makes kubeconfig-based cluster access easier to reason about when the file points at a loopback API server such as `127.0.0.1`, and it tightens the post-scan handoff so successful runs feel calmer and less repetitive.
