@@ -1,6 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { ResultsView } from "./ResultsView";
 import { mockWorkspace } from "../lib/backend";
+import type { RunCompletionSummary } from "../lib/types";
+
+const completionSummary: RunCompletionSummary = {
+  runId: "run-123",
+  clusterName: "default",
+  environment: "Unknown",
+  generatedAt: "2026-04-14T20:54:16Z",
+  score: 33,
+  findingCount: 80,
+  hasComparison: false,
+  artifacts: mockWorkspace.artifacts,
+};
 
 describe("ResultsView", () => {
   it("shows the bundle and report handoff paths", () => {
@@ -61,5 +73,25 @@ describe("ResultsView", () => {
     expect(screen.getByRole("heading", { name: "Domain score drift" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What got worse" })).toBeInTheDocument();
     expect(screen.getByText("severity-up")).toBeInTheDocument();
+  });
+
+  it("does not repeat the artifact handoff card when the completion handoff is already visible", () => {
+    render(
+      <ResultsView
+        workspace={mockWorkspace}
+        resultTab="Overview"
+        setResultTab={() => undefined}
+        findingFilter="ALL"
+        setFindingFilter={() => undefined}
+        exportNotice=""
+        completionSummary={completionSummary}
+        onExport={() => undefined}
+        onOpenPath={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Scan complete. Outputs ready.")).toBeInTheDocument();
+    expect(screen.queryByText("Bundle and reports on disk")).not.toBeInTheDocument();
+    expect(screen.getByText("More actions")).toBeInTheDocument();
   });
 });

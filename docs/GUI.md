@@ -37,6 +37,7 @@ Use the desktop app when you want:
   - `Step 4: Review and launch`: run full preflight with the final settings, then start the scan
   - `Load kubeconfig file` now validates file content instead of filename, so `config`, `prod-cluster.backup`, and extensionless kubeconfig files all work when the contents are valid
   - kubeconfig inspection now distinguishes “valid YAML” from “portable on this machine” by surfacing missing local CA, client certificate, and client key dependencies before the connection test runs
+  - kubeconfig inspection now also flags loopback API server targets such as `127.0.0.1` or `localhost`, which are valid but only work from the machine, jumpbox, or tunnel path that created them
   - kubeconfig file and paste modes share a dropzone that reads a dropped kubeconfig into paste mode when the native picker or weird filename handoff gets in the way
   - before connection testing, the right rail becomes a mode-aware connection assistant instead of a generic empty state
   - after connection testing, the rail switches to a lightweight result panel focused on reachability, auth, TLS, and the top next action
@@ -50,7 +51,7 @@ Use the desktop app when you want:
   - when a run fails, Live Run keeps the diagnosed failure class and recommended next step visible instead of collapsing back to a generic failure banner
 - `Scan Complete`: a dedicated post-run handoff view before deeper tabbed analysis begins
   - explains that the bundle is the saved assessment package
-  - keeps next actions obvious: review findings, review compare, open the output folder, open the primary report, or reopen the bundle later
+  - keeps primary next actions obvious first, while secondary file actions live under `More actions` so the handoff stays calmer and less repetitive
 - `Results`: Overview, Findings, Restore Readiness, Compare, Inventory, and Remediation
   - a persistent handoff panel at the top shows the output directory, the bundle JSON to reopen later, the primary HTML report, and any summary/runbook/CSV/redacted artifacts already written to disk
   - the completion and handoff surfaces provide direct `Open output folder`, `Open primary report`, and `Open bundle JSON` actions from the desktop shell
@@ -110,6 +111,7 @@ That keeps degraded-mode behavior explicit and gives platform teams a concrete s
 - On a desktop or jumpbox, leave the app on `Current login` when `kubectl get nodes` already works from that machine.
 - Use `Kubeconfig file` or `Paste kubeconfig` when operators receive a kubeconfig through a secure file handoff or vault workflow.
 - Kubeconfig file mode validates by content, not filename, so files with `.backup`, no extension, or generic names like `config` are accepted when the kubeconfig itself is valid.
+- If a kubeconfig points at `127.0.0.1`, `localhost`, or another loopback API endpoint, the desktop app now says that explicitly. That file is valid, but it only works from the machine or tunnel path that generated it.
 - Use `API endpoint` when you need to enter a control-plane host or IP directly. The current direct-endpoint mode is intentionally bearer-token based. If the cluster depends on exec plugins, cloud auth helpers, or client certificates, kubeconfig mode remains the better fit.
 - In API endpoint mode, use the assistant rail to copy the current `kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'` endpoint discovery command and the `kubectl create token <service-account> --namespace <namespace>` short-lived token pattern instead of guessing the flow from memory.
 - Run **Detect Contexts** to load named contexts before the scan when you are using the current login or a kubeconfig source.

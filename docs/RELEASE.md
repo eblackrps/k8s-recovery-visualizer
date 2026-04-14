@@ -4,7 +4,7 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- Use semver tags such as `v1.9.1`.
+- Use semver tags such as `v1.9.2`.
 - Keep source-level version references aligned with the release you are cutting.
 - Bump schema versions only when the JSON contract changes.
 - Use a minor or major release only when the user-visible surface justifies it.
@@ -55,6 +55,8 @@ Also confirm:
 - screenshot references in the docs resolve correctly
 - the main README only uses the maintained desktop screenshot set from `images/gui-*.png`
 - README and desktop docs describe the current Results IA (`Overview`, `Findings`, `Restore Readiness`, `Compare`, `Inventory`, `Remediation`) and the quieter active-bundle shell context accurately
+- README, GUI docs, and troubleshooting notes describe kubeconfig loopback endpoint warnings (`127.0.0.1`, `localhost`) accurately instead of implying file import failed
+- the scan-complete and results handoff copy matches the current quieter action grouping and screenshot set
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
 - README, screenshots, changelog, and release notes all match the actual shipped artifacts

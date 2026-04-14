@@ -52,6 +52,24 @@ users:
     client-key: auth/user.key
 `
 
+const sampleLoopbackKubeconfig = `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://127.0.0.1:6443
+  name: alpha
+contexts:
+- context:
+    cluster: alpha
+    user: ops
+  name: alpha-admin
+current-context: alpha-admin
+users:
+- name: ops
+  user:
+    token: demo-token
+`
+
 func TestResolveConfigWithInlineKubeconfigAndContextOverride(t *testing.T) {
 	resolved, err := ResolveConfig(ConnectionOptions{
 		Method:            ConnectionMethodKubeconfigInline,
@@ -239,6 +257,28 @@ func TestInspectKubeconfigContentWarnsAboutReferencedFiles(t *testing.T) {
 	}
 }
 
+func TestInspectKubeconfigFileWarnsAboutLoopbackServers(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prod-cluster.backup")
+	if err := os.WriteFile(path, []byte(sampleLoopbackKubeconfig), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	inspection, err := InspectKubeconfigFile(path)
+	if err != nil {
+		t.Fatalf("InspectKubeconfigFile() error = %v", err)
+	}
+	if len(inspection.LoopbackServers) != 1 || inspection.LoopbackServers[0] != "https://127.0.0.1:6443" {
+		t.Fatalf("inspection.LoopbackServers = %#v, want loopback server entry", inspection.LoopbackServers)
+	}
+	if !strings.Contains(inspection.Summary, "loopback API endpoint") {
+		t.Fatalf("inspection.Summary = %q, want loopback guidance", inspection.Summary)
+	}
+	if !strings.Contains(inspection.NextAction, "reachable control-plane DNS/IP") {
+		t.Fatalf("inspection.NextAction = %q, want loopback next action", inspection.NextAction)
+	}
+}
+
 func TestApplyInspectionToConnectionAdvisorFlagsIncompleteLocalKubeconfig(t *testing.T) {
 	advisor := applyInspectionToConnectionAdvisor(ConnectionAdvisor{}, "C:/Users/demo/.kube/prod-cluster.backup", KubeconfigInspection{
 		CurrentContext:         "prod-east-admin",
@@ -272,5 +312,23 @@ func TestApplyInspectionToConnectionAdvisorWarnsAboutExecAuth(t *testing.T) {
 	}
 	if !strings.Contains(advisor.CurrentLoginWarning, "external auth helper") {
 		t.Fatalf("advisor.CurrentLoginWarning = %q, want exec-helper guidance", advisor.CurrentLoginWarning)
+	}
+}
+
+func TestApplyInspectionToConnectionAdvisorWarnsAboutLoopbackEndpoints(t *testing.T) {
+	advisor := applyInspectionToConnectionAdvisor(ConnectionAdvisor{}, "C:/Users/demo/.kube/config", KubeconfigInspection{
+		CurrentContext:  "prod-east-admin",
+		Summary:         "Loaded kubeconfig file with 1 context.",
+		LoopbackServers: []string{"https://127.0.0.1:6443"},
+	})
+
+	if !advisor.CurrentLoginAvailable {
+		t.Fatal("expected current login to stay available when only a loopback warning is present")
+	}
+	if !strings.Contains(advisor.CurrentLoginWarning, "loopback API endpoint") {
+		t.Fatalf("advisor.CurrentLoginWarning = %q, want loopback guidance", advisor.CurrentLoginWarning)
+	}
+	if !strings.Contains(advisor.DefaultKubeconfigWarning, "127.0.0.1") {
+		t.Fatalf("advisor.DefaultKubeconfigWarning = %q, want loopback guidance", advisor.DefaultKubeconfigWarning)
 	}
 }

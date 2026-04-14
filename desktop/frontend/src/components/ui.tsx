@@ -274,13 +274,19 @@ export function RunCompletionCallout(props: {
   const outputDir = props.summary.artifacts.outputDir;
   const bundlePath = props.summary.artifacts.bundleJson || props.summary.artifacts.loadedBundlePath;
   const reportPath = props.summary.artifacts.htmlReport;
+  const hasExtraActions =
+    Boolean(props.onReviewResults) ||
+    Boolean(props.onStartAnotherScan) ||
+    Boolean(reportPath) ||
+    Boolean(bundlePath) ||
+    Boolean(props.onDismiss);
 
   return (
     <Card
       title={props.title || "Scan complete. Outputs ready."}
       description={
         props.description ||
-        "K8V finished writing the portable bundle and refreshed report artifacts below. Open the output directory, jump into findings, or review the primary report next."
+        "K8V wrote the bundle and refreshed the report outputs. Start with findings, or open the output folder if this run needs to be handed off."
       }
       className="completion-callout"
       actions={
@@ -295,43 +301,57 @@ export function RunCompletionCallout(props: {
               Review compare
             </button>
           ) : null}
-          {props.onReviewResults ? (
-            <button type="button" className="button secondary" onClick={props.onReviewResults}>
-              Review results
-            </button>
-          ) : null}
-          {props.onStartAnotherScan ? (
-            <button type="button" className="button secondary" onClick={props.onStartAnotherScan}>
-              Start another scan
-            </button>
-          ) : null}
           {outputDir ? (
-            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(outputDir, "output folder")}>
+            <button type="button" className="button secondary" onClick={() => void props.onOpenPath?.(outputDir, "output folder")}>
               Open output folder
             </button>
           ) : null}
-          {reportPath ? (
-            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(reportPath, "primary report")}>
-              Open primary report
-            </button>
-          ) : null}
-          {bundlePath ? (
-            <button type="button" className="button secondary quiet" onClick={() => void props.onOpenPath?.(bundlePath, "bundle JSON")}>
-              Open bundle JSON
-            </button>
-          ) : null}
-          {props.onDismiss ? (
-            <button type="button" className="button secondary quiet" onClick={props.onDismiss}>
-              Dismiss
-            </button>
+          {hasExtraActions ? (
+            <details className="export-menu completion-more-menu">
+              <summary className="button secondary quiet">More actions</summary>
+              <div className="export-menu-body">
+                {props.onReviewResults ? (
+                  <button type="button" className="menu-action" onClick={props.onReviewResults}>
+                    Review results
+                  </button>
+                ) : null}
+                {reportPath ? (
+                  <button
+                    type="button"
+                    className="menu-action"
+                    onClick={() => void props.onOpenPath?.(reportPath, "primary report")}
+                  >
+                    Open primary report
+                  </button>
+                ) : null}
+                {bundlePath ? (
+                  <button
+                    type="button"
+                    className="menu-action"
+                    onClick={() => void props.onOpenPath?.(bundlePath, "bundle JSON")}
+                  >
+                    Open bundle JSON
+                  </button>
+                ) : null}
+                {props.onStartAnotherScan ? (
+                  <button type="button" className="menu-action" onClick={props.onStartAnotherScan}>
+                    Start another scan
+                  </button>
+                ) : null}
+                {props.onDismiss ? (
+                  <button type="button" className="menu-action" onClick={props.onDismiss}>
+                    Dismiss
+                  </button>
+                ) : null}
+              </div>
+            </details>
           ) : null}
         </div>
       }
     >
-      <div className="completion-grid">
+      <div className="completion-grid completion-grid-compact">
         <div className="completion-metrics">
           <MetricCard label="Cluster" value={props.summary.clusterName || "Unknown"} />
-          <MetricCard label="Environment" value={props.summary.environment || "Unknown"} />
           <MetricCard label="Score" value={props.summary.score ?? "n/a"} tone="accent" />
           <MetricCard
             label="Findings"
@@ -344,8 +364,7 @@ export function RunCompletionCallout(props: {
           items={[
             ["Completed", formatCompletionTimestamp(props.summary.generatedAt)],
             ["Output directory", <code className="path-chip">{outputDir || "Not recorded"}</code>],
-            ["Bundle JSON", <code className="path-chip">{bundlePath || "Not recorded"}</code>],
-            ["Primary report", <code className="path-chip">{reportPath || "Not generated"}</code>],
+            ["Reopen later", <code className="path-chip">{bundlePath || "Not recorded"}</code>],
           ]}
         />
       </div>

@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell and results views organized around DR judgment first. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
 <p align="center">
   <img alt="K8V desktop dashboard" src="images/gui-dashboard.png" width="49%" />
@@ -71,11 +71,12 @@ Deprecated release surfaces and contributor-only build paths are documented in [
 6. Start with **Use existing access** when `kubectl` or the default kubeconfig already reaches the cluster from that machine.
 7. Use **Load kubeconfig file** or **Paste kubeconfig** when operators hand you kubeconfig access. `K8V` validates kubeconfig content, so files like `prod-cluster.backup`, `config`, or extensionless names are all accepted if the contents are valid.
    If the desktop inspector flags missing local CA or client-certificate files, the kubeconfig YAML copied over but the supporting files did not. Bring those files too or export a self-contained kubeconfig with embedded `*-data` fields.
+   If the kubeconfig points at `127.0.0.1`, `localhost`, or another loopback API server, the file is valid but only usable from the machine, jumpbox, or tunnel path that created it. Replace the server with the reachable control-plane DNS/IP for the desktop you are using, or export a kubeconfig that already contains the real endpoint.
    If the native picker is awkward, you can also drag a kubeconfig onto the in-app dropzone and K8V will load it into paste mode automatically.
 8. Use **API endpoint** only for direct endpoint, bearer-token, and TLS setup. The in-app assistant now walks through endpoint discovery, short-lived token creation, trust choices, and when kubeconfig mode is the better fit.
 9. A successful scan writes a portable bundle plus optional summary, runbook, CSV, and redacted outputs to the chosen output directory. You can reopen that bundle later without cluster access.
    The Results workspace also keeps the output directory, bundle path, and primary report path visible so first-time operators know exactly what was generated and where it landed.
-   After a live run finishes, K8V now shows a clear scan-complete handoff with direct actions to open the output folder, primary report, or bundle JSON from the desktop app.
+   After a live run finishes, K8V now shows a quieter scan-complete handoff with the primary next steps visible first and secondary file actions grouped under `More actions`.
    That completion step appears before the operator has to navigate results tabs, so the “what happened” and “what do I do next” answers are explicit.
 
 ### Desktop Development Quickstart
@@ -134,7 +135,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.1`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.9.2`.
 
 ## CLI And Desktop At A Glance
 

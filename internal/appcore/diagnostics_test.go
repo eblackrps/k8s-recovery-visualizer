@@ -111,6 +111,26 @@ func TestReportConnectionFailureWarnsWhenAcceptedKubeconfigCannotReachCluster(t 
 	}
 }
 
+func TestReportConnectionFailureExplainsLoopbackKubeconfigEndpoints(t *testing.T) {
+	report := reportConnectionFailure(
+		ScanRequest{ConnectionMethod: ConnectionMethodKubeconfigFile},
+		"kubeconfig file",
+		"https://127.0.0.1:6443",
+		"prod-east-admin",
+		testError(`Get "https://127.0.0.1:6443/version": dial tcp 127.0.0.1:6443: connectex: No connection could be made because the target machine actively refused it.`),
+	)
+
+	if report.Diagnosis == nil || report.Diagnosis.Label != "Loopback kubeconfig endpoint" {
+		t.Fatalf("Diagnosis = %#v, want loopback kubeconfig diagnosis", report.Diagnosis)
+	}
+	if report.FieldWarnings["kubeconfigPath"] == "" {
+		t.Fatalf("FieldWarnings = %#v, want kubeconfigPath warning", report.FieldWarnings)
+	}
+	if report.NextAction == "" || report.NextAction == report.Diagnosis.Detail {
+		t.Fatalf("NextAction = %q, want actionable loopback guidance", report.NextAction)
+	}
+}
+
 type testError string
 
 func (e testError) Error() string {

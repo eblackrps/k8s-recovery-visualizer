@@ -143,6 +143,34 @@ describe("ScanView", () => {
     expect(screen.getByText(/portable kubeconfig warning/i)).toBeInTheDocument();
   });
 
+  it("warns when a kubeconfig points at a loopback cluster endpoint", () => {
+    renderScanView({
+      scanForm: {
+        ...baseRequest,
+        connectionMethod: "kubeconfig_file",
+        kubeconfigPath: "C:/handoff/prod-cluster.backup",
+      },
+      kubeconfigInspection: {
+        source: "kubeconfig file",
+        path: "C:/handoff/prod-cluster.backup",
+        currentContext: "prod-east-admin",
+        contexts: ["prod-east-admin"],
+        clusterCount: 1,
+        userCount: 1,
+        servers: ["https://127.0.0.1:6443"],
+        loopbackServers: ["https://127.0.0.1:6443"],
+        summary:
+          "Loaded kubeconfig file with 1 context, 1 cluster, and 1 user entry. Current context: prod-east-admin. It points at loopback API endpoint (https://127.0.0.1:6443).",
+        nextAction:
+          "This kubeconfig is valid, but it points at 127.0.0.1, localhost, or another loopback API endpoint. Replace the server with the reachable control-plane DNS/IP for this machine, or export a kubeconfig that already uses the real cluster endpoint before testing again.",
+      },
+    });
+
+    expect(screen.getAllByText(/loopback endpoint warning/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/https:\/\/127\.0\.0\.1:6443/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/reachable control-plane dns\/ip/i).length).toBeGreaterThan(0);
+  });
+
   it("loads a chosen kubeconfig file into paste mode through the dropzone", async () => {
     const onLoadDroppedKubeconfig = vi.fn();
     renderScanView({

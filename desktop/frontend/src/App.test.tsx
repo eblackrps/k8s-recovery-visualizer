@@ -62,7 +62,7 @@ describe("desktop shell", () => {
 
     expect(await screen.findByText("Assessment complete")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review findings" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Open bundle JSON" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("More actions")).toBeInTheDocument();
   });
 
   it("surfaces bundle picker cancellation instead of failing silently", async () => {
@@ -108,9 +108,9 @@ describe("desktop shell", () => {
 
     expect(await screen.findByRole("button", { name: "Review findings" }, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText("Assessment complete")).toBeInTheDocument();
-    expect(screen.getByText("The bundle is ready for review and handoff")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Open output folder" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "Open bundle JSON" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Assessment ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open output folder" })).toBeInTheDocument();
+    expect(screen.getByText("More actions")).toBeInTheDocument();
   });
 
   it("keeps the real scan failure visible in the main status line", async () => {

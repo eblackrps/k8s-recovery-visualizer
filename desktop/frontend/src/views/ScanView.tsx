@@ -754,6 +754,16 @@ function ConnectionAssistant(props: {
           <CodeBlock label="List available contexts" code="kubectl config get-contexts -o=name --kubeconfig /path/to/file" />
         </AssistantSection>
         {props.kubeconfigInspection?.summary ? <AssistantSection title="What K8V already found" body={props.kubeconfigInspection.summary}>{props.kubeconfigInspection.nextAction ? <p className="muted assistant-footnote">{props.kubeconfigInspection.nextAction}</p> : null}</AssistantSection> : null}
+        {props.kubeconfigInspection?.loopbackServers?.length ? (
+          <AssistantSection
+            title="Loopback endpoint warning"
+            body={`This kubeconfig points at ${formatLoopbackServers(props.kubeconfigInspection.loopbackServers)}. That usually only works on the machine, jumpbox, or local tunnel that created it.`}
+          >
+            <p className="muted assistant-footnote">
+              Replace the server with the reachable control-plane DNS/IP for this machine, or export a kubeconfig that already uses the real cluster endpoint before testing again.
+            </p>
+          </AssistantSection>
+        ) : null}
         {props.kubeconfigInspection?.missingReferencedFiles?.length ? <AssistantSection title="Portable kubeconfig warning" body="This kubeconfig is structurally valid, but it still depends on local CA or client-certificate files that are missing on this machine. If the selected context uses those files, the connection test will fail until they are restored or embedded."><ul className="notice-list compact-list">{props.kubeconfigInspection.missingReferencedFiles.map((reference) => <li key={reference}>{reference}</li>)}</ul></AssistantSection> : null}
       </div>
     );
@@ -764,6 +774,16 @@ function ConnectionAssistant(props: {
         <AssistantSection title="Pasted kubeconfig workflow" body="Paste raw kubeconfig YAML exactly as provided. This is the simplest fallback when browsing local files is inconvenient or the kubeconfig is being handed off through a secure vault or ticket.">
           <CodeBlock label="Capture raw kubeconfig content" code="kubectl config view --raw" />
         </AssistantSection>
+        {props.kubeconfigInspection?.loopbackServers?.length ? (
+          <AssistantSection
+            title="Loopback endpoint warning"
+            body={`This pasted kubeconfig points at ${formatLoopbackServers(props.kubeconfigInspection.loopbackServers)}. That only works when the same machine, jumpbox, or tunnel path is active.`}
+          >
+            <p className="muted assistant-footnote">
+              Replace the server with the reachable control-plane DNS/IP for this machine before testing again.
+            </p>
+          </AssistantSection>
+        ) : null}
         {props.kubeconfigInspection?.referencedFiles?.length ? <AssistantSection title="Path-based credential warning" body="This pasted kubeconfig still refers to CA or client-certificate files on disk. Paste mode carries only the YAML, so those local files still need to exist on the prepared machine or be embedded as *-data fields."><ul className="notice-list compact-list">{props.kubeconfigInspection.referencedFiles.map((reference) => <li key={reference}>{reference}</li>)}</ul></AssistantSection> : null}
       </div>
     );
@@ -940,7 +960,7 @@ function machineReadinessItems(connectionAdvisor: ConnectionAdvisor | null) {
         connectionAdvisor.defaultKubeconfigDetail ||
         "No default kubeconfig was detected in the standard local locations.",
       state: connectionAdvisor.defaultKubeconfigAvailable
-        ? connectionAdvisor.defaultKubeconfigPortable === false
+        ? connectionAdvisor.defaultKubeconfigPortable === false || Boolean(connectionAdvisor.defaultKubeconfigWarning)
           ? ("caution" as const)
           : ("ready" as const)
         : ("missing" as const),
@@ -977,6 +997,15 @@ function InspectionSummary(props: { inspection: KubeconfigInspection | null }) {
       <strong>Kubeconfig inspection</strong>
       <p className="muted">{props.inspection.summary}</p>
       <KeyValueGrid items={[["Current context", props.inspection.currentContext || "Not set"], ["Contexts", String(props.inspection.contexts?.length || 0)], ["Clusters", String(props.inspection.clusterCount)], ["Users", String(props.inspection.userCount)]]} className="compact-kv-grid" />
+      {props.inspection.loopbackServers?.length ? (
+        <div className="notice notice-warning compact nested-notice">
+          <strong>Loopback cluster endpoint</strong>
+          <p className="muted">
+            This kubeconfig points at {formatLoopbackServers(props.inspection.loopbackServers)}. That usually only works on the
+            machine or tunnel that created it.
+          </p>
+        </div>
+      ) : null}
       {props.inspection.missingReferencedFiles?.length ? (
         <div className="notice notice-warning compact nested-notice">
           <strong>Missing local file dependencies</strong>
@@ -1001,6 +1030,16 @@ function InspectionSummary(props: { inspection: KubeconfigInspection | null }) {
       {props.inspection.nextAction ? <p className="muted assistant-footnote">{props.inspection.nextAction}</p> : null}
     </div>
   );
+}
+
+function formatLoopbackServers(loopbackServers: string[]) {
+  if (!loopbackServers.length) {
+    return "a loopback API endpoint";
+  }
+  if (loopbackServers.length === 1) {
+    return loopbackServers[0];
+  }
+  return `${loopbackServers[0]} and ${loopbackServers.length - 1} other loopback endpoint${loopbackServers.length === 2 ? "" : "s"}`;
 }
 
 function ContextCatalogHint(props: { catalog: ContextCatalog | null }) {

@@ -1,6 +1,6 @@
 # Desktop Screenshot Workflow
 
-The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current six-image set reflects the guided operator-console desktop UX shipped in the `v1.9.1` release line.
+The repository keeps a deterministic desktop screenshot set in `images/` for the main README and supporting docs. The current six-image set reflects the guided operator-console desktop UX shipped in the `v1.9.2` release line.
 
 ## Current Screenshot Set
 
@@ -8,7 +8,7 @@ The repository keeps a deterministic desktop screenshot set in `images/` for the
 - `images/gui-dashboard.png` now uses the first-run onboarding state (`?view=home&firstRun=1`)
 - `images/gui-scan-setup.png` (`?view=scan&scanConnection=api_endpoint&scanStage=connect` guided API endpoint assistant state)
 - `images/gui-live-run.png`
-- `images/gui-scan-complete.png` (`?view=complete` post-run handoff state)
+- `images/gui-scan-complete.png` (`?view=complete` quieter post-run handoff state)
 - `images/gui-results-findings.png`
 - `images/gui-compare.png`
 

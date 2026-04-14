@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.9.2] - 2026-04-14
+
+Patch release for `k8s-recovery-visualizer`: this follow-up makes kubeconfig-based cluster access easier to reason about when the file points at a loopback API server such as `127.0.0.1`, and it tightens the post-scan handoff so successful runs feel calmer and less repetitive.
+
+### Improved
+
+- Added kubeconfig inspection and desktop scan-assistant warnings for loopback API endpoints such as `127.0.0.1`, `localhost`, and other machine-local server targets.
+- Upgraded connection-test diagnostics so a kubeconfig can clearly report “accepted, but points at a loopback-only endpoint” instead of feeling like file import itself is broken.
+- Simplified the scan-complete and results handoff flow by reducing repeated metric, path, and action chrome and moving secondary actions behind a quieter `More actions` menu.
+- Refreshed the maintained screenshot set so the public gallery now reflects the quieter completion/results handoff shipped in this patch.
+
+### Docs
+
+- Updated the main README, desktop guide, release checklist, screenshot workflow notes, and troubleshooting docs to explain loopback kubeconfig behavior, current completion handoff behavior, and the latest desktop gallery.
+
 ## [1.9.1] - 2026-04-14
 
 Patch release for `k8s-recovery-visualizer`: this follow-up fixes the broken first-run Home layout and makes kubeconfig connection failures much clearer when a valid file points at a cluster API that is unreachable from the current machine.

@@ -2,6 +2,8 @@ package kube
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +25,8 @@ type KubeconfigInspection struct {
 	UsesClientCertificate        bool     `json:"usesClientCertificate,omitempty"`
 	UsesCertificateAuthorityFile bool     `json:"usesCertificateAuthorityFile,omitempty"`
 	UsesCertificateAuthorityData bool     `json:"usesCertificateAuthorityData,omitempty"`
+	Servers                      []string `json:"servers,omitempty"`
+	LoopbackServers              []string `json:"loopbackServers,omitempty"`
 	ReferencedFiles              []string `json:"referencedFiles,omitempty"`
 	MissingReferencedFiles       []string `json:"missingReferencedFiles,omitempty"`
 	Summary                      string   `json:"summary,omitempty"`
@@ -120,6 +124,9 @@ func applyInspectionToConnectionAdvisor(advisor ConnectionAdvisor, defaultPath s
 	if inspection.UsesExecAuth {
 		advisor.CurrentLoginWarning = "This kubeconfig depends on an external auth helper or login plugin. Existing access can still work, but it may require the same helper or SSO session to be available in this desktop session."
 		advisor.RecommendedReason = "This machine already has Kubernetes access configured. Start with existing access, but keep kubeconfig mode handy if the external auth helper cannot run in the desktop session."
+	} else if len(inspection.LoopbackServers) > 0 {
+		advisor.CurrentLoginWarning = "The detected kubeconfig points at a loopback API endpoint such as 127.0.0.1 or localhost. Existing access will only work when the same local tunnel, proxy, or jumpbox path is active on this machine."
+		advisor.RecommendedReason = "This machine already has Kubernetes access configured, but it appears to rely on a local loopback API endpoint. Start with existing access only if the same tunnel or jumpbox path is active here."
 	}
 	return advisor
 }
@@ -130,6 +137,8 @@ func defaultKubeconfigWarning(inspection KubeconfigInspection) string {
 		return "The detected kubeconfig is valid, but it still references CA or client-certificate files that are missing on this machine."
 	case inspection.UsesExecAuth:
 		return "The detected kubeconfig uses an external auth helper. Existing access can still work, but it depends on that helper being available and signed in on this machine."
+	case len(inspection.LoopbackServers) > 0:
+		return "The detected kubeconfig points at a loopback API endpoint such as 127.0.0.1 or localhost. That usually only works on the machine, jumpbox, or tunnel that created it."
 	case inspection.UsesClientCertificate && len(inspection.ReferencedFiles) > 0:
 		return "The detected kubeconfig relies on local client-certificate material. Keep the kubeconfig and its referenced certificate files together when moving between machines."
 	default:
@@ -227,6 +236,7 @@ func inspectKubeconfigBytes(raw []byte, source, path string) (KubeconfigInspecti
 			inspection.UsesCertificateAuthorityData = true
 		}
 	}
+	inspection.Servers, inspection.LoopbackServers = inspectClusterServers(*cfg)
 
 	baseDir := ""
 	if path != "" {
@@ -286,6 +296,55 @@ func inspectReferencedFiles(cfg clientcmdapi.Config, baseDir string) ([]string, 
 	sort.Strings(references)
 	sort.Strings(missing)
 	return references, missing
+}
+
+func inspectClusterServers(cfg clientcmdapi.Config) ([]string, []string) {
+	servers := make([]string, 0, len(cfg.Clusters))
+	loopback := []string{}
+	seenServers := map[string]struct{}{}
+	seenLoopback := map[string]struct{}{}
+
+	for _, cluster := range cfg.Clusters {
+		server := strings.TrimSpace(cluster.Server)
+		if server == "" {
+			continue
+		}
+		if _, ok := seenServers[server]; !ok {
+			servers = append(servers, server)
+			seenServers[server] = struct{}{}
+		}
+		if isLoopbackServer(server) {
+			if _, ok := seenLoopback[server]; !ok {
+				loopback = append(loopback, server)
+				seenLoopback[server] = struct{}{}
+			}
+		}
+	}
+
+	sort.Strings(servers)
+	sort.Strings(loopback)
+	return servers, loopback
+}
+
+func isLoopbackServer(server string) bool {
+	return IsLoopbackServer(server)
+}
+
+func IsLoopbackServer(server string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(server))
+	if err != nil {
+		return false
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		host = strings.TrimSpace(server)
+	}
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func resolveReference(baseDir, rawPath string) kubeconfigPathReference {
@@ -351,6 +410,9 @@ func kubeconfigSummary(inspection KubeconfigInspection) string {
 	if inspection.UsesClientCertificate {
 		summary += " This kubeconfig includes client certificate settings."
 	}
+	if len(inspection.LoopbackServers) > 0 {
+		summary += fmt.Sprintf(" It points at loopback API endpoint%s (%s).", pluralize(len(inspection.LoopbackServers)), strings.Join(inspection.LoopbackServers, ", "))
+	}
 	if len(inspection.ReferencedFiles) > 0 {
 		summary += " This kubeconfig depends on local CA or client certificate files."
 	}
@@ -363,6 +425,9 @@ func kubeconfigSummary(inspection KubeconfigInspection) string {
 func kubeconfigNextAction(inspection KubeconfigInspection) string {
 	if len(inspection.MissingReferencedFiles) > 0 {
 		return "This kubeconfig is valid, but some referenced CA or client certificate files are missing on this machine. Bring those files with the kubeconfig or export a self-contained kubeconfig with embedded *-data fields before testing again."
+	}
+	if len(inspection.LoopbackServers) > 0 {
+		return "This kubeconfig is valid, but it points at 127.0.0.1, localhost, or another loopback API endpoint. Replace the server with the reachable control-plane DNS/IP for this machine, or export a kubeconfig that already uses the real cluster endpoint before testing again."
 	}
 	if inspection.UsesExecAuth {
 		return "Use this kubeconfig on the same machine where its auth helper already works. If the exec helper or cloud login is unavailable here, switch back to existing access on a prepared jumpbox."

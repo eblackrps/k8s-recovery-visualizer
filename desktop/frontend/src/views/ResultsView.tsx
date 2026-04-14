@@ -60,8 +60,8 @@ export function ResultsView(props: {
     <section className="panel results-panel">
       <SectionHeader
         eyebrow="Results"
-        title="Prioritized analysis workspace"
-        description="Overview, findings, restore readiness, compare, and inventory are organized by operator priority instead of report order."
+        title="Assessment workspace"
+        description="Start with overview, findings, restore readiness, and compare. Inventory stays available without taking over the top level."
         actions={
           <div className="toolbar">
             <Badge tone={toneForMaturity(bundle.score.maturity)}>
@@ -91,7 +91,7 @@ export function ResultsView(props: {
           onDismiss={props.onDismissCompletion}
         />
       ) : null}
-      <ArtifactHandoffPanel workspace={props.workspace} onOpenPath={props.onOpenPath} />
+      {!props.completionSummary ? <ArtifactHandoffPanel workspace={props.workspace} onOpenPath={props.onOpenPath} /> : null}
 
       <div className="tab-row" role="tablist" aria-label="Results sections">
         {availablePrimaryTabs.map((tab, index) => {

@@ -66,8 +66,9 @@ kubectl config view --kubeconfig C:\path\to\config --minify -o jsonpath='{.clust
 5. Use the desktop `Test connection` step before preflight when you want the fastest answer to whether the kubeconfig works on that machine at all.
 6. If the desktop inspector says the kubeconfig is valid but still lists missing local CA or client-certificate files, the YAML copied successfully but the supporting files did not. Bring those files with the kubeconfig or export a self-contained kubeconfig with embedded `*-data` fields.
 7. A copied kubeconfig often fails with `x509` or client-certificate errors when the original file referenced `certificate-authority`, `client-certificate`, or `client-key` paths on another machine. The desktop inspector now surfaces those path-based dependencies before the scan runs.
-8. If the file picker itself is getting in the way, drag the kubeconfig onto the desktop scan dropzone. K8V will load it into paste mode and validate the contents without caring about the filename extension.
-9. If the Home page or Step 1 shows an existing-access caution, trust that warning. It means K8V found local Kubernetes configuration, but the detected kubeconfig still depends on missing files or an external auth helper that may not work from this desktop session.
+8. If the inspector warns that the kubeconfig points at `127.0.0.1`, `localhost`, or another loopback API endpoint, the file is valid but only useful from the machine or jumpbox path that created it. Replace the kubeconfig server with the real control-plane DNS/IP for this desktop, or export a kubeconfig that already uses the reachable endpoint.
+9. If the file picker itself is getting in the way, drag the kubeconfig onto the desktop scan dropzone. K8V will load it into paste mode and validate the contents without caring about the filename extension.
+10. If the Home page or Step 1 shows an existing-access caution, trust that warning. It means K8V found local Kubernetes configuration, but the detected kubeconfig still depends on missing files, a loopback endpoint, or an external auth helper that may not work from this desktop session.
 
 ## What is the difference between Test connection, Preflight, and Start scan?
 

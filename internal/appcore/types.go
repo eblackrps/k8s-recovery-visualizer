@@ -166,14 +166,14 @@ type ProjectSummary struct {
 }
 
 type PreflightReport struct {
-	CanRun      bool             `json:"canRun"`
-	Degraded    bool             `json:"degraded"`
-	Server      string           `json:"server,omitempty"`
-	ContextName string           `json:"contextName,omitempty"`
-	Scope       string           `json:"scope"`
+	CanRun      bool              `json:"canRun"`
+	Degraded    bool              `json:"degraded"`
+	Server      string            `json:"server,omitempty"`
+	ContextName string            `json:"contextName,omitempty"`
+	Scope       string            `json:"scope"`
 	Diagnosis   *FailureDiagnosis `json:"diagnosis,omitempty"`
-	Checks      []PreflightCheck `json:"checks"`
-	Warnings    []string         `json:"warnings,omitempty"`
+	Checks      []PreflightCheck  `json:"checks"`
+	Warnings    []string          `json:"warnings,omitempty"`
 }
 
 type ContextCatalog struct {
@@ -210,6 +210,8 @@ type KubeconfigInspection struct {
 	UsesClientCertificate        bool     `json:"usesClientCertificate,omitempty"`
 	UsesCertificateAuthorityFile bool     `json:"usesCertificateAuthorityFile,omitempty"`
 	UsesCertificateAuthorityData bool     `json:"usesCertificateAuthorityData,omitempty"`
+	Servers                      []string `json:"servers,omitempty"`
+	LoopbackServers              []string `json:"loopbackServers,omitempty"`
 	ReferencedFiles              []string `json:"referencedFiles,omitempty"`
 	MissingReferencedFiles       []string `json:"missingReferencedFiles,omitempty"`
 	Summary                      string   `json:"summary,omitempty"`

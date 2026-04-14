@@ -144,6 +144,8 @@ func mapKubeconfigInspection(inspection kube.KubeconfigInspection) KubeconfigIns
 		UsesClientCertificate:        inspection.UsesClientCertificate,
 		UsesCertificateAuthorityFile: inspection.UsesCertificateAuthorityFile,
 		UsesCertificateAuthorityData: inspection.UsesCertificateAuthorityData,
+		Servers:                      inspection.Servers,
+		LoopbackServers:              inspection.LoopbackServers,
 		ReferencedFiles:              inspection.ReferencedFiles,
 		MissingReferencedFiles:       inspection.MissingReferencedFiles,
 		Summary:                      inspection.Summary,
@@ -246,6 +248,20 @@ func reportConnectionFailure(req ScanRequest, source, server, contextName string
 		if req.ConnectionMethod == ConnectionMethodKubeconfigInline {
 			report.FieldWarnings["kubeconfigContent"] = "The kubeconfig parsed correctly, but the cluster API inside it is not reachable from this machine."
 		}
+		if isLoopbackKubeconfigEndpoint(req, server) {
+			diagnosis.Label = "Loopback kubeconfig endpoint"
+			diagnosis.Summary = "The kubeconfig was accepted, but it points at 127.0.0.1 or localhost, which is only reachable from the machine or tunnel that created it."
+			diagnosis.NextAction = "Replace the kubeconfig server with the reachable control-plane DNS/IP for this machine, or export a kubeconfig that already uses the real cluster endpoint before testing again."
+			report.Summary = diagnosis.Summary
+			report.NextAction = diagnosis.NextAction
+			if req.ConnectionMethod == ConnectionMethodKubeconfigFile {
+				report.FieldWarnings["kubeconfigPath"] = "This kubeconfig points at 127.0.0.1 or localhost. Replace it with the real control-plane address for this machine."
+			}
+			if req.ConnectionMethod == ConnectionMethodKubeconfigInline {
+				report.FieldWarnings["kubeconfigContent"] = "This kubeconfig points at 127.0.0.1 or localhost. Replace it with the real control-plane address for this machine."
+			}
+		}
+		report.Diagnosis = &diagnosis
 		report.Checks = append(report.Checks, ConnectionTestCheck{
 			ID:     "transport",
 			Title:  "Cluster API reachability",
@@ -281,6 +297,13 @@ func reportConnectionFailure(req ScanRequest, source, server, contextName string
 		report.FieldWarnings = nil
 	}
 	return report
+}
+
+func isLoopbackKubeconfigEndpoint(req ScanRequest, server string) bool {
+	if req.ConnectionMethod != ConnectionMethodKubeconfigFile && req.ConnectionMethod != ConnectionMethodKubeconfigInline {
+		return false
+	}
+	return kube.IsLoopbackServer(server)
 }
 
 func resolvedContextDetail(resolved *kube.ResolvedConnection) string {

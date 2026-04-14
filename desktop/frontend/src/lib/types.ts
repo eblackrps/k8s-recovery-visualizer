@@ -109,6 +109,8 @@ export type KubeconfigInspection = {
   usesClientCertificate?: boolean;
   usesCertificateAuthorityFile?: boolean;
   usesCertificateAuthorityData?: boolean;
+  servers?: string[];
+  loopbackServers?: string[];
   referencedFiles?: string[];
   missingReferencedFiles?: string[];
   summary?: string;

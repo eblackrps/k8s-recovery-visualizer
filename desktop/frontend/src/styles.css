@@ -1466,6 +1466,11 @@ code {
   margin-bottom: 0.4rem;
 }
 
+.completion-panel {
+  display: grid;
+  gap: 1rem;
+}
+
 .completion-callout {
   margin-bottom: 0.4rem;
 }
@@ -1477,10 +1482,14 @@ code {
   align-items: start;
 }
 
+.completion-grid-compact {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
 .completion-metrics {
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .results-handoff-grid {
@@ -1489,6 +1498,22 @@ code {
 
 .results-artifact-list {
   align-content: start;
+}
+
+.completion-followup-grid {
+  margin-top: 0.1rem;
+}
+
+.completion-actions {
+  align-items: center;
+}
+
+.completion-more-menu summary {
+  list-style: none;
+}
+
+.completion-more-menu summary::-webkit-details-marker {
+  display: none;
 }
 
 .live-summary {
