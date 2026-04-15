@@ -7,9 +7,9 @@
 
 `k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8 Visualizer` (`K8V`): a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
-Current stable desktop release: [`v1.10.4`](https://github.com/eblackrps/k8s-recovery-visualizer/releases/tag/v1.10.4). Download the latest packaged build from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) and see [CHANGELOG.md](CHANGELOG.md) for release-by-release notes.
+Current stable desktop release: [`v1.10.5`](https://github.com/eblackrps/k8s-recovery-visualizer/releases/tag/v1.10.5). Download the latest packaged build from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) and see [CHANGELOG.md](CHANGELOG.md) for release-by-release notes.
 
-<!-- TODO: refresh screenshot for v1.10.4 -->
+<!-- TODO: refresh screenshot for v1.10.5 -->
 - Home view placeholder: first-run onboarding, machine readiness, tighter enterprise surfaces, and the trimmed topbar now define the refreshed desktop entry point.
 
 <p align="center">
@@ -136,7 +136,7 @@ make build
 
 ## Latest Desktop Screenshots
 
-<!-- TODO: refresh screenshot for v1.10.4 -->
+<!-- TODO: refresh screenshot for v1.10.5 -->
 - Home view placeholder: onboarding cards appear only on the first run, while returning operators see the tighter four-panel workspace without repeated explainer content.
 
 <p align="center">
@@ -150,7 +150,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.10.4`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.10.5`.
 
 ## CLI And Desktop At A Glance
 

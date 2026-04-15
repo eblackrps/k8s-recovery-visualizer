@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.5] - 2026-04-15
+
+Patch release for `k8s-recovery-visualizer`: this follow-up aligns the latest tagged desktop release with the current repo state after the final UX cleanup and documentation consistency pass.
+
+### Changed
+
+- Updated release-facing version references so the frontend package metadata, README, and release guide all point to the current stable desktop release line.
+- Clarified the release process documentation to treat older tags as historical snapshots while `main` tracks the latest shipped desktop build.
+
+### Fixed
+
+- The latest downloadable release now matches the current repo state instead of leaving `main` ahead of the most recent public tag.
+
 ## [1.10.4] - 2026-04-15
 
 Patch release for `k8s-recovery-visualizer`: this follow-up fixes the last live-tested findings/review flow issue, evens out the home layout, and trims the remaining home-screen overflow on a standard desktop viewport.
