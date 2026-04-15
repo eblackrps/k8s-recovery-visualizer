@@ -31,21 +31,20 @@ import { SettingsView } from "./views/SettingsView";
 
 type View = "home" | "projects" | "scan" | "live" | "complete" | "results" | "settings";
 type BannerTone = AppAlert["tone"];
+type SidebarView = Exclude<View, "complete" | "live">;
 
-const navItems: Array<{ id: Exclude<View, "complete">; label: string }> = [
+const navItems: Array<{ id: SidebarView; label: string }> = [
   { id: "home", label: "Home" },
   { id: "projects", label: "Projects" },
   { id: "scan", label: "New Scan" },
-  { id: "live", label: "Live Run" },
   { id: "results", label: "Results" },
   { id: "settings", label: "Settings" },
 ];
 
-const navIconNames: Partial<Record<Exclude<View, "complete">, NavIconName>> = {
+const navIconNames: Partial<Record<SidebarView, NavIconName>> = {
   home: "home",
   projects: "projects",
   scan: "scan",
-  live: "live",
   results: "results",
   settings: "settings",
 };
@@ -56,8 +55,8 @@ function searchParams() {
 
 function initialView(): View {
   const value = searchParams().get("view");
-  if (value === "complete") {
-    return "complete";
+  if (value === "complete" || value === "live") {
+    return value;
   }
   if (value && navItems.some((item) => item.id === value)) {
     return value as View;
@@ -195,7 +194,7 @@ function isEditableTarget(target: EventTarget | null) {
     ));
 }
 
-function navButtonTitle(view: Exclude<View, "complete">, label: string) {
+function navButtonTitle(view: SidebarView, label: string) {
   switch (view) {
     case "home":
       return `${label} (Ctrl+H)`;
@@ -290,6 +289,9 @@ function describeView(view: View) {
   if (view === "complete") {
     return "Scan Complete";
   }
+  if (view === "live") {
+    return "Live Run";
+  }
   return navItems.find((item) => item.id === view)?.label || "Workspace";
 }
 
@@ -350,6 +352,11 @@ export default function App() {
   const scanValidation = mergeFieldFeedback(inspectScanForm(scanForm, { insecureAcknowledged }), fieldErrors, fieldWarnings);
   const canResetScanForm =
     scanFormTouched || Boolean(connectionTest) || Boolean(preflight) || scanStage !== "connect";
+  const hasLiveRunState =
+    Boolean(activeRunId) ||
+    Boolean(runFailure) ||
+    Boolean(recentCompletion) ||
+    events.length > 0;
   const hasMeaningfulScanState = scanStage !== "connect" && (
     Boolean(connectionTest) ||
     Boolean(preflight) ||
@@ -497,6 +504,14 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (view !== "live" || hasLiveRunState) {
+      return;
+    }
+    setStatusMessage("Choose a connection path and validate it before the scan.");
+    startTransition(() => setView("scan"));
+  }, [hasLiveRunState, view]);
 
   const bundle = workspace?.bundle;
   const activePercent = events.length > 0 ? events[events.length - 1].percent || 0 : 0;
@@ -998,7 +1013,7 @@ export default function App() {
     return window.confirm("Leave scan setup? Your connection test and preflight results will be kept, but form changes may be lost.");
   }
 
-  function handleSidebarNavigation(nextView: Exclude<View, "complete">) {
+  function handleSidebarNavigation(nextView: SidebarView) {
     if (nextView === "scan") {
       handleOpenScan("connect");
       return;

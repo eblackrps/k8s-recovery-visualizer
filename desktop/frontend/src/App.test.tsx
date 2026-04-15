@@ -182,14 +182,11 @@ describe("desktop shell", () => {
     expect(await screen.findByText("Assess a cluster or reopen a saved bundle")).toBeInTheDocument();
   });
 
-  it("shows cancel as unavailable when no live run is active", async () => {
+  it("does not show Live Run as a permanent sidebar destination", async () => {
     render(<App />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Live Run" }));
-
-    const cancelButton = screen.getByRole("button", { name: "Cancel Unavailable" });
-    expect(cancelButton).toBeDisabled();
-    expect(cancelButton).toHaveAttribute("title", "No active run is available to cancel.");
+    expect(await screen.findByRole("button", { name: "Home" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Live Run" })).not.toBeInTheDocument();
   });
 
   it("shows a clear scan-complete handoff after a successful run", async () => {

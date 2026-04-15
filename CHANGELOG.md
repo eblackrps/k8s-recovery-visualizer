@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.1] - 2026-04-14
+
+Patch release for `k8s-recovery-visualizer`: this follow-up removes the dead-end Live Run nav destination and fixes the guided scan wizard so the step cards and form panels are usable at normal desktop sizes.
+
+### Changed
+
+- Removed `Live Run` from the permanent desktop sidebar so operators only see it as a transient run state instead of a mostly empty destination.
+- Expanded the guided scan step cards so the four-step workflow reads like a usable setup sequence instead of cramped labels.
+
+### Fixed
+
+- Redirected empty `Live Run` states back to scan setup so the app no longer strands operators on a `0%` screen with inactive controls.
+- Stopped inner scan setup sections from reusing the stage scroll container, which was causing tiny nested scrollboxes inside connection and output setup cards.
+
 ## [1.10.0] - 2026-04-14
 
 ### Added

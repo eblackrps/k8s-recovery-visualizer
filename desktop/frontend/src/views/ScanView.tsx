@@ -515,7 +515,7 @@ function CurrentAccessSetup(props: {
   onChangeContext: (value: string) => void;
 }) {
   return (
-    <div className="scan-stage-stack">
+    <div className="scan-form-stack">
       {props.connectionAdvisor?.currentLoginDetail ? (
         <div className="notice notice-info compact">
           <strong>Detected local access</strong>
@@ -566,7 +566,7 @@ function KubeconfigFileSetup(props: {
   loadedKubeconfigLabel?: string;
 }) {
   return (
-    <div className="scan-stage-stack">
+    <div className="scan-form-stack">
       <Field label="Kubeconfig file" hint="Any valid kubeconfig works here, including config, .yaml, .backup, or a file with no extension. If browsing is awkward, use Paste kubeconfig instead." warning={props.fieldWarning("kubeconfigPath")} error={props.fieldError("kubeconfigPath")}>
         <div className="inline-field">
           <input aria-label="Kubeconfig file" data-scan-field="kubeconfigPath" placeholder="C:\\Users\\you\\.kube\\config" value={props.scanForm.kubeconfigPath || ""} onChange={(event) => props.updateForm("kubeconfigPath", event.target.value)} />
@@ -607,7 +607,7 @@ function KubeconfigInlineSetup(props: {
   loadedKubeconfigLabel?: string;
 }) {
   return (
-    <div className="scan-stage-stack">
+    <div className="scan-form-stack">
       <KubeconfigDropzone
         busy={props.busy}
         loadedLabel={props.loadedKubeconfigLabel}
@@ -735,7 +735,7 @@ function ApiEndpointSetup(props: {
   updateForm: <K extends keyof ScanRequest>(key: K, value: ScanRequest[K]) => void;
 }) {
   return (
-    <div className="scan-stage-stack">
+    <div className="scan-form-stack">
       <div className="wizard-substeps">
         <section className="wizard-substep">
           <div className="wizard-substep-copy">
