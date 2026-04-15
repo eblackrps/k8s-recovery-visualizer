@@ -126,9 +126,10 @@ export function HomeView(props: {
                 />
               </div>
             </div>
-            <div className="summary-two-up">
+            <div className="summary-two-up home-posture-summary">
               <Card title="Bundle context">
                 <KeyValueGrid
+                  className="home-posture-kv"
                   items={[
                     ["Profile", bundle.profile || "standard"],
                     ["Scope", (bundle.scanNamespaces || []).join(", ") || "all namespaces"],
@@ -139,6 +140,7 @@ export function HomeView(props: {
               </Card>
               <Card title="Recovery signals">
                 <KeyValueGrid
+                  className="home-posture-kv"
                   items={[
                     ["Backup tool", bundle.inventory.backup?.primaryTool || "none"],
                     ["Coverage", bundle.inventory.backup?.coverageStatus || "unknown"],

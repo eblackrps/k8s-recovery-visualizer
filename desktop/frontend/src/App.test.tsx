@@ -24,13 +24,14 @@ describe("desktop shell", () => {
   it("renders navigation and opens the remote scan setup", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "K8V" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "K8 Visualizer" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "New Scan" }));
 
     expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /use existing access/i })).toBeChecked();
     expect(screen.getByText(/1\. Choose how to connect/i)).toBeInTheDocument();
     expect(screen.getByText("Connection assistant")).toBeInTheDocument();
+    expect(screen.queryByText("No bundle loaded yet")).not.toBeInTheDocument();
   });
 
   it("supports keyboard shortcuts for new scan, home, and open bundle", async () => {
@@ -219,6 +220,22 @@ describe("desktop shell", () => {
 
     await userEvent.click(runNewScan);
     expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
+  });
+
+  it("switches results tabs into visible section content", async () => {
+    window.history.replaceState({}, "", "/?view=results");
+
+    render(<App />);
+
+    const findingsTab = await screen.findByRole("tab", { name: "Findings" });
+    await userEvent.click(findingsTab);
+    expect(screen.getByRole("group", { name: "Finding severity filters" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Restore Readiness" }));
+    expect(screen.getByText("Backup posture")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Inventory" }));
+    expect(screen.getByRole("tab", { name: "Nodes" })).toBeInTheDocument();
   });
 
   it("keeps the real scan failure visible in the main status line", async () => {

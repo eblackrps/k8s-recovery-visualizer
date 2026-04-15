@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.3] - 2026-04-15
+
+Patch release for `k8s-recovery-visualizer`: this follow-up removes wasted vertical chrome from scan setup, makes the results workspace read like a real operator screen again, and renames the desktop shell more cleanly in the UI.
+
+### Changed
+
+- Removed the extra scan topbar box so the guided scan workspace starts higher and leaves more room for the actual form and rail content.
+- Renamed the visible desktop shell branding to `K8 Visualizer` while keeping the existing `K8V` mark.
+
+### Fixed
+
+- Reworked the bundle-context and recovery-signal summary cards so result values no longer collapse into absurd vertical text when the layout gets tight.
+- Made results tab switches land back at the top of the active panel so the tabs feel responsive instead of looking like dead controls.
+
 ## [1.10.2] - 2026-04-14
 
 Patch release for `k8s-recovery-visualizer`: this follow-up tightens the guided scan workflow again so the fix for nested scrollboxes does not turn the step strip into an oversized layout that wastes vertical space.

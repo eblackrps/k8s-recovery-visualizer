@@ -5,9 +5,9 @@
 [![License](https://img.shields.io/github/license/eblackrps/k8s-recovery-visualizer)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/eblackrps/k8s-recovery-visualizer)](go.mod)
 
-`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8V`: a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
+`k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8 Visualizer` (`K8V`): a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
-<!-- TODO: refresh screenshot for v1.10.2 -->
+<!-- TODO: refresh screenshot for v1.10.3 -->
 - Home view placeholder: first-run onboarding, machine readiness, tighter enterprise surfaces, and the trimmed topbar now define the refreshed desktop entry point.
 
 <p align="center">
@@ -132,7 +132,7 @@ make build
 
 ## Latest Desktop Screenshots
 
-<!-- TODO: refresh screenshot for v1.10.2 -->
+<!-- TODO: refresh screenshot for v1.10.3 -->
 - Home view placeholder: onboarding cards appear only on the first run, while returning operators see the tighter four-panel workspace without repeated explainer content.
 
 <p align="center">
@@ -146,7 +146,7 @@ make build
 </p>
 
 The public gallery intentionally uses the current deterministic desktop screenshot set only. See [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for the capture workflow and maintained image list.
-The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.10.2`.
+The current gallery reflects the guided, operator-grade desktop UX shipped in `v1.10.3`.
 
 ## CLI And Desktop At A Glance
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Bundle, Finding, RunCompletionSummary, Workspace } from "../lib/types";
 import {
   Badge,
@@ -55,6 +55,13 @@ export function ResultsView(props: {
   const activePrimaryTabId = `results-tab-${activePrimary.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const activeInventoryId = `results-inventory-panel-${activeInventory.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const activeInventoryTabId = `results-inventory-tab-${activeInventory.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const panelBodyRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (panelBodyRef.current) {
+      panelBodyRef.current.scrollTop = 0;
+    }
+  }, [currentTab]);
 
   return (
     <section className="panel results-panel">
@@ -136,7 +143,7 @@ export function ResultsView(props: {
         </div>
       ) : null}
 
-      <section id={activePrimaryId} role="tabpanel" aria-labelledby={activePrimaryTabId} className="results-panel-body">
+      <section ref={panelBodyRef} id={activePrimaryId} role="tabpanel" aria-labelledby={activePrimaryTabId} className="results-panel-body">
         {activePrimary === "Overview" && <OverviewPanel bundle={bundle} workspace={props.workspace} />}
         {activePrimary === "Findings" && (
           <FindingsPanel

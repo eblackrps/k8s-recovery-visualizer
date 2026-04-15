@@ -1089,8 +1089,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">K8V</div>
           <div className="brand-copy">
-            <h1>K8V</h1>
-            <p className="muted">Kubernetes recovery visualizer</p>
+            <h1>K8 Visualizer</h1>
           </div>
         </div>
         <nav className="nav">
@@ -1123,35 +1122,37 @@ export default function App() {
       </aside>
 
       <div className={`workspace${isScanView ? " scan-workspace" : ""}`}>
-        <header className="topbar">
-          <div className="status-stack">
-            <p className="eyebrow">{currentViewLabel}</p>
-            <h2>{statusMessage}</h2>
-          </div>
-          <div className="topbar-actions">
-            {bundle ? (
-              <div className="context-strip" aria-label="Active bundle context">
-                <div className="context-cluster">
-                  <strong>{clusterLabel}</strong>
-                  <span className="muted">{environmentLabel}</span>
+        {!isScanView ? (
+          <header className="topbar">
+            <div className="status-stack">
+              <p className="eyebrow">{currentViewLabel}</p>
+              <h2>{statusMessage}</h2>
+            </div>
+            <div className="topbar-actions">
+              {bundle ? (
+                <div className="context-strip" aria-label="Active bundle context">
+                  <div className="context-cluster">
+                    <strong>{clusterLabel}</strong>
+                    <span className="muted">{environmentLabel}</span>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="context-strip empty" aria-label="Bundle status">
-                <div className="context-cluster">
-                  <strong>No bundle loaded yet</strong>
+              ) : (
+                <div className="context-strip empty" aria-label="Bundle status">
+                  <div className="context-cluster">
+                    <strong>No bundle loaded yet</strong>
+                  </div>
+                  <p className="muted">Run a scan to create a portable bundle, or open an existing bundle for offline review.</p>
                 </div>
-                <p className="muted">Run a scan to create a portable bundle, or open an existing bundle for offline review.</p>
-              </div>
-            )}
-            {topbarActions}
-            {topbarActions ? null : (
-              <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy} title="Open existing bundle (Ctrl+O)">
-                Open Existing Bundle
-              </button>
-            )}
-          </div>
-        </header>
+              )}
+              {topbarActions}
+              {topbarActions ? null : (
+                <button type="button" className="button secondary quiet" onClick={handlePickBundle} disabled={busy} title="Open existing bundle (Ctrl+O)">
+                  Open Existing Bundle
+                </button>
+              )}
+            </div>
+          </header>
+        ) : null}
         <main className={`main-content${isScanView ? " scan-view-content" : ""}`}>
           {actionBanner ? <p className={`notice notice-${actionBanner.tone} action-banner`}>{actionBanner.message}</p> : null}
           {view === "home" && (
