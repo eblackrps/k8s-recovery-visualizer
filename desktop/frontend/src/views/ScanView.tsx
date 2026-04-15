@@ -1110,11 +1110,11 @@ function buildSteps(current: ScanStage) {
   const order: ScanStage[] = ["connect", "validate", "outputs", "launch"];
   const index = order.indexOf(current);
   return [
-    { id: "connect", label: "Choose connection", description: "Use existing access, kubeconfig, or manual API mode.", status: index === 0 ? "current" : index > 0 ? "complete" : "upcoming" },
-    { id: "validate", label: "Validate connection", description: "Test reachability, credentials, and TLS.", status: index === 1 ? "current" : index > 1 ? "complete" : "upcoming" },
-    { id: "outputs", label: "Choose scope and outputs", description: "Decide what to collect and what to write.", status: index === 2 ? "current" : index > 2 ? "complete" : "upcoming" },
-    { id: "launch", label: "Preflight and start", description: "Run readiness checks, then launch the scan.", status: index === 3 ? "current" : "upcoming" },
-  ] as Array<{ id: ScanStage; label: string; description: string; status: "current" | "complete" | "upcoming" }>;
+    { id: "connect", label: "Choose connection", status: index === 0 ? "current" : index > 0 ? "complete" : "upcoming" },
+    { id: "validate", label: "Validate connection", status: index === 1 ? "current" : index > 1 ? "complete" : "upcoming" },
+    { id: "outputs", label: "Scope and outputs", status: index === 2 ? "current" : index > 2 ? "complete" : "upcoming" },
+    { id: "launch", label: "Preflight and start", status: index === 3 ? "current" : "upcoming" },
+  ] as Array<{ id: ScanStage; label: string; status: "current" | "complete" | "upcoming" }>;
 }
 
 function stageTitle(stage: ScanStage) {

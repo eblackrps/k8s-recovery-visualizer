@@ -1,7 +1,7 @@
 {
   "name": "k8s-recovery-visualizer-desktop",
   "private": true,
-  "version": "1.10.1",
+  "version": "1.10.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

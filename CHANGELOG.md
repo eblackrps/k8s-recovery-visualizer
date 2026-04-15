@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.2] - 2026-04-14
+
+Patch release for `k8s-recovery-visualizer`: this follow-up tightens the guided scan workflow again so the fix for nested scrollboxes does not turn the step strip into an oversized layout that wastes vertical space.
+
+### Changed
+
+- Restored the guided scan stepper to a compact four-step strip on desktop so the wizard reads clearly without pushing the actual form content down the page.
+
+### Fixed
+
+- Kept the inner scan setup sections out of the stage scroll container while removing the oversized step-card treatment that made the page feel worse after `v1.10.1`.
+
 ## [1.10.1] - 2026-04-14
 
 Patch release for `k8s-recovery-visualizer`: this follow-up removes the dead-end Live Run nav destination and fixes the guided scan wizard so the step cards and form panels are usable at normal desktop sizes.

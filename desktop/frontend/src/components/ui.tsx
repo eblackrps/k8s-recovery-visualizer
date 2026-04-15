@@ -120,7 +120,7 @@ export function Stepper(props: {
   steps: Array<{
     id: string;
     label: string;
-    description: string;
+    description?: string;
     status: "current" | "complete" | "upcoming";
   }>;
   onSelect?: (id: string) => void;
@@ -134,7 +134,7 @@ export function Stepper(props: {
             <span className="stepper-index" aria-hidden="true">{index + 1}</span>
             <span className="stepper-copy">
               <strong>{step.label}</strong>
-              <small>{step.description}</small>
+              {step.description ? <small>{step.description}</small> : null}
             </span>
           </>
         );
