@@ -475,6 +475,15 @@ code {
   grid-column: span 5;
 }
 
+.home-grid {
+  align-items: stretch;
+}
+
+.home-grid .panel {
+  display: flex;
+  flex-direction: column;
+}
+
 .scan-grid > :first-child,
 .complete-grid > :first-child,
 .live-grid > :first-child,
@@ -1115,17 +1124,25 @@ code {
 
 .watch-grid {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
 
 .watch-item {
   display: grid;
-  gap: 0.35rem;
-  padding: 0.8rem 0.9rem;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--panel-radius);
   background: var(--surface-raised);
+}
+
+.compact-card {
+  padding: 0.8rem;
+}
+
+.compact-card .section-header.compact {
+  margin-bottom: 0.65rem;
 }
 
 .review-grid {
@@ -1616,6 +1633,12 @@ code {
 
 .completion-actions {
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.completion-actions .button {
+  white-space: nowrap;
 }
 
 .completion-more-menu summary {

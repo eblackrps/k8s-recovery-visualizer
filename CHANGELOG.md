@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file.
 
 No unreleased changes yet.
 
+## [1.10.4] - 2026-04-15
+
+Patch release for `k8s-recovery-visualizer`: this follow-up fixes the last live-tested findings/review flow issue, evens out the home layout, and trims the remaining home-screen overflow on a standard desktop viewport.
+
+### Added
+
+- Machine readiness status is now always visible on the home screen start panel so returning operators can see local-access health without opening the scan wizard.
+
+### Changed
+
+- Completion and results review actions now dismiss the completion callout before switching tabs, so findings and compare content are immediately visible.
+- Home screen start and watch panels are denser and more evenly balanced, with less wasted space around repeated operational summary cards.
+- Completion callout actions now wrap more cleanly on tighter widths without turning into oversized stacked controls.
+
+### Fixed
+
+- `Review findings` in the results workspace no longer appears to do nothing because the completion callout now dismisses itself on tab switch.
+- `Review Findings` from the home watch panel now opens the findings tab without bringing the completion callout back over the results workspace.
+- Home screen columns now stretch to equal height instead of leaving a dead blank zone beside a taller posture panel.
+- Home screen watch panel no longer wastes vertical space on empty trend history and now fits more comfortably inside a standard 1080p viewport.
+
 ## [1.10.3] - 2026-04-15
 
 Patch release for `k8s-recovery-visualizer`: this follow-up removes wasted vertical chrome from scan setup, makes the results workspace read like a real operator screen again, and renames the desktop shell more cleanly in the UI.

@@ -57,6 +57,9 @@ export function HomeView(props: {
             <p>Review findings, compare drift, or export reports offline.</p>
           </button>
         </div>
+        <Card title="Machine readiness" className="compact-card">
+          <ReadinessList items={machineReadinessItems(props.connectionAdvisor)} />
+        </Card>
         {isFirstRun ? (
           <div className="summary-three-up onboarding-grid">
             <Card title="How K8V works">
@@ -295,9 +298,11 @@ export function HomeView(props: {
                   <p>Persistent issues stay visible across runs and usually deserve scheduling or ownership cleanup.</p>
                 </article>
               </div>
-              <Card title="Trend history" className="compact-card">
-                <TrendRail entries={historyEntries} />
-              </Card>
+              {historyEntries.length >= 2 ? (
+                <Card title="Trend history" className="compact-card">
+                  <TrendRail entries={historyEntries} />
+                </Card>
+              ) : null}
             </>
           ) : (
             <EmptyState

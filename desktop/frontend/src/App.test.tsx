@@ -19,6 +19,7 @@ describe("desktop shell", () => {
     expect(screen.getByRole("button", { name: "Open Existing Bundle" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /prod-east/i })).toBeInTheDocument();
     expect(screen.getByText("Saved assessments")).toBeInTheDocument();
+    expect(screen.getByText("Machine readiness")).toBeInTheDocument();
   });
 
   it("renders navigation and opens the remote scan setup", async () => {
@@ -78,8 +79,8 @@ describe("desktop shell", () => {
     expect(await screen.findByText("Run one scan, then work from the bundle")).toBeInTheDocument();
     expect(screen.getByText("How K8V works")).toBeInTheDocument();
     expect(screen.getByText("What a scan produces")).toBeInTheDocument();
-    expect(screen.getByText("Machine readiness")).toBeInTheDocument();
-    expect(screen.getByText("kubectl CLI (optional)")).toBeInTheDocument();
+    expect(screen.getAllByText("Machine readiness").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("kubectl CLI (optional)").length).toBeGreaterThan(0);
   });
 
   it("supports an API endpoint scan preset for demo and screenshot routes", async () => {
@@ -220,6 +221,46 @@ describe("desktop shell", () => {
 
     await userEvent.click(runNewScan);
     expect(screen.getByText("Connect, validate, scope, and launch")).toBeInTheDocument();
+  });
+
+  it("dismisses the results completion callout when reviewing findings", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "New Scan" }));
+    await userEvent.click(screen.getByRole("radio", { name: /load kubeconfig file/i }));
+    await userEvent.type(screen.getByLabelText("Kubeconfig file"), "C:\\temp\\prod-cluster.backup");
+    await userEvent.click(screen.getByRole("button", { name: "Continue to validation" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test connection" }));
+    await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run preflight" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start scan" }));
+
+    expect(await screen.findByRole("heading", { name: "Assessment complete" }, { timeout: 4000 })).toBeInTheDocument();
+    await userEvent.click(screen.getByText("More actions"));
+    await userEvent.click(await screen.findByRole("button", { name: "Review results" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Review findings" }));
+
+    expect(await screen.findByRole("group", { name: "Finding severity filters" })).toBeInTheDocument();
+    expect(screen.queryByText("Scan complete. Outputs ready.")).not.toBeInTheDocument();
+  });
+
+  it("opens findings from the home watch panel without leaving the completion callout behind", async () => {
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "New Scan" }));
+    await userEvent.click(screen.getByRole("radio", { name: /load kubeconfig file/i }));
+    await userEvent.type(screen.getByLabelText("Kubeconfig file"), "C:\\temp\\prod-cluster.backup");
+    await userEvent.click(screen.getByRole("button", { name: "Continue to validation" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test connection" }));
+    await userEvent.click(screen.getByRole("button", { name: "Continue to review" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Run preflight" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start scan" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Home" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Review Findings" }));
+
+    expect(await screen.findByRole("group", { name: "Finding severity filters" })).toBeInTheDocument();
+    expect(screen.queryByText("Scan complete. Outputs ready.")).not.toBeInTheDocument();
   });
 
   it("switches results tabs into visible section content", async () => {

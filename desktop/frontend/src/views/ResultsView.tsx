@@ -93,8 +93,14 @@ export function ResultsView(props: {
         <RunCompletionCallout
           summary={props.completionSummary}
           onOpenPath={props.onOpenPath}
-          onReviewFindings={() => props.setResultTab("Findings")}
-          onReviewCompare={bundle.comparison ? () => props.setResultTab("Compare") : undefined}
+          onReviewFindings={() => {
+            props.setResultTab("Findings");
+            props.onDismissCompletion?.();
+          }}
+          onReviewCompare={bundle.comparison ? () => {
+            props.setResultTab("Compare");
+            props.onDismissCompletion?.();
+          } : undefined}
           onDismiss={props.onDismissCompletion}
         />
       ) : null}

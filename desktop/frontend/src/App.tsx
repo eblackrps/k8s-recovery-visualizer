@@ -1167,6 +1167,7 @@ export default function App() {
               onStartScan={() => handleOpenScan("connect")}
               onReviewFindings={() => {
                 setResultTab("Findings");
+                setRecentCompletion(null);
                 setView("results");
               }}
             />
@@ -1232,12 +1233,14 @@ export default function App() {
               onReviewResults={() => setView("results")}
               onReviewFindings={() => {
                 setResultTab("Findings");
+                setRecentCompletion(null);
                 setView("results");
               }}
               onReviewCompare={
                 workspace.bundle.comparison
                   ? () => {
                       setResultTab("Compare");
+                      setRecentCompletion(null);
                       setView("results");
                     }
                   : undefined
