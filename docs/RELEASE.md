@@ -4,8 +4,9 @@ Use this checklist when preparing a tagged release for `k8s-recovery-visualizer`
 
 ## Versioning
 
-- Use semver tags such as `v1.9.2`.
+- Use semver tags such as `v1.10.4`.
 - Keep source-level version references aligned with the release you are cutting.
+- Do not reuse or roll back published version numbers. If a follow-up release is needed after a tag is already public, bump forward to the next patch/minor version instead.
 - Bump schema versions only when the JSON contract changes.
 - Use a minor or major release only when the user-visible surface justifies it.
 - Current published schema pair: `recovery-scan 3.1.0`, `recovery-enriched 1.2.0`.
@@ -60,6 +61,7 @@ Also confirm:
 - the desktop app opens existing bundles and refreshes exports
 - the release gate is at least as strict as CI before any tag is published
 - README, screenshots, changelog, and release notes all match the actual shipped artifacts
+- `main` reflects the latest shipped release line, while older tags remain historical snapshots that should not be treated as the current source baseline
 - schema docs and committed examples match the schema files named in CI and release workflows
 - no public-release docs or workflow paths still imply CLI binaries, macOS packages, or GHCR container publishing
 

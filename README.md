@@ -7,6 +7,8 @@
 
 `k8s-recovery-visualizer` is the repository, release, and archive identity for a Kubernetes disaster recovery assessment toolkit. The desktop product is `K8 Visualizer` (`K8V`): a Wails desktop workspace for remote cluster scans, live preflight and run feedback, bundle review, history, compare workflows, and offline exports. The current desktop release is intentionally calmer and denser than earlier dashboard-styled builds, with a quieter shell, a simpler scan-complete handoff, and kubeconfig inspection that now calls out loopback-only cluster endpoints such as `127.0.0.1` instead of leaving operators to guess. The Go CLI stays in-repo for contributors, CI gates, smoke tests, automation, and source builds.
 
+Current stable desktop release: [`v1.10.4`](https://github.com/eblackrps/k8s-recovery-visualizer/releases/tag/v1.10.4). Download the latest packaged build from [GitHub Releases](https://github.com/eblackrps/k8s-recovery-visualizer/releases/latest) and see [CHANGELOG.md](CHANGELOG.md) for release-by-release notes.
+
 <!-- TODO: refresh screenshot for v1.10.4 -->
 - Home view placeholder: first-run onboarding, machine readiness, tighter enterprise surfaces, and the trimmed topbar now define the refreshed desktop entry point.
 
