@@ -5,9 +5,9 @@ go 1.26.0
 require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/wailsapp/wails/v2 v2.12.0
-	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
-	k8s.io/client-go v0.36.1
+	k8s.io/api v0.36.2
+	k8s.io/apimachinery v0.36.2
+	k8s.io/client-go v0.36.2
 )
 
 require (
